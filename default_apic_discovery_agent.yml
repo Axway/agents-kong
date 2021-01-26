@@ -1,0 +1,14 @@
+# this is a sample config file. Copy the content of this file to a new file named apic_discovery_agent.yml
+central:
+  organizationID: "<AMPLIFY_ORG_ID>"
+  environment: <AMPLIFY_CENTRAL_ENVIRONMENT_NAME>
+  auth:
+    clientID: <AMPLIFY_CENTRAL_DOSA_CLIENT_ID>
+    privateKey: <AMPLIFY_CENTRAL_DOSA_PRIVATE_KEY_PATH>
+    publicKey: <AMPLIFY_CENTRAL_DOSA_PUBLIC_KEY_PATH>
+
+gateway-section:
+  specPath: ./apis/musical_instruments.json
+  config_key_1: value
+  config_key_2: value
+  config_key_3: value
