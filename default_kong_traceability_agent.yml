@@ -1,27 +1,28 @@
-# this is a sample config file. Copy the content of this file to a new file named apic_traceability_agent.yml
-apic_traceability_agent:
+# this is a sample config file. Copy the content of this file to a new file named kong_traceability_agent.yml
+kong_traceability_agent:
   central:
-    organizationID: "<AMPLIFY_ORG_ID>"
     environment: <AMPLIFY_CENTRAL_ENVIRONMENT_NAME>
+    mode: publishToEnvironment
+    organizationID: "<AMPLIFY_ORG_ID>"
+    platformURL: <PLATFORM_URL>
+    pollInterval: 20s
+    team: "Default Team"
+    url: <AMPC_URL>
     auth:
       clientID: <AMPLIFY_CENTRAL_DOSA_CLIENT_ID>
       privateKey: <AMPLIFY_CENTRAL_DOSA_PRIVATE_KEY_PATH>
       publicKey: <AMPLIFY_CENTRAL_DOSA_PUBLIC_KEY_PATH>
-
-    gateway-section:
-      logFile: ./logs/traffic.log
-      processOnInput: false
-      config_key_1: "value-1"
-      config_key_3: "value-2"
-      config_key_2: "value-3"
+      realm: Broker
+      timeout: 20s
+      url: https://login-preprod.axway.com/auth
 
 # Condor Ingestion service
 output.traceability:
+  compression_level: ${TRACEABILITY_COMPRESSIONLEVEL:3}
   enabled: true
   hosts:
     - ${TRACEABILITY_HOST:"ingestion-lumberjack.datasearch.axway.com:453"}
   protocol: ${TRACEABILITY_PROTOCOL:"tcp"}
-  compression_level: ${TRACEABILITY_COMPRESSIONLEVEL:3}
   ssl:
     enabled: true
     verification_mode: none
@@ -40,7 +41,11 @@ output.traceability:
 logging:
   metrics:
     enabled: false
-  # Send all logging output to stderr
   to_stderr: true
-  # Set log level
   level: ${LOG_LEVEL:"info"}
+
+kong:
+  admin_endpoint: <Domain>
+  proxy_endpoint: <Domain>
+  token: 1234
+  user: admin
