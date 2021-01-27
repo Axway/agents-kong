@@ -16,7 +16,7 @@ func init() {
 	// The first parameter identifies the name of the yaml file that agent will look for to load the config
 	DiscoveryCmd = corecmd.NewRootCmd(
 		"kong_discovery_agent",
-		"Start the Kong Discovery Agent",
+		"Kong Discovery Agent",
 		initConfig,
 		run,
 		corecfg.DiscoveryAgent,
@@ -24,7 +24,7 @@ func init() {
 
 	// Get the root command properties and bind the config property in YAML definition
 	rootProps := DiscoveryCmd.GetProperties()
-	rootProps.AddStringProperty("kong.user", "", "Kong Gateway user")
+	rootProps.AddStringProperty("kong.user", "", "Kong Gateway admin user")
 	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
 	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong Admin endpoint")
 	rootProps.AddStringProperty("kong.proxy_endpoint", "", "The Kong Proxy endpoint")
@@ -43,10 +43,10 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := DiscoveryCmd.GetProperties()
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig = &config.GatewayConfig{
-		SpecPath:   rootProps.StringPropertyValue("gateway-section.specPath"),
-		ConfigKey1: rootProps.StringPropertyValue("gateway-section.config_key_1"),
-		ConfigKey2: rootProps.StringPropertyValue("gateway-section.config_key_2"),
-		ConfigKey3: rootProps.StringPropertyValue("gateway-section.config_key_3"),
+		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
+		ProxyEndpoint: rootProps.StringPropertyValue("kong.proxy_endpoint"),
+		Token:         rootProps.StringPropertyValue("kong.token"),
+		User:          rootProps.StringPropertyValue("kong.user"),
 	}
 
 	agentConfig := config.AgentConfig{

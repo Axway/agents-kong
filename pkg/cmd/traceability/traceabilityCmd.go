@@ -26,7 +26,7 @@ func init() {
 	TraceCmd = corecmd.NewCmd(
 		&cmd,
 		name,
-		"Start the Kong Traceability Agent",
+		"Kong Traceability Agent",
 		initConfig,
 		run,
 		corecfg.TraceabilityAgent,
@@ -35,8 +35,10 @@ func init() {
 	// Get the root command properties and bind the config property in YAML definition
 
 	rootProps := TraceCmd.GetProperties()
-	rootProps.AddStringProperty("kong.user", "", "Kong Gateway user")
+	rootProps.AddStringProperty("kong.user", "", "Kong Gateway admin user")
 	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
+	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong Admin endpoint")
+	rootProps.AddStringProperty("kong.proxy_endpoint", "", "The Kong Proxy endpoint")
 }
 
 // Callback that agent will call to process the execution
@@ -50,11 +52,12 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := TraceCmd.GetProperties()
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig := &config.GatewayConfig{
-		LogFile:        rootProps.StringPropertyValue("gateway-section.logFile"),
-		ProcessOnInput: rootProps.BoolPropertyValue("gateway-section.processOnInput"),
-		ConfigKey1:     rootProps.StringPropertyValue("gateway-section.config_key_1"),
-		ConfigKey2:     rootProps.StringPropertyValue("gateway-section.config_key_2"),
-		ConfigKey3:     rootProps.StringPropertyValue("gateway-section.config_key_3"),
+		// LogFile:        rootProps.StringPropertyValue("gateway-section.logFile"),
+		// ProcessOnInput: rootProps.BoolPropertyValue("gateway-section.processOnInput"),
+		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
+		ProxyEndpoint: rootProps.StringPropertyValue("kong.proxy_endpoint"),
+		Token:         rootProps.StringPropertyValue("kong.token"),
+		User:          rootProps.StringPropertyValue("kong.user"),
 	}
 
 	agentConfig := &config.AgentConfig{

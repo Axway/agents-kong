@@ -5,7 +5,6 @@ kong_traceability_agent:
     mode: publishToEnvironment
     organizationID: "<AMPLIFY_ORG_ID>"
     platformURL: <PLATFORM_URL>
-    pollInterval: 20s
     team: "Default Team"
     url: <AMPC_URL>
     auth:

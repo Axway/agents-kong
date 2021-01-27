@@ -1,8 +1,6 @@
 package gateway
 
 import (
-	"io/ioutil"
-
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -39,7 +37,7 @@ func (a *GatewayClient) DiscoverAPIs() error {
 	// As sample the implementation reads the swagger for musical-instrument from local directory
 	swaggerSpec, err := a.getSpec()
 	if err != nil {
-		log.Infof("Failed to load sample API specification from %s: %s ", a.cfg.SpecPath, err.Error())
+		log.Infof("Failed to load sample API specification %s ", err.Error())
 	}
 
 	externalAPI := ExternalAPI{
@@ -80,9 +78,6 @@ func (a *GatewayClient) buildServiceBody(externalAPI ExternalAPI) (apic.ServiceB
 }
 
 func (a *GatewayClient) getSpec() ([]byte, error) {
-	bytes, err := ioutil.ReadFile(a.cfg.SpecPath)
-	if err != nil {
-		return nil, err
-	}
+	var bytes []byte
 	return bytes, nil
 }
