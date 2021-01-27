@@ -9,7 +9,7 @@ import (
 // AgentConfig - represents the config for agent
 type AgentConfig struct {
 	CentralCfg corecfg.CentralConfig `config:"central"`
-	GatewayCfg *GatewayConfig        `config:"gateway-section"`
+	GatewayCfg *GatewayConfig        `config:"kong"`
 }
 
 // GatewayConfig - represents the config for gateway
@@ -17,9 +17,10 @@ type GatewayConfig struct {
 	corecfg.IConfigValidator
 	LogFile        string `config:"logFile"`
 	ProcessOnInput bool   `config:"processOnInput"`
-	ConfigKey1     string `config:"config_key_1"`
-	ConfigKey2     string `config:"config_key_2"`
-	ConfigKey3     string `config:"config_key_3"`
+	AdminEndpoint  string `config:"adminEndpoint"`
+	ProxyEndpoint  string `config:"proxyEndpoint"`
+	Token          string `config:"token"`
+	User           string `config:"user"`
 }
 
 // ValidateCfg - Validates the gateway config
@@ -27,6 +28,5 @@ func (c *GatewayConfig) ValidateCfg() (err error) {
 	if c.LogFile == "" {
 		return errors.New("Invalid gateway configuration: logFile is not configured")
 	}
-
 	return
 }
