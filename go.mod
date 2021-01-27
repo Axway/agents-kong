@@ -16,6 +16,7 @@ require (
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
+	github.com/kong/go-kong v0.15.0
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/miekg/dns v1.1.29 // indirect
 	github.com/mitchellh/hashstructure v1.0.0 // indirect
