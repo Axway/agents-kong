@@ -1,25 +1,42 @@
 package gateway
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
+	"github.com/kong/go-kong/kong"
 )
 
-// GatewayClient - Represents the Gateway client
-type GatewayClient struct {
-	cfg *config.GatewayConfig
+type Client struct {
+	cfg        *config.GatewayConfig
+	kongClient *kong.Client
 }
 
-// NewClient - Creates a new Gateway Client
-func NewClient(gatewayCfg *config.GatewayConfig) (*GatewayClient, error) {
-	return &GatewayClient{
-		cfg: gatewayCfg,
+func NewClient(gatewayCfg *config.GatewayConfig) (*Client, error) {
+	clientBase := &http.Client{}
+	defaultTransport := http.DefaultTransport.(*http.Transport)
+	clientBase.Transport = defaultTransport
+
+	headers := make(http.Header)
+	headers.Set("Kong-Admin-Token", gatewayCfg.Token)
+	client := kong.HTTPClientWithHeaders(clientBase, headers)
+
+	kongClient, err := kong.NewClient(&gatewayCfg.AdminEndpoint, &client)
+	if err != nil {
+		return nil, err
+	}
+	kongClient.SetDebugMode(true)
+
+	return &Client{
+		cfg:        gatewayCfg,
+		kongClient: kongClient,
 	}, nil
 }
 
-// ExternalAPI - Sample struct representing the API definition in API gateway
 type ExternalAPI struct {
 	swaggerSpec   []byte
 	id            string
@@ -31,11 +48,13 @@ type ExternalAPI struct {
 }
 
 // DiscoverAPIs - Process the API discovery
-func (a *GatewayClient) DiscoverAPIs() error {
+func (gc *Client) DiscoverAPIs() error {
+	ctx := context.Background()
+	gc.GetAllServices(ctx)
 	// Gateway specific implementation to get the details for discovered API goes here
 	// Set the service definition
 	// As sample the implementation reads the swagger for musical-instrument from local directory
-	swaggerSpec, err := a.getSpec()
+	swaggerSpec, err := gc.getSpec()
 	if err != nil {
 		log.Infof("Failed to load sample API specification %s ", err.Error())
 	}
@@ -50,7 +69,7 @@ func (a *GatewayClient) DiscoverAPIs() error {
 		swaggerSpec:   swaggerSpec,
 	}
 
-	serviceBody, err := a.buildServiceBody(externalAPI)
+	serviceBody, err := gc.buildServiceBody(externalAPI)
 	if err != nil {
 		return err
 	}
@@ -63,7 +82,7 @@ func (a *GatewayClient) DiscoverAPIs() error {
 }
 
 // buildServiceBody - creates the service definition
-func (a *GatewayClient) buildServiceBody(externalAPI ExternalAPI) (apic.ServiceBody, error) {
+func (gc *Client) buildServiceBody(externalAPI ExternalAPI) (apic.ServiceBody, error) {
 	return apic.NewServiceBodyBuilder().
 		SetID(externalAPI.id).
 		SetTitle(externalAPI.name).
@@ -77,7 +96,23 @@ func (a *GatewayClient) buildServiceBody(externalAPI ExternalAPI) (apic.ServiceB
 		Build()
 }
 
-func (a *GatewayClient) getSpec() ([]byte, error) {
+func (gc *Client) getSpec() ([]byte, error) {
 	var bytes []byte
 	return bytes, nil
+}
+
+func (gc *Client) GetService(ctx context.Context, service string) (*kong.Service, error) {
+	servicesClient := gc.kongClient.Services
+	return servicesClient.Get(ctx, &service)
+}
+
+func (gc *Client) GetAllServices(ctx context.Context) ([]*kong.Service, error) {
+	servicesClient := gc.kongClient.Services
+	return servicesClient.ListAll(ctx)
+}
+
+func (gc *Client) GetServiceRoutes(service string) {
+}
+
+func (gc *Client) GetAllRoutes() {
 }
