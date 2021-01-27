@@ -1,0 +1,32 @@
+run:
+  timeout: 8m
+  modules-download-mode: readonly
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - structcheck
+    - varcheck
+    - deadcode
+    - bodyclose
+    - depguard
+    - golint
+    - dogsled
+    - dupl
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - gosimple
+    - ineffassign
+    - misspell
+    - nakedret
+    - scopelint
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam

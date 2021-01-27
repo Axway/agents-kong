@@ -21,5 +21,5 @@ bin/
 .run/
 *.log
 
-apic_discovery_agent.yml
-apic_traceability_agent.yml
+kong_discovery_agent.yml
+kong_traceability_agent.yml

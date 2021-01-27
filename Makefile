@@ -18,3 +18,9 @@ run-discovery:
 
 run-traceability:
 	./bin/agents-kong apic_traceability_agent
+
+lint:
+	@golangci-lint run -v
+
+lint-fix:
+	@golangci-lint run -v --fix

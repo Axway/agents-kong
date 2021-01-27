@@ -13,7 +13,7 @@ var TraceCmd corecmd.AgentRootCmd
 var beatCmd *libcmd.BeatsRootCmd
 
 func init() {
-	name := "apic_traceability_agent"
+	name := "kong_traceability_agent"
 	settings := instance.Settings{
 		Name:          name,
 		HasDashboards: true,
@@ -35,11 +35,8 @@ func init() {
 	// Get the root command properties and bind the config property in YAML definition
 
 	rootProps := TraceCmd.GetProperties()
-	// rootProps.AddStringProperty("gateway-section.logFile", "./logs/traffic.log", "Sample log file with traffic event from gateway")
-	rootProps.AddBoolProperty("gateway-section.processOnInput", true, "Flag to process received event on input or by output before publishing the event by transport")
-	rootProps.AddStringProperty("gateway-section.config_key_1", "", "Sample Config Key 1")
-	rootProps.AddStringProperty("gateway-section.config_key_2", "", "Sample Config Key 1")
-	rootProps.AddStringProperty("gateway-section.config_key_3", "", "Sample Config Key 3")
+	rootProps.AddStringProperty("kong.user", "", "Kong Gateway user")
+	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
 }
 
 // Callback that agent will call to process the execution

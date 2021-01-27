@@ -2,7 +2,7 @@ package beater
 
 import (
 	"github.com/Axway/agent-sdk/pkg/traceability"
-	agenterrors "github.com/Axway/agent-sdk/pkg/util/errors"
+	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
 	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"
 
 	"github.com/elastic/beats/v7/libbeat/beat"
@@ -45,7 +45,7 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 
 	// Validate that all necessary services are up and running. If not, return error
 	if hc.RunChecks() != hc.OK {
-		return nil, agenterrors.ErrInitServicesNotReady
+		return nil, agentErrors.ErrInitServicesNotReady
 	}
 
 	return bt, nil

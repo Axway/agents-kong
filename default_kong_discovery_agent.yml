@@ -1,0 +1,28 @@
+# this is a sample config file. Copy the content of this file to a new file named kong_discovery_agent.yml
+central:
+  environment: <AMPLIFY_CENTRAL_ENVIRONMENT_NAME>
+  mode: publishToEnvironment
+  organizationID: "<AMPLIFY_ORG_ID>"
+  platformURL: <PLATFORM_URL>
+  pollInterval: 20s
+  team: "Default Team"
+  url: <AMPC_URL>
+  auth:
+    clientID: <AMPLIFY_CENTRAL_DOSA_CLIENT_ID>
+    privateKey: <AMPLIFY_CENTRAL_DOSA_PRIVATE_KEY_PATH>
+    publicKey: <AMPLIFY_CENTRAL_DOSA_PUBLIC_KEY_PATH>
+    realm: Broker
+    timeout: 20s
+    url: https://login-preprod.axway.com/auth
+
+log:
+  level: debug
+  format: json
+  output: stdout
+  path: logs
+
+kong:
+  admin_endpoint: <Domain>
+  proxy_endpoint: <Domain>
+  token: 1234
+  user: admin
