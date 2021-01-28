@@ -38,7 +38,6 @@ func init() {
 	rootProps.AddStringProperty("kong.user", "", "Kong Gateway admin user")
 	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
 	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong Admin endpoint")
-	rootProps.AddStringProperty("kong.proxy_endpoint", "", "The Kong Proxy endpoint")
 }
 
 // Callback that agent will call to process the execution
@@ -55,7 +54,6 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 		// LogFile:        rootProps.StringPropertyValue("gateway-section.logFile"),
 		// ProcessOnInput: rootProps.BoolPropertyValue("gateway-section.processOnInput"),
 		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
-		ProxyEndpoint: rootProps.StringPropertyValue("kong.proxy_endpoint"),
 		Token:         rootProps.StringPropertyValue("kong.token"),
 		User:          rootProps.StringPropertyValue("kong.user"),
 	}

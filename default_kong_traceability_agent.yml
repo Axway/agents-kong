@@ -44,6 +44,5 @@ logging:
 
 kong:
   admin_endpoint: <Domain>
-  proxy_endpoint: <Domain>
   token: 1234
   user: admin
