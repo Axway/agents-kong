@@ -18,7 +18,6 @@ type GatewayConfig struct {
 	LogFile        string `config:"logFile"`
 	ProcessOnInput bool   `config:"processOnInput"`
 	AdminEndpoint  string `config:"adminEndpoint"`
-	ProxyEndpoint  string `config:"proxyEndpoint"`
 	Token          string `config:"token"`
 	User           string `config:"user"`
 }

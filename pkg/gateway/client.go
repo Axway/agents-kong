@@ -29,7 +29,7 @@ func NewClient(gatewayCfg *config.GatewayConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	kongClient.SetDebugMode(true)
+	// kongClient.SetDebugMode(true)
 
 	return &Client{
 		cfg:        gatewayCfg,
@@ -97,8 +97,7 @@ func (gc *Client) buildServiceBody(externalAPI ExternalAPI) (apic.ServiceBody, e
 }
 
 func (gc *Client) getSpec() ([]byte, error) {
-	var bytes []byte
-	return bytes, nil
+	return []byte("{}"), nil
 }
 
 func (gc *Client) GetService(ctx context.Context, service string) (*kong.Service, error) {
@@ -109,10 +108,4 @@ func (gc *Client) GetService(ctx context.Context, service string) (*kong.Service
 func (gc *Client) GetAllServices(ctx context.Context) ([]*kong.Service, error) {
 	servicesClient := gc.kongClient.Services
 	return servicesClient.ListAll(ctx)
-}
-
-func (gc *Client) GetServiceRoutes(service string) {
-}
-
-func (gc *Client) GetAllRoutes() {
 }

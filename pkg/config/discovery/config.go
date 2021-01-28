@@ -14,7 +14,6 @@ type AgentConfig struct {
 type GatewayConfig struct {
 	corecfg.IConfigValidator
 	AdminEndpoint string `config:"adminEndpoint"`
-	ProxyEndpoint string `config:"proxyEndpoint"`
 	Token         string `config:"token"`
 	User          string `config:"user"`
 }
