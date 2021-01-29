@@ -3,17 +3,17 @@ central:
   environment: <AMPLIFY_CENTRAL_ENVIRONMENT_NAME>
   mode: publishToEnvironment
   organizationID: "<AMPLIFY_ORG_ID>"
-  platformURL: <PLATFORM_URL>
+  platformURL: https://platform.axway.com
   pollInterval: 20s
   team: "Default Team"
-  url: <AMPC_URL>
+  url: https://apicentral.axway.com
   auth:
     clientID: <AMPLIFY_CENTRAL_DOSA_CLIENT_ID>
     privateKey: <AMPLIFY_CENTRAL_DOSA_PRIVATE_KEY_PATH>
     publicKey: <AMPLIFY_CENTRAL_DOSA_PUBLIC_KEY_PATH>
     realm: Broker
     timeout: 20s
-    url: https://login-preprod.axway.com/auth
+    url: https://login.axway.com/auth
 
 log:
   level: debug
