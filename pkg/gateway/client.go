@@ -14,12 +14,6 @@ import (
 	"github.com/kong/go-kong/kong"
 )
 
-type Client struct {
-	cfg        *config.GatewayConfig
-	kongClient *kong.Client
-	baseClient http.Client
-}
-
 func NewClient(gatewayCfg *config.GatewayConfig) (*Client, error) {
 	clientBase := &http.Client{}
 	defaultTransport := http.DefaultTransport.(*http.Transport)
@@ -42,143 +36,142 @@ func NewClient(gatewayCfg *config.GatewayConfig) (*Client, error) {
 	}, nil
 }
 
-type ExternalAPI struct {
-	swaggerSpec   []byte
-	id            string
-	name          string
-	description   string
-	version       string
-	url           string
-	documentation []byte
-}
-
 // DiscoverAPIs - Process the API discovery
 func (gc *Client) DiscoverAPIs() error {
 	ctx := context.Background()
-	svcs, err := gc.GetAllServices(ctx)
+	services, err := gc.getAllServices(ctx)
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
-	}
-	for _, svc := range svcs {
-		swaggerSpec := gc.GetServiceSpec(ctx, *svc.ID)
-		// swaggerSpec, err := gc.getSpec()
-		// if err != nil {
-		// 	log.Infof("Failed to load sample API specification %s ", err.Error())
-		// }
-
-		externalAPI := ExternalAPI{
-			id:            "65c79285-f550-4617-bf6e-003e617841f2",
-			name:          "Musical-Instrument-Sample",
-			description:   "Sample for API discovery agent",
-			version:       "1.0.0",
-			url:           "",
-			documentation: []byte("\"Sample documentation for API discovery agent\""),
-			swaggerSpec:   swaggerSpec,
-		}
-
-		serviceBody, err := gc.buildServiceBody(externalAPI)
-		if err != nil {
-			return err
-		}
-		err = agent.PublishAPI(serviceBody)
-		if err != nil {
-			return err
-		}
-		log.Info("Published API " + serviceBody.APIName + "to AMPLIFY Central")
+		return err
 	}
 
-	return err
+	return gc.processKongServicesList(ctx, services)
+}
+
+func (gc *Client) processKongServicesList(ctx context.Context, services []*kong.Service) error {
+	var e error
+	for _, service := range services {
+		serviceBody, err := gc.processKongAPI(ctx, service)
+		if err != nil {
+			log.Error(err)
+			e = err
+			continue
+		}
+
+		err = agent.PublishAPI(*serviceBody)
+		if err != nil {
+			log.Errorf("failed to publish api: %s", err)
+			e = err
+			continue
+		}
+		log.Info("Published API " + serviceBody.APIName + " to AMPLIFY Central")
+	}
+	return e
 }
 
 // buildServiceBody - creates the service definition
-func (gc *Client) buildServiceBody(externalAPI ExternalAPI) (apic.ServiceBody, error) {
+func (gc *Client) buildServiceBody(kongAPI KongAPI) (apic.ServiceBody, error) {
+	serviceAttribute := make(map[string]string)
+	serviceAttribute["kong-api-hash"] = "asdf123"
+	// serviceAttribute["kong-api-hash"] = convertUnitToString(apiHash)
+	serviceAttribute["kong-resource-id"] = kongAPI.id
 	return apic.NewServiceBodyBuilder().
-		SetID(externalAPI.id).
-		SetTitle(externalAPI.name).
-		SetURL(externalAPI.url).
-		SetDescription(externalAPI.description).
-		SetAPISpec(externalAPI.swaggerSpec).
-		SetVersion(externalAPI.version).
+		SetAPIName(kongAPI.name).
+		SetAPISpec(kongAPI.swaggerSpec).
 		SetAuthPolicy(apic.Passthrough).
-		SetDocumentation(externalAPI.documentation).
-		SetResourceType(apic.Oas2).
+		SetDescription(kongAPI.description).
+		SetDocumentation(kongAPI.documentation).
+		SetID(kongAPI.id).
+		SetResourceType(kongAPI.resourceType).
+		SetServiceAttribute(serviceAttribute).
+		SetTitle(kongAPI.name).
+		SetURL(kongAPI.url).
+		SetVersion(kongAPI.version).
 		Build()
 }
 
-func (gc *Client) getSpec() ([]byte, error) {
-	return []byte("{}"), nil
-}
-
-func (gc *Client) GetService(ctx context.Context, service string) (*kong.Service, error) {
-	servicesClient := gc.kongClient.Services
-	return servicesClient.Get(ctx, &service)
-}
-
-func (gc *Client) GetAllServices(ctx context.Context) ([]*kong.Service, error) {
+func (gc *Client) getAllServices(ctx context.Context) ([]*kong.Service, error) {
 	servicesClient := gc.kongClient.Services
 	return servicesClient.ListAll(ctx)
 }
 
-func (gc *Client) GetServiceSpec(ctx context.Context, serviceId string) []byte {
+func (gc *Client) getServiceSpec(ctx context.Context, serviceId string) ([]byte, error) {
 	// build out get request
 	endpoint := fmt.Sprintf("%s/services/%s/document_objects", gc.cfg.AdminEndpoint, serviceId)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
-		log.Errorf("failed to create request: %s", err)
+		return nil, fmt.Errorf("failed to create request: %s", err)
 	}
 	res, err := gc.baseClient.Do(req)
 	if err != nil {
-		log.Errorf("failed to execute request: %s", err)
+		return nil, fmt.Errorf("failed to execute request: %s", err)
 	}
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Errorf("failed to read body: %s", err)
+		return nil, fmt.Errorf("failed to read body: %s", err)
 	}
 	documents := &DocumentObjects{}
 	err = json.Unmarshal(data, documents)
 	if err != nil {
-		log.Errorf("failed to unmarshal: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal: %s", err)
+	}
+	return gc.getSpec(ctx, documents.Data[0].Path)
+}
+
+func (gc *Client) getSpec(ctx context.Context, path string) ([]byte, error) {
+	endpoint := fmt.Sprintf("%s/default/files/%s", gc.cfg.AdminEndpoint, path)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %s", err)
 	}
 
-	endpoint = fmt.Sprintf("%s/default/files/%s", gc.cfg.AdminEndpoint, documents.Data[0].Path)
-	req, err = http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	res, err := gc.baseClient.Do(req)
 	if err != nil {
-		log.Errorf("failed to create request: %s", err)
+		return nil, fmt.Errorf("failed to execute request: %s", err)
 	}
-	res, err = gc.baseClient.Do(req)
+
+	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Errorf("failed to execute request: %s", err)
+		return nil, fmt.Errorf("failed to read body: %s", err)
 	}
-	data, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Errorf("failed to read body: %s", err)
-	}
+
 	serviceSpec := &ServiceSpec{}
 	err = json.Unmarshal(data, serviceSpec)
 	if err != nil {
-		log.Errorf("failed to unmarshal: %s", err)
+		return nil, fmt.Errorf("failed to unmarshal: %s", err)
 	}
-	log.Infof("%+v", serviceSpec)
-	return []byte(serviceSpec.Contents)
+
+	return []byte(serviceSpec.Contents), nil
 }
 
-type DocumentObjects struct {
-	Data []DocumentObject `json:"data,omitempty"`
-	Next string           `json:"next,omitempty"`
+func (gc *Client) processKongAPI(ctx context.Context, service *kong.Service) (*apic.ServiceBody, error) {
+	// Get hash from API Spec
+	// Compare Spec to cache
+	// Publish if there is a change
+	swaggerSpec, err := gc.getServiceSpec(ctx, *service.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get spec: %s", err)
+	}
+	oasSpec := Openapi{
+		spec: string(swaggerSpec),
+	}
+
+	serviceBody, err := gc.buildServiceBody(newKongAPI(service, oasSpec))
+	if err != nil {
+		return nil, fmt.Errorf("failed to build service body: %s", serviceBody)
+	}
+	return &serviceBody, nil
 }
 
-type DocumentObject struct {
-	CreatedAt int    `json:"created_at,omitempty"`
-	ID        string `json:"id,omitempty"`
-	Path      string `json:"path,omitempty"`
-	Service   struct {
-		ID string `json:"id,omitempty"`
-	} `json:"service,omitempty"`
-}
-
-type ServiceSpec struct {
-	Contents  string `json:"contents"`
-	CreatedAt int    `json:"created_at"`
-	ID        string `json:"id"`
-	Path      string `json:"path"`
+func newKongAPI(service *kong.Service, oasSpec Openapi) KongAPI {
+	return KongAPI{
+		id:            *service.ID,
+		name:          *service.Name,
+		description:   oasSpec.Description(),
+		version:       oasSpec.Version(),
+		url:           *service.Host,
+		resourceType:  oasSpec.ResourceType(),
+		documentation: []byte("\"Sample documentation for API discovery agent\""),
+		swaggerSpec:   []byte(oasSpec.spec),
+	}
 }

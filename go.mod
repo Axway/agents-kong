@@ -25,6 +25,7 @@ require (
 	github.com/spf13/afero v1.3.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.0.0
+	github.com/tidwall/gjson v1.6.7
 	gopkg.in/ini.v1 v1.57.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 )
