@@ -67,8 +67,8 @@ func (gc *Client) DiscoverAPIs() error {
 		// }
 
 		externalAPI := ExternalAPI{
-			id:            "65c79285-f550-4617-bf6e-003e617841f2",
-			name:          "Musical-Instrument-Sample",
+			id:            *svc.ID,
+			name:          *svc.Name,
 			description:   "Sample for API discovery agent",
 			version:       "1.0.0",
 			url:           "",

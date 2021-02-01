@@ -14,10 +14,10 @@ build:
 	@go build -o bin/agents-kong ./cmd/main.go
 
 run-discovery:
-	./bin/agents-kong apic_discovery_agent
+	./bin/agents-kong kong_discovery_agent
 
 run-traceability:
-	./bin/agents-kong apic_traceability_agent
+	./bin/agents-kong kong_traceability_agent
 
 lint:
 	@golangci-lint run -v
