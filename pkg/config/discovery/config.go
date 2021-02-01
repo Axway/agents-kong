@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 )
 
@@ -13,9 +15,10 @@ type AgentConfig struct {
 // GatewayConfig - represents the config for gateway
 type GatewayConfig struct {
 	corecfg.IConfigValidator
-	AdminEndpoint string `config:"adminEndpoint"`
-	Token         string `config:"token"`
-	User          string `config:"user"`
+	AdminEndpoint string        `config:"adminEndpoint"`
+	Token         string        `config:"token"`
+	User          string        `config:"user"`
+	PollInterval  time.Duration `config:"pollInterval"`
 }
 
 // ValidateCfg - Validates the gateway config

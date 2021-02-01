@@ -1,8 +1,11 @@
 package discovery
 
 import (
+	"time"
+
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	"github.com/Axway/agents-kong/pkg/gateway"
 )
@@ -30,8 +33,30 @@ func init() {
 
 // Callback that agent will call to process the execution
 func run() error {
+	var err error
+	var stopChan chan struct{}
+	stopChan = make(chan struct{})
+
 	gatewayClient, err := gateway.NewClient(gatewayConfig)
-	err = gatewayClient.DiscoverAPIs()
+	go func() {
+		for {
+			log.Info("preparing to poll APIs")
+			err = gatewayClient.DiscoverAPIs()
+			if err != nil {
+				log.Error("error in processing: %s", err)
+				stopChan <- struct{}{}
+			}
+			log.Infof("next poll in %s", gatewayConfig.PollInterval)
+			time.Sleep(gatewayConfig.PollInterval)
+		}
+	}()
+
+	select {
+	case <-stopChan:
+		log.Info("Received signal to stop processing")
+		break
+	}
+
 	return err
 }
 
@@ -39,11 +64,13 @@ func run() error {
 // and passed to the callback allowing the agent code to access the central config
 func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := DiscoveryCmd.GetProperties()
+	centralConfig.GetPollInterval()
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig = &config.GatewayConfig{
 		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
 		Token:         rootProps.StringPropertyValue("kong.token"),
 		User:          rootProps.StringPropertyValue("kong.user"),
+		PollInterval:  rootProps.DurationPropertyValue("central.pollInterval"),
 	}
 
 	agentConfig := config.AgentConfig{
