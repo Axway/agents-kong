@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RootCmd is the root
 var RootCmd = &cobra.Command{
 	Use:   "kong-agent",
 	Short: "Kong Discovery & Traceability Agent",

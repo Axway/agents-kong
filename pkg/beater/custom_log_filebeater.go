@@ -13,7 +13,6 @@ import (
 	"github.com/Axway/agents-kong/pkg/gateway"
 )
 
-// customLogBeater configuration.
 type customLogBeater struct {
 	done           chan struct{}
 	logReader      *gateway.LogReader

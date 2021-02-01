@@ -2,6 +2,9 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
@@ -14,6 +17,7 @@ import (
 type Client struct {
 	cfg        *config.GatewayConfig
 	kongClient *kong.Client
+	baseClient http.Client
 }
 
 func NewClient(gatewayCfg *config.GatewayConfig) (*Client, error) {
@@ -34,6 +38,7 @@ func NewClient(gatewayCfg *config.GatewayConfig) (*Client, error) {
 	return &Client{
 		cfg:        gatewayCfg,
 		kongClient: kongClient,
+		baseClient: client,
 	}, nil
 }
 
@@ -50,34 +55,38 @@ type ExternalAPI struct {
 // DiscoverAPIs - Process the API discovery
 func (gc *Client) DiscoverAPIs() error {
 	ctx := context.Background()
-	gc.GetAllServices(ctx)
-	// Gateway specific implementation to get the details for discovered API goes here
-	// Set the service definition
-	// As sample the implementation reads the swagger for musical-instrument from local directory
-	swaggerSpec, err := gc.getSpec()
+	svcs, err := gc.GetAllServices(ctx)
 	if err != nil {
-		log.Infof("Failed to load sample API specification %s ", err.Error())
+		log.Errorf("failed to get services: %s", err)
+	}
+	for _, svc := range svcs {
+		swaggerSpec := gc.GetServiceSpec(ctx, *svc.ID)
+		// swaggerSpec, err := gc.getSpec()
+		// if err != nil {
+		// 	log.Infof("Failed to load sample API specification %s ", err.Error())
+		// }
+
+		externalAPI := ExternalAPI{
+			id:            "65c79285-f550-4617-bf6e-003e617841f2",
+			name:          "Musical-Instrument-Sample",
+			description:   "Sample for API discovery agent",
+			version:       "1.0.0",
+			url:           "",
+			documentation: []byte("\"Sample documentation for API discovery agent\""),
+			swaggerSpec:   swaggerSpec,
+		}
+
+		serviceBody, err := gc.buildServiceBody(externalAPI)
+		if err != nil {
+			return err
+		}
+		err = agent.PublishAPI(serviceBody)
+		if err != nil {
+			return err
+		}
+		log.Info("Published API " + serviceBody.APIName + "to AMPLIFY Central")
 	}
 
-	externalAPI := ExternalAPI{
-		id:            "65c79285-f550-4617-bf6e-003e617841f2",
-		name:          "Musical-Instrument-Sample",
-		description:   "Sample for API discovery agent",
-		version:       "1.0.0",
-		url:           "",
-		documentation: []byte("\"Sample documentation for API discovery agent\""),
-		swaggerSpec:   swaggerSpec,
-	}
-
-	serviceBody, err := gc.buildServiceBody(externalAPI)
-	if err != nil {
-		return err
-	}
-	err = agent.PublishAPI(serviceBody)
-	if err != nil {
-		return err
-	}
-	log.Info("Published API " + serviceBody.APIName + "to AMPLIFY Central")
 	return err
 }
 
@@ -108,4 +117,68 @@ func (gc *Client) GetService(ctx context.Context, service string) (*kong.Service
 func (gc *Client) GetAllServices(ctx context.Context) ([]*kong.Service, error) {
 	servicesClient := gc.kongClient.Services
 	return servicesClient.ListAll(ctx)
+}
+
+func (gc *Client) GetServiceSpec(ctx context.Context, serviceId string) []byte {
+	// build out get request
+	endpoint := fmt.Sprintf("%s/services/%s/document_objects", gc.cfg.AdminEndpoint, serviceId)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		log.Errorf("failed to create request: %s", err)
+	}
+	res, err := gc.baseClient.Do(req)
+	if err != nil {
+		log.Errorf("failed to execute request: %s", err)
+	}
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Errorf("failed to read body: %s", err)
+	}
+	documents := &DocumentObjects{}
+	err = json.Unmarshal(data, documents)
+	if err != nil {
+		log.Errorf("failed to unmarshal: %s", err)
+	}
+
+	endpoint = fmt.Sprintf("%s/default/files/%s", gc.cfg.AdminEndpoint, documents.Data[0].Path)
+	req, err = http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		log.Errorf("failed to create request: %s", err)
+	}
+	res, err = gc.baseClient.Do(req)
+	if err != nil {
+		log.Errorf("failed to execute request: %s", err)
+	}
+	data, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Errorf("failed to read body: %s", err)
+	}
+	serviceSpec := &ServiceSpec{}
+	err = json.Unmarshal(data, serviceSpec)
+	if err != nil {
+		log.Errorf("failed to unmarshal: %s", err)
+	}
+	log.Infof("%+v", serviceSpec)
+	return []byte(serviceSpec.Contents)
+}
+
+type DocumentObjects struct {
+	Data []DocumentObject `json:"data,omitempty"`
+	Next string           `json:"next,omitempty"`
+}
+
+type DocumentObject struct {
+	CreatedAt int    `json:"created_at,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Path      string `json:"path,omitempty"`
+	Service   struct {
+		ID string `json:"id,omitempty"`
+	} `json:"service,omitempty"`
+}
+
+type ServiceSpec struct {
+	Contents  string `json:"contents"`
+	CreatedAt int    `json:"created_at"`
+	ID        string `json:"id"`
+	Path      string `json:"path"`
 }

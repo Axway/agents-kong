@@ -40,7 +40,6 @@ func init() {
 	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong Admin endpoint")
 }
 
-// Callback that agent will call to process the execution
 func run() error {
 	return beatCmd.Execute()
 }
