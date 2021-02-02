@@ -53,9 +53,8 @@ func (gc *Client) DiscoverAPIs() error {
 		log.Errorf("failed to get services: %s", err)
 		return err
 	}
-
-	gc.processKongServicesList(ctx, services)
 	gc.removeDeletedServices(services)
+	gc.processKongServicesList(ctx, services)
 	return nil
 }
 
@@ -71,8 +70,12 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 			cachedService := item.(CachedService)
 			err = gc.removeService(cachedService)
 			if err != nil {
-				log.Errorf("failed to remove service '%s' from environment: %s", cachedService.serviceName, err)
+				log.Errorf("failed to remove service '%s': %s", cachedService.kongServiceName, err)
 				return err
+			}
+			err = specCache.Delete(serviceId)
+			if err != nil {
+				log.Errorf("failed to delete service '%' from the cache: %s", cachedService.kongServiceName, err)
 			}
 		}
 	}
@@ -80,15 +83,13 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 }
 
 func (gc *Client) removeService(cachedService CachedService) error {
-	/*	envName := gc.agentConfig.CentralCfg.GetEnvironmentName()
-		url := fmt.Sprintf("%s%s/apiservices/", gc.agentConfig.CentralCfg.GetAPIServerURL(), envName)
-		data, err := gc.apicClient.ExecuteAPI(http.MethodDelete, url, nil, nil)
-		if err != nil {
-			log.Errorf("failed to get apiservices for '%s': %s", envName, err)
-			return err
-		}
-	*/
-	log.Infof("service removed: %s", cachedService.serviceName)
+	envName := gc.agentConfig.CentralCfg.GetEnvironmentName()
+	url := fmt.Sprintf("%s%s/apiservices/%s", gc.agentConfig.CentralCfg.GetAPIServerURL(), envName, cachedService.centralName)
+	log.Info(url)
+	// TODO: ExecuteAPI only returns a success when status code is 200
+	gc.apicClient.ExecuteAPI(http.MethodDelete, url, nil, nil)
+
+	log.Infof("service removed: %s", cachedService.kongServiceName)
 	return nil
 }
 
@@ -111,15 +112,15 @@ func (gc *Client) initCache() {
 		return
 	}
 
-	var apiServices []*v1alpha1.APIService
-	err = json.Unmarshal(data, &apiServices)
+	var centralAPIServices []*v1alpha1.APIService
+	err = json.Unmarshal(data, &centralAPIServices)
 	if err != nil {
 		log.Errorf("failed to unmarshal apiservices: %s", err)
 		return
 	}
 
-	for _, svc := range apiServices {
-		cacheServiceChecksum(svc.Attributes[externalAPIID], svc.Title, svc.Attributes[kongChecksum], svc.Name)
+	for _, apiSvc := range centralAPIServices {
+		cacheServiceChecksum(apiSvc.Attributes[externalAPIID], apiSvc.Title, apiSvc.Attributes[kongChecksum], apiSvc.Name)
 	}
 }
 
@@ -242,16 +243,16 @@ func (gc *Client) processKongAPI(ctx context.Context, service *kong.Service) (*a
 		return nil, fmt.Errorf("failed to get spec for %s: %s", *service.Name, err)
 	}
 
-	isCached := cacheServiceChecksum(*service.ID, *service.Name, kongServiceSpec.Checksum, "")
-	if isCached == true {
-		return nil, nil
-	}
-
 	oasSpec := Openapi{
 		spec: kongServiceSpec.Contents,
 	}
 
 	serviceBody, err := gc.buildServiceBody(newKongAPI(service, oasSpec), kongServiceSpec.Checksum)
+	isCached := cacheServiceChecksum(*service.ID, *service.Name, kongServiceSpec.Checksum, serviceBody.APIName)
+	if isCached == true {
+		return nil, nil
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to build service body: %s", serviceBody)
 	}
@@ -272,32 +273,34 @@ func newKongAPI(service *kong.Service, oasSpec Openapi) KongAPI {
 }
 
 // If the item is cached, return true
-func cacheServiceChecksum(serviceId string, serviceName string, checksum string, centralID string) bool {
+func cacheServiceChecksum(kongServiceId string, kongServiceName string, checksum string, centralName string) bool {
 	specCache := cache.GetCache()
-	item, err := specCache.Get(serviceId)
+	item, err := specCache.Get(kongServiceId)
 	// if there is an error, then the item is not in the cache
-	// Use the cache to store the kong service name -> kong service checksum
 	if err != nil {
 		cachedService := CachedService{
-			serviceID:   serviceId,
-			serviceName: serviceName,
-			checksum:    checksum,
-			centralID:   centralID,
+			kongServiceId:   kongServiceId,
+			kongServiceName: kongServiceName,
+			checksum:        checksum,
+			centralName:     centralName,
 		}
-		specCache.Set(serviceId, cachedService)
-		log.Infof("adding to the cache: %s (%s) --- %s", serviceName, serviceId, checksum)
+		specCache.Set(kongServiceId, cachedService)
+		log.Infof("adding to the cache: '%s'. centralName: '%s'", kongServiceName, centralName)
 		return false
 	}
 
 	if item != nil {
 		if cachedService, ok := item.(CachedService); ok {
-			if cachedService.serviceID == serviceId && cachedService.checksum == checksum {
+			if cachedService.kongServiceId == kongServiceId && cachedService.checksum == checksum {
+				cachedService.centralName = centralName
+				cachedService.kongServiceName = kongServiceName
+				specCache.Set(kongServiceId, cachedService)
 				return true
 			} else {
-				cachedService.serviceName = serviceName
+				cachedService.kongServiceName = kongServiceName
 				cachedService.checksum = checksum
-				specCache.Set(serviceId, cachedService)
-				log.Infof("adding to the cache: %s (%s) --- %s", serviceName, serviceId, checksum)
+				specCache.Set(kongServiceId, cachedService)
+				log.Infof("adding to the cache: '%s'. centralName: '%'", kongServiceName, centralName)
 			}
 		}
 	}
