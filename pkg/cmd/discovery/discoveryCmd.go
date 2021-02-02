@@ -1,14 +1,17 @@
 package discovery
 
 import (
+	"time"
+
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	"github.com/Axway/agents-kong/pkg/gateway"
 )
 
 var DiscoveryCmd corecmd.AgentRootCmd
-var gatewayConfig *config.GatewayConfig
+var agentConfig config.AgentConfig
 
 func init() {
 	// Create new root command with callbacks to initialize the agent config and command execution.
@@ -30,8 +33,29 @@ func init() {
 
 // Callback that agent will call to process the execution
 func run() error {
-	gatewayClient, err := gateway.NewClient(gatewayConfig)
-	err = gatewayClient.DiscoverAPIs()
+	var err error
+	var stopChan chan struct{}
+	stopChan = make(chan struct{})
+
+	gatewayClient, err := gateway.NewClient(agentConfig)
+	go func() {
+		for {
+			err = gatewayClient.DiscoverAPIs()
+			if err != nil {
+				log.Error("error in processing: %s", err)
+				stopChan <- struct{}{}
+			}
+			log.Infof("next poll in %s", agentConfig.CentralCfg.GetPollInterval())
+			time.Sleep(agentConfig.CentralCfg.GetPollInterval())
+		}
+	}()
+
+	select {
+	case <-stopChan:
+		log.Info("Received signal to stop processing")
+		break
+	}
+
 	return err
 }
 
@@ -39,20 +63,21 @@ func run() error {
 // and passed to the callback allowing the agent code to access the central config
 func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := DiscoveryCmd.GetProperties()
+	centralConfig.GetPollInterval()
 	// Parse the config from bound properties and setup gateway config
-	gatewayConfig = &config.GatewayConfig{
+	gatewayConfig := &config.KongGatewayConfig{
 		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
 		Token:         rootProps.StringPropertyValue("kong.token"),
 		User:          rootProps.StringPropertyValue("kong.user"),
 	}
 
-	agentConfig := config.AgentConfig{
-		CentralCfg: centralConfig,
-		GatewayCfg: gatewayConfig,
+	agentConfig = config.AgentConfig{
+		CentralCfg:     centralConfig,
+		KongGatewayCfg: gatewayConfig,
 	}
 	return agentConfig, nil
 }
 
-func GetAgentConfig() *config.GatewayConfig {
-	return gatewayConfig
+func GetAgentConfig() config.AgentConfig {
+	return agentConfig
 }
