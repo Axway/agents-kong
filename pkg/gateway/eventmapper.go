@@ -1,7 +1,9 @@
 package gateway
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -16,6 +18,7 @@ type EventMapper struct {
 
 const requestID = "kong-request-id"
 const host = "host"
+const userAgent = "user-agent"
 
 func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
 	centralCfg := agent.GetCentralConfig()
@@ -64,17 +67,37 @@ func (m *EventMapper) buildHeaders(headers map[string]string) string {
 	return string(jsonHeader)
 }
 
+func (m *EventMapper) buildSSLInfoIfAvailable(ktle KongTrafficLogEntry) (string, string, string) {
+	if ktle.Request.TLS != nil {
+		return ktle.Request.TLS.Version,
+			ktle.Request.URL,
+			ktle.Request.URL // Using SSL server name as SSL subject name for now
+	}
+	return "", "", ""
+}
+
+func (m *EventMapper) processQueryArgs(args map[string]string) string {
+	b := new(bytes.Buffer)
+	for key, value := range args {
+		fmt.Fprintf(b, "%s=\"%s\",", key, value)
+	}
+	return b.String()
+}
+
 func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transaction.LogEvent, error) {
 
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
 		SetURI(ktle.Request.URI).
 		SetMethod(ktle.Request.Method).
+		SetArgs(m.processQueryArgs(ktle.Request.QueryString)).
 		SetStatus(ktle.Response.Status, http.StatusText(ktle.Response.Status)).
 		SetHost(ktle.Request.URL).
 		SetHeaders(m.buildHeaders(ktle.Request.Headers), m.buildHeaders(ktle.Response.Headers)).
 		SetByteLength(ktle.Request.Size, ktle.Response.Size).
 		SetRemoteAddress("", ktle.Request.Headers[host], 80).
 		SetLocalAddress(ktle.ClientIP, ktle.Service.Port).
+		SetSSLProperties(m.buildSSLInfoIfAvailable(ktle)).
+		SetUserAgent(ktle.Request.Headers[userAgent]).
 		Build()
 
 	if err != nil {
