@@ -6,10 +6,7 @@ import (
 
 	"github.com/Axway/agent-sdk/pkg/transaction"
 	"github.com/Axway/agent-sdk/pkg/util/log"
-	config "github.com/Axway/agents-kong/pkg/config/traceability"
-
 	"github.com/elastic/beats/v7/libbeat/beat"
-	"github.com/elastic/beats/v7/libbeat/publisher"
 )
 
 // EventProcessor - represents the processor for received event to generate event(s) for AMPLIFY Central
@@ -22,59 +19,30 @@ import (
 // log entry and performs the mapping to structure expected for AMPLIFY Central Observer. The method returns the converted Events to
 // transport publisher which then produces the events over the transport.
 type EventProcessor struct {
-	cfg            *config.GatewayConfig
 	eventGenerator transaction.EventGenerator
 	eventMapper    *EventMapper
 }
 
 // NewEventProcessor - return a new EventProcessor
-func NewEventProcessor(gateway *config.GatewayConfig) *EventProcessor {
+func NewEventProcessor() *EventProcessor {
 	ep := &EventProcessor{
-		cfg:            gateway,
 		eventGenerator: transaction.NewEventGenerator(),
 		eventMapper:    &EventMapper{},
 	}
 	return ep
 }
 
-// Process - callback set as output event processor that gets invoked by transport publisher to process the received events
-func (p *EventProcessor) Process(events []publisher.Event) []publisher.Event {
-	newEvents := make([]publisher.Event, 0)
-	for _, event := range events {
-		// Get the message from the log file
-		eventMsgFieldVal, err := event.Content.Fields.GetValue("message")
-		if err != nil {
-			log.Error(err.Error())
-			return newEvents
-		}
-
-		eventMsg, ok := eventMsgFieldVal.(string)
-		if ok {
-			// Unmarshal the message into the struct representing traffic log entry in gateway logs
-			beatEvents := p.ProcessRaw([]byte(eventMsg))
-			if beatEvents != nil {
-				for _, beatEvent := range beatEvents {
-					publisherEvent := publisher.Event{
-						Content: beatEvent,
-					}
-					newEvents = append(newEvents, publisherEvent)
-				}
-			}
-		}
-	}
-	return newEvents
-}
-
 // ProcessRaw - process the received log entry and returns the event to be published to AMPLIFY ingestion service
 func (p *EventProcessor) ProcessRaw(rawEventData []byte) []beat.Event {
-	var gatewayTrafficLogEntry GwTrafficLogEntry
-	err := json.Unmarshal(rawEventData, &gatewayTrafficLogEntry)
+	var kongTrafficLogEntry KongTrafficLogEntry
+	err := json.Unmarshal(rawEventData, &kongTrafficLogEntry)
 	if err != nil {
 		log.Error(err.Error())
 		return nil
 	}
+
 	// Map the log entry to log event structure expected by AMPLIFY Central Observer
-	logEvents, err := p.eventMapper.processMapping(gatewayTrafficLogEntry)
+	logEvents, err := p.eventMapper.processMapping(kongTrafficLogEntry)
 	if err != nil {
 		log.Error(err.Error())
 		return nil
