@@ -44,11 +44,10 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}, nil
 }
 
-// DiscoverAPIs - Process the API discovery
 func (gc *Client) DiscoverAPIs() error {
 	ctx := context.Background()
 	gc.initCache()
-	services, err := gc.getAllServices(ctx)
+	services, err := gc.kongClient.Services.ListAll(ctx)
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
 		return err
@@ -60,6 +59,8 @@ func (gc *Client) DiscoverAPIs() error {
 
 func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 	specCache := cache.GetCache()
+	log.Info("checking for deleted kong services")
+	// TODO: add go funcs
 	for _, serviceId := range specCache.GetKeys() {
 		if !gc.serviceExists(serviceId, services) {
 			item, err := specCache.Get(serviceId)
@@ -177,9 +178,9 @@ func (gc *Client) buildServiceBody(kongAPI KongAPI, checksum string) (apic.Servi
 		Build()
 }
 
-func (gc *Client) getAllServices(ctx context.Context) ([]*kong.Service, error) {
-	servicesClient := gc.kongClient.Services
-	return servicesClient.ListAll(ctx)
+func (gc *Client) getRoutesForService(ctx context.Context, serviceId string) ([]*kong.Route, error) {
+	routes, _, err := gc.kongClient.Routes.ListForService(ctx, &serviceId, nil)
+	return routes, err
 }
 
 func (gc *Client) getServiceSpec(ctx context.Context, serviceId string) (*KongServiceSpec, error) {
@@ -246,7 +247,17 @@ func (gc *Client) processKongAPI(ctx context.Context, service *kong.Service) (*a
 	oasSpec := Openapi{
 		spec: kongServiceSpec.Contents,
 	}
-
+	routes, err := gc.getRoutesForService(ctx, *service.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get routes: %s", err)
+	}
+	var route *kong.Route
+	if len(routes) == 0 {
+		return nil, fmt.Errorf("no routes found for '%s'. at least one route is required", *service.Name)
+	} else {
+		route = routes[0]
+	}
+	oasSpec = gc.setSpecHost(oasSpec, route)
 	serviceBody, err := gc.buildServiceBody(newKongAPI(service, oasSpec), kongServiceSpec.Checksum)
 	isCached := cacheServiceChecksum(*service.ID, *service.Name, kongServiceSpec.Checksum, serviceBody.APIName)
 	if isCached == true {
@@ -257,6 +268,42 @@ func (gc *Client) processKongAPI(ctx context.Context, service *kong.Service) (*a
 		return nil, fmt.Errorf("failed to build service body: %s", serviceBody)
 	}
 	return &serviceBody, nil
+}
+
+func (gc *Client) setSpecHost(spec Openapi, route *kong.Route) Openapi {
+	var specAsMap map[string]interface{}
+	err := json.Unmarshal([]byte(spec.spec), &specAsMap)
+	if err != nil {
+		log.Errorf("failed to unmarshal spec: %s", err)
+		return spec
+	}
+
+	if spec.ResourceType() == apic.Oas2 {
+		if route != nil && len(route.Hosts) > 0 {
+			specAsMap["host"] = route.Hosts[0]
+		} else {
+			specAsMap["host"] = gc.agentConfig.KongGatewayCfg.ProxyEndpoint
+		}
+		if route != nil && len(route.Paths) > 0 {
+			specAsMap["basePath"] = route.Paths[0]
+		}
+		if route != nil {
+			specAsMap["schemes"] = route.Protocols
+		} else {
+			specAsMap["schemes"] = gc.agentConfig.KongGatewayCfg.ProxyEndpointProtocols
+		}
+	}
+
+	if spec.ResourceType() == apic.Oas3 {
+
+	}
+
+	specAsJsonBytes, err := json.Marshal(specAsMap)
+	if err != nil {
+		log.Errorf("failed to marshal: %s", err)
+	}
+	spec.spec = string(specAsJsonBytes)
+	return spec
 }
 
 func newKongAPI(service *kong.Service, oasSpec Openapi) KongAPI {

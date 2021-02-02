@@ -67,10 +67,11 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	centralConfig.GetPollInterval()
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig := &config.KongGatewayConfig{
-		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
-		Token:         rootProps.StringPropertyValue("kong.token"),
-		User:          rootProps.StringPropertyValue("kong.user"),
-		ProxyEndpoint: rootProps.StringPropertyValue("kong.proxy_endpoint"),
+		AdminEndpoint:          rootProps.StringPropertyValue("kong.admin_endpoint"),
+		Token:                  rootProps.StringPropertyValue("kong.token"),
+		User:                   rootProps.StringPropertyValue("kong.user"),
+		ProxyEndpoint:          rootProps.StringPropertyValue("kong.proxy_endpoint"),
+		ProxyEndpointProtocols: rootProps.StringSlicePropertyValue("kong.proxy_endpoint_protocols"),
 	}
 
 	agentConfig = config.AgentConfig{

@@ -15,10 +15,11 @@ type AgentConfig struct {
 // KongGatewayConfig - represents the config for gateway
 type KongGatewayConfig struct {
 	corecfg.IConfigValidator
-	AdminEndpoint string `config:"adminEndpoint"`
-	Token         string `config:"token"`
-	User          string `config:"user"`
-	ProxyEndpoint string `config:"proxyEndpoint"`
+	AdminEndpoint          string   `config:"adminEndpoint"`
+	Token                  string   `config:"token"`
+	User                   string   `config:"user"`
+	ProxyEndpoint          string   `config:"proxyEndpoint"`
+	ProxyEndpointProtocols []string `config:"proxyEndpointProtocols"`
 }
 
 // ValidateCfg - Validates the gateway config
@@ -31,6 +32,9 @@ func (c *KongGatewayConfig) ValidateCfg() (err error) {
 	}
 	if c.ProxyEndpoint == "" {
 		return fmt.Errorf("error: proxy_endpoint is required")
+	}
+	if len(c.ProxyEndpointProtocols) == 0 {
+		return fmt.Errorf("error: proxy_endpoint_protocols requires at least one value")
 	}
 	if c.User == "" {
 		return fmt.Errorf("error: user is required")
