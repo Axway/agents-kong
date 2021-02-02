@@ -33,6 +33,7 @@ type Request struct {
 	URL         string            `json:"url"`
 	Headers     map[string]string `json:"headers"`
 	Method      string            `json:"method"`
+	TLS         *TLS              `json:"tls"`
 }
 
 type Response struct {
@@ -81,6 +82,13 @@ type Tries struct {
 	Port            int    `json:"port"`
 	BalancerStart   int64  `json:"balancer_start"`
 	IP              string `json:"ip"`
+}
+
+type TLS struct {
+	Version                string `json:"version"`
+	Cipher                 string `json:"cipher"`
+	SupportedClientCiphers string `json:"supported_client_ciphers"`
+	ClientVerify           string `json:"client_verify"`
 }
 
 type Client struct {
