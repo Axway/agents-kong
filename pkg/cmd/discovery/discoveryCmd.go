@@ -11,7 +11,7 @@ import (
 )
 
 var DiscoveryCmd corecmd.AgentRootCmd
-var gatewayConfig *config.GatewayConfig
+var agentConfig config.AgentConfig
 
 func init() {
 	// Create new root command with callbacks to initialize the agent config and command execution.
@@ -37,17 +37,16 @@ func run() error {
 	var stopChan chan struct{}
 	stopChan = make(chan struct{})
 
-	gatewayClient, err := gateway.NewClient(gatewayConfig)
+	gatewayClient, err := gateway.NewClient(agentConfig)
 	go func() {
 		for {
-			log.Info("preparing to poll APIs")
 			err = gatewayClient.DiscoverAPIs()
 			if err != nil {
 				log.Error("error in processing: %s", err)
 				stopChan <- struct{}{}
 			}
-			log.Infof("next poll in %s", gatewayConfig.PollInterval)
-			time.Sleep(gatewayConfig.PollInterval)
+			log.Infof("next poll in %s", agentConfig.CentralCfg.GetPollInterval())
+			time.Sleep(agentConfig.CentralCfg.GetPollInterval())
 		}
 	}()
 
@@ -66,20 +65,19 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := DiscoveryCmd.GetProperties()
 	centralConfig.GetPollInterval()
 	// Parse the config from bound properties and setup gateway config
-	gatewayConfig = &config.GatewayConfig{
+	gatewayConfig := &config.KongGatewayConfig{
 		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
 		Token:         rootProps.StringPropertyValue("kong.token"),
 		User:          rootProps.StringPropertyValue("kong.user"),
-		PollInterval:  rootProps.DurationPropertyValue("central.pollInterval"),
 	}
 
-	agentConfig := config.AgentConfig{
-		CentralCfg: centralConfig,
-		GatewayCfg: gatewayConfig,
+	agentConfig = config.AgentConfig{
+		CentralCfg:     centralConfig,
+		KongGatewayCfg: gatewayConfig,
 	}
 	return agentConfig, nil
 }
 
-func GetAgentConfig() *config.GatewayConfig {
-	return gatewayConfig
+func GetAgentConfig() config.AgentConfig {
+	return agentConfig
 }

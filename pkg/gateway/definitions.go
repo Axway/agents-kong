@@ -3,6 +3,8 @@ package gateway
 import (
 	"net/http"
 
+	"github.com/Axway/agent-sdk/pkg/apic"
+
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	"github.com/kong/go-kong/kong"
 )
@@ -48,17 +50,19 @@ type DocumentObject struct {
 	} `json:"service,omitempty"`
 }
 
-type ServiceSpec struct {
+type KongServiceSpec struct {
 	Contents  string `json:"contents"`
 	CreatedAt int    `json:"created_at"`
 	ID        string `json:"id"`
 	Path      string `json:"path"`
+	Checksum  string `json:"checksum"`
 }
 
 type Client struct {
-	cfg        *config.GatewayConfig
-	kongClient *kong.Client
-	baseClient http.Client
+	agentConfig config.AgentConfig
+	kongClient  *kong.Client
+	baseClient  http.Client
+	apicClient  apic.Client
 }
 
 type KongAPI struct {
