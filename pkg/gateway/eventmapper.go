@@ -15,21 +15,25 @@ type EventMapper struct {
 }
 
 const requestID = "kong-request-id"
+const host = "host"
 
 func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
 	centralCfg := agent.GetCentralConfig()
-	//transInboundLogEventLeg, err := m.createTransactionEvent(kongTrafficLogEntry)
-	//if err != nil {
-	//	return nil, err
-	//}
+	transactionLegEvent, err := m.createTransactionEvent(kongTrafficLogEntry)
+	if err != nil {
+		log.Errorf("Error while building transaction leg event: %s", err)
+		return nil, err
+	}
 
 	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID())
 	if err != nil {
+		log.Errorf("Error while building transaction summary event: %s", err)
 		return nil, err
 	}
 
 	return []*transaction.LogEvent{
 		transSummaryLogEvent,
+		transactionLegEvent,
 	}, nil
 }
 
@@ -37,7 +41,7 @@ func (m *EventMapper) getTransactionEventStatus(code int) transaction.TxEventSta
 	if code >= 400 {
 		return transaction.TxEventStatusFail
 	}
-	return transaction.TxEventStatusFail
+	return transaction.TxEventStatusPass
 }
 
 func (m *EventMapper) getTransactionSummaryStatus(statusCode int) transaction.TxSummaryStatus {
@@ -60,55 +64,52 @@ func (m *EventMapper) buildHeaders(headers map[string]string) string {
 	return string(jsonHeader)
 }
 
-//func (m *EventMapper) createTransactionEvent(eventTime int64, txID string, txDetails GwTransaction, eventID, parentEventID, direction string) (*transaction.LogEvent, error) {
-//
-//	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
-//		SetURI(txDetails.URI).
-//		SetMethod(txDetails.Method).
-//		SetStatus(txDetails.StatusCode, http.StatusText(txDetails.StatusCode)).
-//		SetHost(txDetails.SourceHost).
-//		SetHeaders(m.buildHeaders(txDetails.RequestHeaders), m.buildHeaders(txDetails.ResponseHeaders)).
-//		SetByteLength(txDetails.RequestBytes, txDetails.ResponseBytes).
-//		SetRemoteAddress("", txDetails.DesHost, txDetails.DestPort).
-//		SetLocalAddress(txDetails.SourceHost, txDetails.SourcePort).
-//		Build()
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return transaction.NewTransactionEventBuilder().
-//		SetTimestamp(eventTime).
-//		SetTransactionID(txID).
-//		SetID(eventID).
-//		SetParentID(parentEventID).
-//		SetSource(txDetails.SourceHost + ":" + strconv.Itoa(txDetails.SourcePort)).
-//		SetDestination(txDetails.DesHost + ":" + strconv.Itoa(txDetails.DestPort)).
-//		SetDirection(direction).
-//		SetStatus(m.getTransactionEventStatus(txDetails.StatusCode)).
-//		SetProtocolDetail(httpProtocolDetails).
-//		Build()
-//}
+func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transaction.LogEvent, error) {
 
-func (m *EventMapper) createSummaryEvent(kongTrafficLogEntry KongTrafficLogEntry, teamID string) (*transaction.LogEvent, error) {
-	statusCode := kongTrafficLogEntry.Response.Status
-	method := kongTrafficLogEntry.Request.Method
-	uri := kongTrafficLogEntry.Request.URI
-	host := kongTrafficLogEntry.Request.URL
-	protocol := kongTrafficLogEntry.Service.Protocol
-	txID := kongTrafficLogEntry.Request.Headers[requestID]
+	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
+		SetURI(ktle.Request.URI).
+		SetMethod(ktle.Request.Method).
+		SetStatus(ktle.Response.Status, http.StatusText(ktle.Response.Status)).
+		SetHost(ktle.Request.URL).
+		SetHeaders(m.buildHeaders(ktle.Request.Headers), m.buildHeaders(ktle.Response.Headers)).
+		SetByteLength(ktle.Request.Size, ktle.Response.Size).
+		SetRemoteAddress("", ktle.Request.Headers[host], 80).
+		SetLocalAddress(ktle.ClientIP, ktle.Service.Port).
+		Build()
+
+	if err != nil {
+		log.Errorf("Error while filling protocol details for transaction event: %s", err)
+		return nil, err
+	}
+
+	return transaction.NewTransactionEventBuilder().
+		SetTimestamp(ktle.StartedAt).
+		SetTransactionID(ktle.Request.Headers[requestID]).
+		SetID("leg0").
+		SetParentID("null").
+		SetSource("client_ip").
+		SetDestination("backend_api").
+		SetDirection("outbound").
+		SetStatus(m.getTransactionEventStatus(ktle.Response.Status)).
+		SetProtocolDetail(httpProtocolDetails).
+		Build()
+}
+
+func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string) (*transaction.LogEvent, error) {
 
 	return transaction.NewTransactionSummaryBuilder().
-		SetTimestamp(kongTrafficLogEntry.StartedAt).
-		SetTransactionID(txID).
-		SetStatus(m.getTransactionSummaryStatus(statusCode), strconv.Itoa(statusCode)).
+		SetTimestamp(ktle.StartedAt).
+		SetTransactionID(ktle.Request.Headers[requestID]).
+		SetStatus(m.getTransactionSummaryStatus(ktle.Response.Status),
+			strconv.Itoa(ktle.Response.Status)).
 		SetTeam(teamID).
-		SetEntryPoint(protocol, method, uri, host).
-		SetDuration(kongTrafficLogEntry.Latencies.Request).
-		// If the API is published to Central as unified catalog item/API service, se the Proxy details with the API definition
-		// The Proxy.Name represents the name of the API
-		// The Proxy.ID should be of format "remoteApiId_<ID Of the API on remote gateway>". Use transaction.FormatProxyID(<ID Of the API on remote gateway>) to get the formatted value.
-		SetProxy(kongTrafficLogEntry.Service.ID,
-			kongTrafficLogEntry.Service.Name,
+		SetEntryPoint(ktle.Service.Protocol,
+			ktle.Request.Method,
+			ktle.Request.URI,
+			ktle.Request.URL).
+		SetDuration(ktle.Latencies.Request).
+		SetProxy(transaction.FormatProxyID(ktle.Service.ID),
+			ktle.Service.Name,
 			0).
 		Build()
 }
