@@ -28,7 +28,8 @@ func init() {
 	rootProps := DiscoveryCmd.GetProperties()
 	rootProps.AddStringProperty("kong.user", "", "Kong Gateway admin user")
 	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
-	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong Admin endpoint")
+	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong admin endpoint")
+	rootProps.AddStringProperty("kong.proxy_endpoint", "", "The Kong proxy endpoint")
 }
 
 // Callback that agent will call to process the execution
@@ -69,6 +70,7 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 		AdminEndpoint: rootProps.StringPropertyValue("kong.admin_endpoint"),
 		Token:         rootProps.StringPropertyValue("kong.token"),
 		User:          rootProps.StringPropertyValue("kong.user"),
+		ProxyEndpoint: rootProps.StringPropertyValue("kong.proxy_endpoint"),
 	}
 
 	agentConfig = config.AgentConfig{

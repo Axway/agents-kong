@@ -25,3 +25,4 @@ kong:
   admin_endpoint: <Domain>
   token: 1234
   user: admin
+  proxy_endpoint: <Domain>

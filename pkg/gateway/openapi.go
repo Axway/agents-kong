@@ -1,12 +1,10 @@
 package gateway
 
 import (
+	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/tidwall/gjson"
 )
-
-const Openapi2 = "oas2"
-const Openapi3 = "oas3"
 
 type Openapi struct {
 	spec string
@@ -16,10 +14,10 @@ func (oas *Openapi) ResourceType() string {
 	oas2 := gjson.Get(oas.spec, "swagger").Str
 	oas3 := gjson.Get(oas.spec, "openapi").Str
 	if len(oas2) > 0 {
-		return Openapi2
+		return apic.Oas2
 	}
 	if len(oas3) > 0 {
-		return Openapi3
+		return apic.Oas3
 	}
 	log.Error("not a valid spec")
 	return ""
