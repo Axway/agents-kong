@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/transaction"
@@ -15,35 +14,22 @@ import (
 type EventMapper struct {
 }
 
-func (m *EventMapper) processMapping(gatewayTrafficLogEntry GwTrafficLogEntry) ([]*transaction.LogEvent, error) {
+const requestID = "kong-request-id"
+
+func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
 	centralCfg := agent.GetCentralConfig()
+	//transInboundLogEventLeg, err := m.createTransactionEvent(kongTrafficLogEntry)
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	eventTime := time.Now().Unix()
-	txID := gatewayTrafficLogEntry.TraceID
-	txEventID := gatewayTrafficLogEntry.InboundTransaction.ID
-	txDetails := gatewayTrafficLogEntry.InboundTransaction
-	transInboundLogEventLeg, err := m.createTransactionEvent(eventTime, txID, txDetails, txEventID, "", "Inbound")
-	if err != nil {
-		return nil, err
-	}
-
-	txEventID = gatewayTrafficLogEntry.OutboundTransaction.ID
-	txParentEventID := gatewayTrafficLogEntry.InboundTransaction.ID
-	txDetails = gatewayTrafficLogEntry.OutboundTransaction
-	transOutboundLogEventLeg, err := m.createTransactionEvent(eventTime, txID, txDetails, txEventID, txParentEventID, "Outbound")
-	if err != nil {
-		return nil, err
-	}
-
-	transSummaryLogEvent, err := m.createSummaryEvent(eventTime, txID, gatewayTrafficLogEntry, centralCfg.GetTeamID())
+	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID())
 	if err != nil {
 		return nil, err
 	}
 
 	return []*transaction.LogEvent{
 		transSummaryLogEvent,
-		transInboundLogEventLeg,
-		transOutboundLogEventLeg,
 	}, nil
 }
 
@@ -74,50 +60,55 @@ func (m *EventMapper) buildHeaders(headers map[string]string) string {
 	return string(jsonHeader)
 }
 
-func (m *EventMapper) createTransactionEvent(eventTime int64, txID string, txDetails GwTransaction, eventID, parentEventID, direction string) (*transaction.LogEvent, error) {
+//func (m *EventMapper) createTransactionEvent(eventTime int64, txID string, txDetails GwTransaction, eventID, parentEventID, direction string) (*transaction.LogEvent, error) {
+//
+//	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
+//		SetURI(txDetails.URI).
+//		SetMethod(txDetails.Method).
+//		SetStatus(txDetails.StatusCode, http.StatusText(txDetails.StatusCode)).
+//		SetHost(txDetails.SourceHost).
+//		SetHeaders(m.buildHeaders(txDetails.RequestHeaders), m.buildHeaders(txDetails.ResponseHeaders)).
+//		SetByteLength(txDetails.RequestBytes, txDetails.ResponseBytes).
+//		SetRemoteAddress("", txDetails.DesHost, txDetails.DestPort).
+//		SetLocalAddress(txDetails.SourceHost, txDetails.SourcePort).
+//		Build()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return transaction.NewTransactionEventBuilder().
+//		SetTimestamp(eventTime).
+//		SetTransactionID(txID).
+//		SetID(eventID).
+//		SetParentID(parentEventID).
+//		SetSource(txDetails.SourceHost + ":" + strconv.Itoa(txDetails.SourcePort)).
+//		SetDestination(txDetails.DesHost + ":" + strconv.Itoa(txDetails.DestPort)).
+//		SetDirection(direction).
+//		SetStatus(m.getTransactionEventStatus(txDetails.StatusCode)).
+//		SetProtocolDetail(httpProtocolDetails).
+//		Build()
+//}
 
-	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
-		SetURI(txDetails.URI).
-		SetMethod(txDetails.Method).
-		SetStatus(txDetails.StatusCode, http.StatusText(txDetails.StatusCode)).
-		SetHost(txDetails.SourceHost).
-		SetHeaders(m.buildHeaders(txDetails.RequestHeaders), m.buildHeaders(txDetails.ResponseHeaders)).
-		SetByteLength(txDetails.RequestBytes, txDetails.ResponseBytes).
-		SetRemoteAddress("", txDetails.DesHost, txDetails.DestPort).
-		SetLocalAddress(txDetails.SourceHost, txDetails.SourcePort).
-		Build()
-	if err != nil {
-		return nil, err
-	}
-
-	return transaction.NewTransactionEventBuilder().
-		SetTimestamp(eventTime).
-		SetTransactionID(txID).
-		SetID(eventID).
-		SetParentID(parentEventID).
-		SetSource(txDetails.SourceHost + ":" + strconv.Itoa(txDetails.SourcePort)).
-		SetDestination(txDetails.DesHost + ":" + strconv.Itoa(txDetails.DestPort)).
-		SetDirection(direction).
-		SetStatus(m.getTransactionEventStatus(txDetails.StatusCode)).
-		SetProtocolDetail(httpProtocolDetails).
-		Build()
-}
-
-func (m *EventMapper) createSummaryEvent(eventTime int64, txID string, gatewayTrafficLogEntry GwTrafficLogEntry, teamID string) (*transaction.LogEvent, error) {
-	statusCode := gatewayTrafficLogEntry.InboundTransaction.StatusCode
-	method := gatewayTrafficLogEntry.InboundTransaction.Method
-	uri := gatewayTrafficLogEntry.InboundTransaction.URI
-	host := gatewayTrafficLogEntry.InboundTransaction.SourceHost
+func (m *EventMapper) createSummaryEvent(kongTrafficLogEntry KongTrafficLogEntry, teamID string) (*transaction.LogEvent, error) {
+	statusCode := kongTrafficLogEntry.Response.Status
+	method := kongTrafficLogEntry.Request.Method
+	uri := kongTrafficLogEntry.Request.URI
+	host := kongTrafficLogEntry.Request.URL
+	protocol := kongTrafficLogEntry.Service.Protocol
+	txID := kongTrafficLogEntry.Request.Headers[requestID]
 
 	return transaction.NewTransactionSummaryBuilder().
-		SetTimestamp(eventTime).
+		SetTimestamp(kongTrafficLogEntry.StartedAt).
 		SetTransactionID(txID).
 		SetStatus(m.getTransactionSummaryStatus(statusCode), strconv.Itoa(statusCode)).
 		SetTeam(teamID).
-		SetEntryPoint("http", method, uri, host).
+		SetEntryPoint(protocol, method, uri, host).
+		SetDuration(kongTrafficLogEntry.Latencies.Request).
 		// If the API is published to Central as unified catalog item/API service, se the Proxy details with the API definition
 		// The Proxy.Name represents the name of the API
 		// The Proxy.ID should be of format "remoteApiId_<ID Of the API on remote gateway>". Use transaction.FormatProxyID(<ID Of the API on remote gateway>) to get the formatted value.
-		SetProxy("unknown", "", 0).
+		SetProxy(kongTrafficLogEntry.Service.ID,
+			kongTrafficLogEntry.Service.Name,
+			0).
 		Build()
 }
