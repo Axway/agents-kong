@@ -1,0 +1,49 @@
+kong_traceability_agent:
+  central:
+    environment: kongenv
+    organizationID: "29965764447613"
+    platformURL: https://platform.axway.com
+    pollInterval: 20s
+    team: "Default Team"
+    url: https://apicentral.axway.com
+    auth:
+      clientID: DOSA_90e2a87e681e456c82b048d9d93f9b1e
+      privateKey: /Users/skalburgi/Documents/mesh-workshop/private_key.pem
+      publicKey: /Users/skalburgi/Documents/mesh-workshop/public_key.pem
+      realm: Broker
+      timeout: 20s
+      url: https://login.axway.com/auth
+    ssl:
+      minVersion: ${CENTRAL_SSL_MINVERSION:"TLS1.2"}
+      maxVersion: ${CENTRAL_SSL_MAXVERSION:"TLS1.3"}
+      nextProtos: ${CENTRAL_SSL_NEXTPROTOS:[]}
+      cipherSuites: ${CENTRAL_SSL_CIPHERSUITES:["ECDHE-ECDSA-AES-256-GCM-SHA384", "ECDHE-RSA-AES-256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305", "ECDHE-RSA-CHACHA20-POLY1305", "ECDHE-ECDSA-AES-128-GCM-SHA256", "ECDHE-RSA-AES-128-GCM-SHA256", "ECDHE-ECDSA-AES-128-CBC-SHA256", "ECDHE-RSA-AES-128-CBC-SHA256"]}
+      insecureSkipVerify: ${CENTRAL_SSL_INSECURESKIPVERIFY:false}
+
+# Condor Ingestion service
+output.traceability:
+  compression_level: ${TRACEABILITY_COMPRESSIONLEVEL:3}
+  enabled: true
+  hosts:
+    - ${TRACEABILITY_HOST:"ingestion-lumberjack.datasearch.axway.com:453"}
+  protocol: ${TRACEABILITY_PROTOCOL:"https"}
+  ssl:
+    enabled: true
+    verification_mode: none
+    cipher_suites:
+      - "ECDHE-ECDSA-AES-128-GCM-SHA256"
+      - "ECDHE-ECDSA-AES-256-GCM-SHA384"
+      - "ECDHE-ECDSA-CHACHA20-POLY1305"
+      - "ECDHE-RSA-AES-128-CBC-SHA256"
+      - "ECDHE-RSA-AES-128-GCM-SHA256"
+      - "ECDHE-RSA-AES-256-GCM-SHA384"
+      - "ECDHE-RSA-CHACHA20-POLY1205"
+  worker: 1
+  pipelining: 0
+  proxy_url: ${TRACEABILITY_PROXYURL:""}
+
+logging:
+  metrics:
+    enabled: false
+  to_stderr: true
+  level: ${LOG_LEVEL:"debug"}
