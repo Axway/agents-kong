@@ -75,3 +75,10 @@ type KongAPI struct {
 	documentation []byte
 	resourceType  string
 }
+
+type CachedService struct {
+	serviceID   string
+	serviceName string
+	checksum    string
+	centralID   string
+}
