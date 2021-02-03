@@ -41,7 +41,7 @@ func (cc *CentralClient) fetchCentralAPIServices(queryParam map[string]string) (
 
 func (cc *CentralClient) deleteCentralAPIService(cachedService CachedService) error {
 	// TODO: ExecuteAPI only returns a success when status code is 200
-	cc.execute(http.MethodGet, "/apiservices"+cachedService.centralName, nil, nil)
+	cc.execute(http.MethodDelete, "/apiservices/"+cachedService.centralName, nil, nil)
 
 	log.Infof("service removed: %s", cachedService.kongServiceName)
 	return nil
