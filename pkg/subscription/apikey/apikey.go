@@ -142,7 +142,7 @@ func (ak *APIKey) Subscribe(log logrus.FieldLogger, subs apic.Subscription) {
 		return
 	}
 	log.Info("keyauth: %v", keyAuthRes)
-	err = subs.UpdateStateWithProperties(apic.SubscriptionActive, "Toodles", map[string]interface{}{k: "this is your key now"})
+	err = subs.UpdateStateWithProperties(apic.SubscriptionActive, "Toodles", map[string]interface{}{propertyName: "this is your key now"})
 	if err != nil {
 		log.WithError(err).Error("failed to update subscription state")
 	}
