@@ -2,9 +2,7 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sync"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kong/go-kong/kong"
 )
 
@@ -24,27 +23,17 @@ const externalAPIID = "externalAPIID"
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	kongGatewayConfig := agentConfig.KongGatewayCfg
 	clientBase := &http.Client{}
-	defaultTransport := http.DefaultTransport.(*http.Transport)
-	clientBase.Transport = defaultTransport
-
-	headers := make(http.Header)
-	headers.Set("Kong-Admin-Token", kongGatewayConfig.Token)
-	client := kong.HTTPClientWithHeaders(clientBase, headers)
-
-	kongClient, err := kong.NewClient(&kongGatewayConfig.AdminEndpoint, &client)
+	kongClient, err := NewKongClient(clientBase, kongGatewayConfig)
 	if err != nil {
 		return nil, err
 	}
-	apicClient := CentralClient{
-		client:        agent.GetCentralClient(),
-		envName:       agentConfig.CentralCfg.GetEnvironmentName(),
-		apiServerHost: agentConfig.CentralCfg.GetAPIServerURL(),
-	}
+
+	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
+
 	return &Client{
 		centralCfg:     agentConfig.CentralCfg,
-		kongGatewayCfg: agentConfig.KongGatewayCfg,
+		kongGatewayCfg: kongGatewayConfig,
 		kongClient:     kongClient,
-		baseClient:     client,
 		apicClient:     apicClient,
 	}, nil
 }
@@ -55,9 +44,10 @@ func (gc *Client) DiscoverAPIs() error {
 	if err != nil {
 		log.Infof("failed to get central api services: %s", err)
 	}
+	// TODO: initCache should only run once
 	initCache(apiServices)
 
-	services, err := gc.kongClient.Services.ListAll(ctx)
+	services, err := gc.kongClient.ListServices(ctx)
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
 		return err
@@ -114,31 +104,45 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*kong.
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Service) error {
-	routes, err := gc.getRoutesForService(ctx, *service.ID)
+	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
 		return err
 	}
-	endpoints := gc.processKongRoute(gc.kongGatewayCfg.ProxyEndpoint, routes[0])
-	serviceBody, err := gc.processKongAPI(ctx, service, endpoints)
+	endpoints := gc.processKongRoute(gc.kongGatewayCfg.ProxyEndpoint, routes)
+
+	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, *service.ID)
+	if err != nil {
+		// TODO: If no spec is found, then it was likely deleted, and should be deleted from central
+		return fmt.Errorf("failed to get spec for %s: %s", *service.Name, err)
+	}
+	oasSpec := Openapi{
+		spec: kongServiceSpec.Contents,
+	}
+	oasSpec.SetOas3Servers(endpointsToURL(endpoints))
+	serviceBody, err := gc.processKongAPI(service, oasSpec, endpoints)
 	if err != nil {
 		return err
 	}
 	if serviceBody == nil {
 		return fmt.Errorf("not processing '%s' since no changes were detected", *service.Name)
 	}
+
 	err = agent.PublishAPI(*serviceBody)
 	if err != nil {
 		return fmt.Errorf("failed to publish api: %s", err)
 	}
+
 	log.Info("Published API " + serviceBody.APIName + " to AMPLIFY Central")
+
 	return nil
 }
 
-func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []v1alpha1.ApiServiceInstanceSpecEndpoint {
+func (gc *Client) processKongRoute(defaultHost string, routes []*kong.Route) []v1alpha1.ApiServiceInstanceSpecEndpoint {
 	var endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint
-	if route == nil {
+	if routes == nil || len(routes) == 0 {
 		return endpoints
 	}
+	route := routes[0]
 	hosts := route.Hosts
 	if len(route.Hosts) == 0 {
 		hosts = []*string{&defaultHost}
@@ -164,9 +168,9 @@ func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []v1al
 	return endpoints
 }
 
-func (gc *Client) buildServiceBody(kongAPI KongAPI, endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint) (apic.ServiceBody, error) {
+func buildServiceBody(kongAPI KongAPI) (apic.ServiceBody, error) {
 	serviceAttribute := make(map[string]string)
-	return apic.NewServiceBodyBuilder().
+	body := apic.NewServiceBodyBuilder().
 		SetAPIName(kongAPI.name).
 		SetAPISpec(kongAPI.swaggerSpec).
 		SetAuthPolicy(apic.Passthrough).
@@ -177,91 +181,23 @@ func (gc *Client) buildServiceBody(kongAPI KongAPI, endpoints []v1alpha1.ApiServ
 		SetServiceAttribute(serviceAttribute).
 		SetTitle(kongAPI.name).
 		SetURL(kongAPI.url).
-		SetVersion(kongAPI.version).
-		SetServiceEndpoints(endpoints).
-		Build()
+		SetVersion(kongAPI.version)
+
+	if kongAPI.resourceType == apic.Oas2 {
+		body = body.SetServiceEndpoints(kongAPI.endpoints)
+	}
+
+	return body.Build()
 }
 
-func (gc *Client) getRoutesForService(ctx context.Context, serviceId string) ([]*kong.Route, error) {
-	routes, _, err := gc.kongClient.Routes.ListForService(ctx, &serviceId, nil)
-	return routes, err
-}
-
-func (gc *Client) getServiceSpec(ctx context.Context, serviceId string) (*KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/services/%s/document_objects", gc.kongGatewayCfg.AdminEndpoint, serviceId)
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %s", err)
-	}
-	res, err := gc.baseClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %s", err)
-	}
-	data, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read body: %s", err)
-	}
-	documents := &DocumentObjects{}
-	err = json.Unmarshal(data, documents)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %s", err)
-	}
-	if len(documents.Data) < 1 {
-		return nil, fmt.Errorf("no documents found")
-	}
-	return gc.getSpec(ctx, documents.Data[0].Path)
-}
-
-func (gc *Client) getSpec(ctx context.Context, path string) (*KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/default/files/%s", gc.kongGatewayCfg.AdminEndpoint, path)
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %s", err)
-	}
-
-	res, err := gc.baseClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %s", err)
-	}
-
-	data, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read body: %s", err)
-	}
-
-	kongServiceSpec := &KongServiceSpec{}
-	err = json.Unmarshal(data, kongServiceSpec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %s", err)
-	}
-	if len(kongServiceSpec.Contents) == 0 {
-		return nil, fmt.Errorf("spec not found at '%s'", path)
-	}
-	return kongServiceSpec, nil
-}
-
-func (gc *Client) processKongAPI(
-	ctx context.Context,
-	service *kong.Service,
-	endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint,
-) (*apic.ServiceBody, error) {
-	kongServiceSpec, err := gc.getServiceSpec(ctx, *service.ID)
-	if err != nil {
-		// TODO: If no spec is found, then it was likely deleted, and should be deleted from central
-		return nil, fmt.Errorf("failed to get spec for %s: %s", *service.Name, err)
-	}
-
-	oasSpec := Openapi{
-		spec: kongServiceSpec.Contents,
-	}
-
-	kongAPI := newKongAPI(service, oasSpec)
+func (gc *Client) processKongAPI(service *kong.Service, oasSpec Openapi, endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint) (*apic.ServiceBody, error) {
+	kongAPI := newKongAPI(service, oasSpec, endpoints)
 	// TODO: delete api service if needed
 	// If a kong route is deleted, and there are no more routes, then delete the api service?
 	// if a kong route no longer has any paths defined, then delete the api service?
 	// If an api spec is deleted from the service, then delete the api service?
 
-	serviceBody, err := gc.buildServiceBody(kongAPI, endpoints)
+	serviceBody, err := buildServiceBody(kongAPI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build service body: %s", serviceBody)
 	}
@@ -278,7 +214,7 @@ func (gc *Client) processKongAPI(
 	return &serviceBody, nil
 }
 
-func newKongAPI(service *kong.Service, oasSpec Openapi) KongAPI {
+func newKongAPI(service *kong.Service, oasSpec Openapi, endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint) KongAPI {
 	return KongAPI{
 		id:            *service.ID,
 		name:          *service.Name,
@@ -288,6 +224,7 @@ func newKongAPI(service *kong.Service, oasSpec Openapi) KongAPI {
 		resourceType:  oasSpec.ResourceType(),
 		documentation: []byte("\"Sample documentation for API discovery agent\""),
 		swaggerSpec:   []byte(oasSpec.spec),
+		endpoints:     endpoints,
 	}
 }
 
@@ -299,4 +236,13 @@ func doesServiceExists(serviceId string, services []*kong.Service) bool {
 	}
 	log.Infof("Kong service '%s' no longer exists.", serviceId)
 	return false
+}
+
+func endpointsToURL(endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint) openapi3.Servers {
+	var urls openapi3.Servers
+	for _, endpoint := range endpoints {
+		url := fmt.Sprintf("%s://%s%s", endpoint.Protocol, endpoint.Host, endpoint.Routing.BasePath)
+		urls = append(urls, &openapi3.Server{URL: url})
+	}
+	return urls
 }

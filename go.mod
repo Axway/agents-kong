@@ -10,6 +10,7 @@ require (
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/elastic/beats/v7 v7.7.1
 	github.com/garyburd/redigo v1.6.0 // indirect
+	github.com/getkin/kin-openapi v0.9.0
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hpcloud/tail v1.0.0
@@ -25,7 +26,7 @@ require (
 	github.com/spf13/afero v1.3.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.0.0
-	github.com/tidwall/gjson v1.6.7
+	github.com/tidwall/gjson v1.6.8
 	gopkg.in/ini.v1 v1.57.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 )

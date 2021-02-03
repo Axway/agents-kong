@@ -3,11 +3,16 @@ package gateway
 import (
 	"net/http"
 
+	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
+
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	"github.com/kong/go-kong/kong"
 )
+
+type DoRequest interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 // Headers - Type for request/response headers
 type Headers map[string]string
@@ -61,8 +66,7 @@ type KongServiceSpec struct {
 type Client struct {
 	centralCfg     corecfg.CentralConfig
 	kongGatewayCfg *config.KongGatewayConfig
-	kongClient     *kong.Client
-	baseClient     http.Client
+	kongClient     KongAPIClient
 	apicClient     CentralClient
 }
 
@@ -75,6 +79,7 @@ type KongAPI struct {
 	url           string
 	documentation []byte
 	resourceType  string
+	endpoints     []v1alpha1.ApiServiceInstanceSpecEndpoint
 }
 
 type CachedService struct {

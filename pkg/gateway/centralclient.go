@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
+	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 )
 
@@ -17,6 +18,14 @@ type CentralClient struct {
 	client        CentralAPIClient
 	envName       string
 	apiServerHost string
+}
+
+func NewCentralClient(client CentralAPIClient, config corecfg.CentralConfig) CentralClient {
+	return CentralClient{
+		client:        client,
+		envName:       config.GetEnvironmentName(),
+		apiServerHost: config.GetAPIServerURL(),
+	}
 }
 
 func (cc *CentralClient) execute(method, endpoint string, queryParam map[string]string, buffer []byte) ([]byte, error) {

@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"github.com/getkin/kin-openapi/openapi3"
+
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/tidwall/gjson"
@@ -29,4 +31,21 @@ func (oas *Openapi) Description() string {
 
 func (oas *Openapi) Version() string {
 	return gjson.Get(oas.spec, "info.version").Str
+}
+
+func (oas *Openapi) SetOas3Servers(servers openapi3.Servers) {
+	if oas.ResourceType() == apic.Oas3 {
+		openAPI, err := openapi3.NewSwaggerLoader().LoadSwaggerFromData([]byte(oas.spec))
+		if err != nil {
+			log.Errorf("failed to load OAS3 spec: %s", err)
+			return
+		}
+		openAPI.Servers = servers
+		swaggerBytes, err := openAPI.MarshalJSON()
+		if err != nil {
+			log.Errorf("failed to unmarshal to OAS3 spec: %s", err)
+			return
+		}
+		oas.spec = string(swaggerBytes)
+	}
 }
