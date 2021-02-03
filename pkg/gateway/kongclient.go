@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	kutil "github.com/Axway/agents-kong/pkg/kong"
+
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
 	"github.com/kong/go-kong/kong"
@@ -16,6 +18,7 @@ type KongAPIClient interface {
 	ListServices(ctx context.Context) ([]*kong.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*kong.Route, error)
 	GetSpecForService(ctx context.Context, serviceId string) (*KongServiceSpec, error)
+	GetKongPlugins() *kutil.Plugins
 }
 
 type KongClient struct {
@@ -103,4 +106,8 @@ func (k KongClient) getSpec(ctx context.Context, path string) (*KongServiceSpec,
 		return nil, fmt.Errorf("spec not found at '%s'", path)
 	}
 	return kongServiceSpec, nil
+}
+
+func (k KongClient) GetKongPlugins() *kutil.Plugins {
+	return &kutil.Plugins{PluginLister: k.Plugins}
 }

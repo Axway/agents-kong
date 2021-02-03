@@ -3,6 +3,8 @@ package gateway
 import (
 	"net/http"
 
+	"github.com/Axway/agents-kong/pkg/subscription"
+
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
@@ -64,10 +66,11 @@ type KongServiceSpec struct {
 }
 
 type Client struct {
-	centralCfg     corecfg.CentralConfig
-	kongGatewayCfg *config.KongGatewayConfig
-	kongClient     KongAPIClient
-	apicClient     CentralClient
+	centralCfg          corecfg.CentralConfig
+	kongGatewayCfg      *config.KongGatewayConfig
+	kongClient          KongAPIClient
+	apicClient          CentralClient
+	subscriptionManager *subscription.SubscriptionManager
 }
 
 type KongAPI struct {
