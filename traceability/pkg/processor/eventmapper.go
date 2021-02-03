@@ -28,6 +28,13 @@ func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([
 		return nil, err
 	}
 
+	jTransactionLegEvent, err := json.Marshal(transactionLegEvent)
+	if err != nil {
+		log.Errorf("Failed to serialize transaction leg event as json: %s", err)
+	}
+
+	log.Debug("Generated Transaction leg event: ", string(jTransactionLegEvent))
+
 	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID())
 	if err != nil {
 		log.Errorf("Error while building transaction summary event: %s", err)
@@ -35,8 +42,11 @@ func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([
 	}
 
 	jTransactionSummary, err := json.Marshal(transSummaryLogEvent)
+	if err != nil {
+		log.Errorf("Failed to serialize transaction summary as json: %s", err)
+	}
 
-	log.Info("Generated Transaction summary event: ", string(jTransactionSummary))
+	log.Debug("Generated Transaction summary event: ", string(jTransactionSummary))
 
 	return []*transaction.LogEvent{
 		transSummaryLogEvent,
@@ -95,11 +105,11 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 		SetMethod(ktle.Request.Method).
 		SetArgs(m.processQueryArgs(ktle.Request.QueryString)).
 		SetStatus(ktle.Response.Status, http.StatusText(ktle.Response.Status)).
-		SetHost(ktle.Request.URL).
+		SetHost(ktle.Request.Headers[host]).
 		SetHeaders(m.buildHeaders(ktle.Request.Headers), m.buildHeaders(ktle.Response.Headers)).
 		SetByteLength(ktle.Request.Size, ktle.Response.Size).
-		SetRemoteAddress("", ktle.Request.Headers[host], 80).
-		SetLocalAddress(ktle.ClientIP, ktle.Service.Port).
+		SetRemoteAddress("", "", ktle.Tries[0].Port). // No way to find remote address for now
+		SetLocalAddress(ktle.ClientIP, 0).            // Could not determine local port for now
 		SetSSLProperties(m.buildSSLInfoIfAvailable(ktle)).
 		SetUserAgent(ktle.Request.Headers[userAgent]).
 		Build()
@@ -116,6 +126,7 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 		SetParentID("").
 		SetSource("client_ip").
 		SetDestination("backend_api").
+		SetDuration(ktle.Latencies.Request).
 		SetDirection("outbound").
 		SetStatus(m.getTransactionEventStatus(ktle.Response.Status)).
 		SetProtocolDetail(httpProtocolDetails).
