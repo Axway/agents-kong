@@ -259,7 +259,7 @@ func TestSubscription(t *testing.T) {
 		PlatformURL:            "https://platform.axway.com",
 		APIServerVersion:       "v1alpha1",
 		TagsToPublish:          "mytag",
-		AppendDataPlaneToTitle: false,
+		AppendDataPlaneToTitle: true,
 		Auth: &config.AuthConfiguration{
 			URL:            "https://login.axway.com/auth",
 			Realm:          "Broker",
@@ -351,6 +351,7 @@ func TestSubscription(t *testing.T) {
 	agent.GetCentralClient().GetSubscriptionManager().RegisterValidator(sm.ValidateSubscription)
 	// register validator and handlers
 	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionApproved, sm.ProcessSubscribe)
+	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionUnsubscribeInitiated, sm.ProcessUnsubscribe)
 
 	// start polling for subscriptions
 	agent.GetCentralClient().GetSubscriptionManager().Start()
@@ -360,9 +361,9 @@ func TestSubscription(t *testing.T) {
 	//
 
 	sb := apic.ServiceBody{
-		NameToPush:        "testsvc",
+		NameToPush:        "vibu.testsvc",
 		APIName:           "mytestapi",
-		RestAPIID:         "myrestapid",
+		RestAPIID:         *route.ID,
 		URL:               "https://myapi.com",
 		Version:           "v1",
 		Swagger:           []byte(swagger),
