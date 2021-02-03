@@ -6,18 +6,18 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/Axway/agents-kong/traceability/pkg/processor"
+
 	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
 	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/common"
 	"github.com/elastic/beats/v7/libbeat/logp"
-
-	"github.com/Axway/agents-kong/pkg/gateway"
 )
 
 type customLogBeater struct {
 	done           chan struct{}
-	eventProcessor *gateway.EventProcessor
+	eventProcessor *processor.EventProcessor
 	client         beat.Client
 	eventChannel   chan string
 }
@@ -29,7 +29,7 @@ func New(*beat.Beat, *common.Config) (beat.Beater, error) {
 		eventChannel: make(chan string),
 	}
 
-	bt.eventProcessor = gateway.NewEventProcessor()
+	bt.eventProcessor = processor.NewEventProcessor()
 
 	// Validate that all necessary services are up and running. If not, return error
 	if hc.RunChecks() != hc.OK {

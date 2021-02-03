@@ -1,4 +1,4 @@
-package gateway
+package processor
 
 import (
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
