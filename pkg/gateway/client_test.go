@@ -12,8 +12,8 @@ import (
 	"github.com/kong/go-kong/kong"
 )
 
-var kongURL = "https://admin-radixlink2fbc76.kong-cloud.com"
-var Token = "123456"
+var kongURL = "http://localhost:8001"
+var Token = "xxxx"
 
 func Test_createConsumer(t *testing.T) {
 	clientBase := &http.Client{}
@@ -173,12 +173,16 @@ func Test_applyAclOnRoute(t *testing.T) {
 			//allow := plugin.Config["allow"] + "grup4"
 
 			val := plugin.Config["allow"]
-			plugin.Config["allow"] = val.(string) + "group4"
+			var v []interface{}
+			if v, ok := val.([]string); ok {
+				v = append(v, "group4")
+			}
+			fmt.Println(v)
 
 			//allow = append(allow, "group4")
 			//allow = append(allow, interface{"group4"})
-			fmt.Printf("%T\n", val)
-			fmt.Println(val)
+			fmt.Printf("%T\n", v)
+			fmt.Println(v)
 
 			//allow = append(allow, stringList)
 			//updateRes, err := kongClient.Plugins.Create(ctx, plugin)
