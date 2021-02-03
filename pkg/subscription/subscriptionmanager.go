@@ -44,15 +44,15 @@ type SubscriptionManager struct {
 func New(
 	log logrus.FieldLogger,
 	cig ConsumerInstanceGetter,
-	pl kutil.PluginLister) *SubscriptionManager {
+	kc *kong.Client) *SubscriptionManager {
 	return &SubscriptionManager{
 		handlers: map[string]SubscriptionHandler{
-			apikey.Name: apikey.New(),
+			apikey.Name: apikey.New(kc),
 		},
 		cig: cig,
 		log: log,
 		// TODO don't need this inside SubscriptionManager
-		plugins: &kutil.Plugins{PluginLister: pl},
+		plugins: &kutil.Plugins{PluginLister: kc.Plugins},
 	}
 }
 

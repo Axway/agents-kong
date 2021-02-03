@@ -1,13 +1,16 @@
 package apikey
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
 )
 
 type APIKey struct {
-	log logrus.FieldLogger
+	kclient *kong.Client
 }
 
 const Name = "kong-apikey"
@@ -17,8 +20,8 @@ const (
 	propertyName  = "api-key"
 )
 
-func New() *APIKey {
-	return &APIKey{}
+func New(kc *kong.Client) *APIKey {
+	return &APIKey{kc}
 }
 
 func (*APIKey) Name() string {
@@ -50,13 +53,38 @@ func (*APIKey) IsApplicable(plugins map[string]*kong.Plugin) bool {
 	return ok
 }
 
-func (*APIKey) Subscribe(log logrus.FieldLogger, subs apic.Subscription) {
+func (ak *APIKey) Subscribe(log logrus.FieldLogger, subs apic.Subscription) {
 	key := subs.GetPropertyValue(propertyName)
 	if key != "" {
 		log.Info("got subscription with key: ", key)
 	} else {
 		log.Info("will generate key")
 	}
+
+	routeID := subs.GetRemoteAPIID()
+	route, err := ak.kclient.Routes.Get(context.Background(), &routeID)
+	if err != nil {
+		log.WithError(err).Error("Failed to get route")
+		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("failed to get route %s: %s", routeID, err))
+
+		return
+	}
+
+	log.Info("route: %v", route)
+
+	// plugins := &kutil.Plugins{ak.kclient.Plugins}
+
+	// ep, err := plugins.GetEffectivePlugins(*route.ID, *route.Service.ID)
+	// acl, ok := ep["acl"]
+	// if !ok {
+	// 	// log warning
+	// }
+	// acl.Config
+
+	// create consumer and tag
+	// create apikey
+
+	// once is done
 
 	subs.UpdateState(apic.SubscriptionActive, "Toodles")
 }
