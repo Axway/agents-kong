@@ -2,7 +2,7 @@ package kong
 
 import (
 	"context"
-
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	klib "github.com/kong/go-kong/kong"
 )
 
@@ -57,6 +57,8 @@ func (p *Plugins) GetEffectivePlugins(routeID, serviceID string) (map[string]*kl
 	if err != nil {
 		return nil, err
 	}
+
+	log.Infof("found %d plugins", len(plugins))
 
 	pmap := map[string]*klib.Plugin{}
 

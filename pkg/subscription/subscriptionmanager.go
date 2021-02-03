@@ -1,11 +1,12 @@
 package subscription
 
 import (
+	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"strings"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
-	kutil "github.com/Axway/agents-kong/pkg/kong"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/subscription/apikey"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
@@ -38,21 +39,17 @@ type SubscriptionManager struct {
 	log      logrus.FieldLogger
 	handlers map[string]SubscriptionHandler
 	cig      ConsumerInstanceGetter
-	plugins  *kutil.Plugins
+	//	plugins  *kutil.Plugins
 }
 
-func New(
-	log logrus.FieldLogger,
-	cig ConsumerInstanceGetter,
-	pl kutil.PluginLister) *SubscriptionManager {
+func New(log logrus.FieldLogger, cig ConsumerInstanceGetter) *SubscriptionManager {
 	return &SubscriptionManager{
+		// set supported subscription handlers
 		handlers: map[string]SubscriptionHandler{
 			apikey.Name: apikey.New(),
 		},
 		cig: cig,
 		log: log,
-		// TODO don't need this inside SubscriptionManager
-		plugins: &kutil.Plugins{PluginLister: pl},
 	}
 }
 
@@ -65,37 +62,28 @@ func (sm *SubscriptionManager) Schemas() []apic.SubscriptionSchema {
 	return res
 }
 
-// PopulateSubscriptionParameters indentifies the subscription type to use and populates sb with
-// the appropriate parameters
-func (sm *SubscriptionManager) PopulateSubscriptionParameters(routeID, serviceID string, sb *apic.ServiceBody) error {
-	log := sm.log.WithField("routeID", routeID).
-		WithField("serviceID", serviceID)
+func (sm *SubscriptionManager) GetEffectiveSubscriptionHandler(routeID *string, serviceID *string, plugins *kutil.Plugins) (SubscriptionHandler, error) {
+	ep, err := plugins.GetEffectivePlugins(*routeID, *serviceID)
+	if err != nil {
+		log.Errorf("error on determine effective plugins: %s", err)
+		return nil, err
+	}
 
-	log.Info("Populating subscription parameters")
-	ep, err := sm.plugins.GetEffectivePlugins(routeID, serviceID)
 	builder := strings.Builder{}
-	for k := range ep {
-		builder.WriteString(k)
+	for _, p := range ep {
+		builder.WriteString(*p.Name)
 		builder.WriteString(", ")
 	}
 
-	log.Info("Got plugins: ", builder.String())
-	if err != nil {
-		return err
-	}
+	log.Infof("Got plugins: %s", builder.String())
 
 	for _, h := range sm.handlers {
 		if h.IsApplicable(ep) {
 			log.Info("Using subscription handler: ", h.Name())
-			sb.AuthPolicy = h.APICPolicy()
-			sb.SubscriptionName = h.Name()
-			return nil
+			return h, nil
 		}
 	}
-
-	log.Info("No subscription handler")
-
-	return nil
+	return nil, nil
 }
 
 func (sm *SubscriptionManager) ValidateSubscription(subscription apic.Subscription) bool {
