@@ -16,6 +16,7 @@ type GatewayConfig struct {
 	AdminEndpoint string `config:"adminEndpoint"`
 	Token         string `config:"token"`
 	User          string `config:"user"`
+	PollInterval  int    `config:"PollInterval"`
 }
 
 // ValidateCfg - Validates the gateway config

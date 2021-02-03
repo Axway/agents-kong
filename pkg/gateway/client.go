@@ -109,3 +109,13 @@ func (gc *Client) GetAllServices(ctx context.Context) ([]*kong.Service, error) {
 	servicesClient := gc.kongClient.Services
 	return servicesClient.ListAll(ctx)
 }
+
+func (gc *Client) createConsumerApplication(ctx context.Context, consumer kong.Consumer) (*kong.Consumer, error) {
+	consumberClient := gc.kongClient.Consumers
+	return consumberClient.Create(ctx, &consumer)
+}
+
+func (gc *Client) createKeyForConsumerApplication(ctx context.Context, consumer kong.Consumer) (*kong.KeyAuth, error) {
+	keyAuthClient := gc.kongClient.KeyAuths
+	return keyAuthClient.Create(ctx, consumer.ID, &kong.KeyAuth{})
+}
