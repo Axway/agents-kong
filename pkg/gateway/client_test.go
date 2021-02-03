@@ -166,26 +166,26 @@ func Test_applyAclOnRoute(t *testing.T) {
 		pluginName := *plugin.Name
 		if pluginName == "acl" {
 			fmt.Println("acl plugin")
-			//client := kong.HTTPClientWithHeaders(clientBase, headers)
-			//kongClient, err := kong.NewClient(&kongURL, &client)
+			client := kong.HTTPClientWithHeaders(clientBase, headers)
+			kongClient, err := kong.NewClient(&kongURL, &client)
 			fmt.Println(err)
-			//ctx := context.Background()
+			ctx := context.Background()
 			//allow := plugin.Config["allow"] + "grup4"
 
 			val := plugin.Config["allow"]
-			var v []interface{}
-			if v, ok := val.([]string); ok {
-				v = append(v, "group4")
+			if v, ok := val.([]interface{}); ok {
+
+				val = append(v, "group4")
+
 			}
-			fmt.Println(v)
 
-			//allow = append(allow, "group4")
-			//allow = append(allow, interface{"group4"})
-			fmt.Printf("%T\n", v)
-			fmt.Println(v)
-
-			//allow = append(allow, stringList)
-			//updateRes, err := kongClient.Plugins.Create(ctx, plugin)
+			fmt.Printf("%T\n", val)
+			fmt.Println(plugin.Config["allow"])
+			plugin.Config["allow"] = val
+			fmt.Println(plugin.Config["allow"])
+			updateRes, err := kongClient.Plugins.Create(ctx, &plugin)
+			fmt.Println(updateRes)
+			fmt.Println("update consumer access complete")
 
 		}
 	}
