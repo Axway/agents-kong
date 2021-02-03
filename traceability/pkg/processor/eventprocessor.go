@@ -41,6 +41,11 @@ func (p *EventProcessor) ProcessRaw(rawEventData []byte) []beat.Event {
 		return nil
 	}
 
+	// Only process those request logs that contain Kong Service details
+	if kongTrafficLogEntry.Service == nil {
+		return nil
+	}
+
 	// Map the log entry to log event structure expected by AMPLIFY Central Observer
 	logEvents, err := p.eventMapper.processMapping(kongTrafficLogEntry)
 	if err != nil {
