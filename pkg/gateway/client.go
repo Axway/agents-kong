@@ -44,29 +44,6 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}, nil
 }
 
-func enableSubscription() *subscription.SubscriptionManager {
-	// Configure subscription schemas
-	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient())
-
-	// register schemas
-	for _, schema := range sm.Schemas() {
-		err := agent.GetCentralClient().RegisterSubscriptionSchema(schema)
-		if err != nil {
-			log.Errorf("Failed due: %s", err)
-		}
-		log.Infof("Schema registered: %s", schema.GetSubscriptionName())
-	}
-
-	agent.GetCentralClient().GetSubscriptionManager().RegisterValidator(sm.ValidateSubscription)
-	// register validator and handlers
-	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionApproved, sm.ProcessSubscribe)
-
-	// start polling for subscriptions
-	agent.GetCentralClient().GetSubscriptionManager().Start()
-
-	return sm
-}
-
 func (gc *Client) DiscoverAPIs() error {
 	ctx := context.Background()
 	apiServices, err := gc.apicClient.fetchCentralAPIServices(nil)
@@ -180,8 +157,8 @@ func (gc *Client) getSubscriptionHandler(route *kong.Route, plugins *kutil.Plugi
 	return gc.subscriptionManager.GetEffectiveSubscriptionHandler(route.ID, route.Service.ID, plugins)
 }
 
-func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []v1alpha1.ApiServiceInstanceSpecEndpoint {
-	var endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint
+func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []InstanceEndpoint {
+	var endpoints []InstanceEndpoint
 	if route == nil {
 		return endpoints
 	}
@@ -196,7 +173,7 @@ func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []v1al
 				if *protocol == "https" {
 					port = 443
 				}
-				endpoint := v1alpha1.ApiServiceInstanceSpecEndpoint{
+				endpoint := InstanceEndpoint{
 					Host:     *host,
 					Port:     int32(port),
 					Protocol: *protocol,
@@ -210,7 +187,7 @@ func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []v1al
 	return endpoints
 }
 
-func buildServiceBody(kongAPI KongAPI, subscriptionHandler subscription.SubscriptionHandler) (apic.ServiceBody, error) {
+func buildServiceBody(kongAPI KongAPI, name string, subscriptionHandler subscription.SubscriptionHandler) (apic.ServiceBody, error) {
 	serviceAttribute := make(map[string]string)
 	body := apic.NewServiceBodyBuilder().
 		SetAPIName(kongAPI.name).
@@ -240,8 +217,7 @@ func buildServiceBody(kongAPI KongAPI, subscriptionHandler subscription.Subscrip
 	// TODO: add set method for NameToPush
 	// Set add prefix for unique catalog item
 	if err == nil {
-		sb.NameToPush = ""
-		// body.NameToPush = gc.centralCfg.GetEnvironmentName() + "." + kongAPI.name
+		sb.NameToPush = name
 	}
 
 	return sb, err
@@ -250,16 +226,13 @@ func buildServiceBody(kongAPI KongAPI, subscriptionHandler subscription.Subscrip
 func (gc *Client) processKongAPI(
 	service *kong.Service,
 	oasSpec Openapi,
-	endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint,
+	endpoints []InstanceEndpoint,
 	subscriptionHandler subscription.SubscriptionHandler,
 ) (*apic.ServiceBody, error) {
 	kongAPI := newKongAPI(service, oasSpec, endpoints)
-	// TODO: delete api service if needed
-	// If a kong route is deleted, and there are no more routes, then delete the api service?
-	// if a kong route no longer has any paths defined, then delete the api service?
-	// If an api spec is deleted from the service, then delete the api service?
 
-	serviceBody, err := buildServiceBody(kongAPI, subscriptionHandler)
+	name := gc.centralCfg.GetEnvironmentName() + "." + kongAPI.name
+	serviceBody, err := buildServiceBody(kongAPI, name, subscriptionHandler)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build service body: %v", serviceBody)
 	}
@@ -276,7 +249,7 @@ func (gc *Client) processKongAPI(
 	return &serviceBody, nil
 }
 
-func newKongAPI(service *kong.Service, oasSpec Openapi, endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint) KongAPI {
+func newKongAPI(service *kong.Service, oasSpec Openapi, endpoints []InstanceEndpoint) KongAPI {
 	return KongAPI{
 		id:            *service.ID,
 		name:          *service.Name,
@@ -300,11 +273,34 @@ func doesServiceExists(serviceId string, services []*kong.Service) bool {
 	return false
 }
 
-func endpointsToURL(endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint) openapi3.Servers {
+func endpointsToURL(endpoints []InstanceEndpoint) openapi3.Servers {
 	var urls openapi3.Servers
 	for _, endpoint := range endpoints {
 		url := fmt.Sprintf("%s://%s%s", endpoint.Protocol, endpoint.Host, endpoint.Routing.BasePath)
 		urls = append(urls, &openapi3.Server{URL: url})
 	}
 	return urls
+}
+
+func enableSubscription() *subscription.SubscriptionManager {
+	// Configure subscription schemas
+	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient())
+
+	// register schemas
+	for _, schema := range sm.Schemas() {
+		err := agent.GetCentralClient().RegisterSubscriptionSchema(schema)
+		if err != nil {
+			log.Errorf("Failed due: %s", err)
+		}
+		log.Infof("Schema registered: %s", schema.GetSubscriptionName())
+	}
+
+	agent.GetCentralClient().GetSubscriptionManager().RegisterValidator(sm.ValidateSubscription)
+	// register validator and handlers
+	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionApproved, sm.ProcessSubscribe)
+
+	// start polling for subscriptions
+	agent.GetCentralClient().GetSubscriptionManager().Start()
+
+	return sm
 }

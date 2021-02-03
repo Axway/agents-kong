@@ -6,11 +6,12 @@ import (
 	"github.com/Axway/agents-kong/pkg/subscription"
 
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
-
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 )
+
+type InstanceEndpoint = v1alpha1.ApiServiceInstanceSpecEndpoint
 
 type DoRequest interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -82,7 +83,7 @@ type KongAPI struct {
 	url           string
 	documentation []byte
 	resourceType  string
-	endpoints     []v1alpha1.ApiServiceInstanceSpecEndpoint
+	endpoints     []InstanceEndpoint
 }
 
 type CachedService struct {
