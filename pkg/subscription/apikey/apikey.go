@@ -3,14 +3,17 @@ package apikey
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
-	"github.com/kong/go-kong/kong"
+	"github.com/Axway/agents-kong/pkg/kong"
+	klib "github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
 )
 
 type APIKey struct {
-	kclient *kong.Client
+	kclient *klib.Client
+	kutil   *kong.Plugins
 }
 
 const Name = "kong-apikey"
@@ -20,8 +23,8 @@ const (
 	propertyName  = "api-key"
 )
 
-func New(kc *kong.Client) *APIKey {
-	return &APIKey{kc}
+func New(kc *klib.Client, kutil *kong.Plugins) *APIKey {
+	return &APIKey{kc, kutil}
 }
 
 func (*APIKey) Name() string {
@@ -48,7 +51,7 @@ func (*APIKey) Schema() apic.SubscriptionSchema {
 
 // IsApplicable if this subscription method
 // is applicable for a route with the given plugins.
-func (*APIKey) IsApplicable(plugins map[string]*kong.Plugin) bool {
+func (*APIKey) IsApplicable(plugins map[string]*klib.Plugin) bool {
 	_, ok := plugins[keyPluginName]
 	return ok
 }
@@ -61,35 +64,106 @@ func (ak *APIKey) Subscribe(log logrus.FieldLogger, subs apic.Subscription) {
 		log.Info("will generate key")
 	}
 
+	agentTag := "amplify-agent"
+	ctx := context.Background()
 	routeID := subs.GetRemoteAPIID()
-	route, err := ak.kclient.Routes.Get(context.Background(), &routeID)
+	subscriptionId := subs.GetID()
+	subscriptionName := subs.GetName() + "_" + subscriptionId
+	apicId := subs.GetApicID()
+	amplifyUserid := subs.GetCreatedUserID()
+	route, err := ak.kclient.Routes.Get(ctx, &routeID)
 	if err != nil {
 		log.WithError(err).Error("Failed to get route")
 		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("failed to get route %s: %s", routeID, err))
+		return
+	}
+	log.Info("route: %v", route)
+	consumerTags := []*string{&apicId, &agentTag}
+	// Create Kong Consumer
+	consumer := &klib.Consumer{
+		Username: &subscriptionName,
+		CustomID: &amplifyUserid,
+		Tags:     consumerTags,
+	}
+	consumerRes, err := ak.kclient.Consumers.Create(ctx, consumer)
+	if err != nil {
+		log.WithError(err).Error("Failed to create consumer")
+		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("failed to create Kong consumer %s: %s", routeID, err))
 
 		return
 	}
 
-	log.Info("route: %v", route)
+	//ak.kutil.
+	//plugins := ak.kutil.Plugins{ak.kclient.Plugins}
+	ep, err := ak.kutil.GetEffectivePlugins(*route.ID, *route.Service.ID)
+	log.Info("Plugins %v", ep)
+	acl, ok := ep["acl"]
+	if !ok {
+		log.Error("acl Plugin is not configured on route / service")
+		return
+	}
 
-	// plugins := &kutil.Plugins{ak.kclient.Plugins}
+	allowedGroup, ok := acl.Config["allow"].([]interface{})
+	if !ok {
+		log.Error("No restrictions anybody can call API")
 
-	// ep, err := plugins.GetEffectivePlugins(*route.ID, *route.Service.ID)
-	// acl, ok := ep["acl"]
-	// if !ok {
-	// 	// log warning
-	// }
-	// acl.Config
+	} else {
 
+		for _, group := range allowedGroup {
+			grouptStr := fmt.Sprintf("%v", group)
+			if strings.HasPrefix(grouptStr, "apic") {
+				acl := &klib.ACLGroup{
+					Group: &grouptStr,
+					Tags:  consumerTags,
+				}
+				aclRes, err := ak.kclient.ACLs.Create(ctx, consumerRes.ID, acl)
+				if err != nil {
+					log.WithError(err).Error("Failed to create ACL under consumer")
+					subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("Failed to create ACL under consumer %s: %s", routeID, err))
+					return
+				}
+				log.Info("acl: %v", aclRes)
+				break
+			}
+		}
+	}
 	// create consumer and tag
 	// create apikey
 
-	// once is done
+	keyAuth := &klib.KeyAuth{
+		Key:  &key,
+		Tags: consumerTags,
+	}
+	keyAuthRes, err := ak.kclient.KeyAuths.Create(ctx, consumerRes.ID, keyAuth)
 
-	subs.UpdateState(apic.SubscriptionActive, "Toodles")
+	if err != nil {
+		log.WithError(err).Error("Failed to create API Key")
+		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("Failed to create API Key %s: %s", routeID, err))
+		return
+	}
+	log.Info("keyauth: %v", keyAuthRes)
+	err = subs.UpdateStateWithProperties(apic.SubscriptionActive, "Toodles", map[string]interface{}{k: "this is your key now"})
+	if err != nil {
+		log.WithError(err).Error("failed to update subscription state")
+	}
 }
 
-func (*APIKey) Unsubscribe(log logrus.FieldLogger, subs apic.Subscription) {
-	// TODO
-	subs.UpdateState(apic.SubscriptionUnsubscribed, "Toodles")
+func (ak *APIKey) Unsubscribe(log logrus.FieldLogger, subs apic.Subscription) {
+	log.Info("Delete apikey subscription")
+	subscriptionId := subs.GetID()
+	routeID := subs.GetRemoteAPIID()
+	subscriptionName := subs.GetName() + "_" + subscriptionId
+	ctx := context.Background()
+
+	err := ak.kclient.Consumers.Delete(ctx, &subscriptionName)
+	if err != nil {
+		log.WithError(err).Error("Failed to delete Consumer")
+		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("Failed to create API Key %s: %s", routeID, err))
+		return
+	}
+	//subs.UpdateState(apic.SubscriptionUnsubscribed, "Toodles")
+	err = subs.UpdateStateWithProperties(apic.SubscriptionUnsubscribed, "Toodles", map[string]interface{}{propertyName: "this is your key now"})
+	if err != nil {
+		log.WithError(err).Error("failed to update subscription state")
+	}
 }

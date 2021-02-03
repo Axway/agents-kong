@@ -47,7 +47,7 @@ func New(
 	kc *kong.Client) *SubscriptionManager {
 	return &SubscriptionManager{
 		handlers: map[string]SubscriptionHandler{
-			apikey.Name: apikey.New(kc),
+			apikey.Name: apikey.New(kc, &kutil.Plugins{PluginLister: kc.Plugins}),
 		},
 		cig: cig,
 		log: log,
