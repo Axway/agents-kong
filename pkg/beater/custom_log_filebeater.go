@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
+	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/common"
 	"github.com/elastic/beats/v7/libbeat/logp"
@@ -31,9 +33,9 @@ func New(*beat.Beat, *common.Config) (beat.Beater, error) {
 	bt.eventProcessor = gateway.NewEventProcessor()
 
 	// Validate that all necessary services are up and running. If not, return error
-	//if hc.RunChecks() != hc.OK {
-	//	return nil, agentErrors.ErrInitServicesNotReady
-	//}
+	if hc.RunChecks() != hc.OK {
+		return nil, agentErrors.ErrInitServicesNotReady
+	}
 
 	return bt, nil
 }
