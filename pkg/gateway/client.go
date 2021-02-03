@@ -45,7 +45,6 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 }
 
 func (gc *Client) DiscoverAPIs() error {
-	ctx := context.Background()
 	apiServices, err := gc.apicClient.fetchCentralAPIServices(nil)
 	if err != nil {
 		log.Infof("failed to get central api services: %s", err)
@@ -54,14 +53,14 @@ func (gc *Client) DiscoverAPIs() error {
 	initCache(apiServices)
 
 	plugins := gc.kongClient.GetKongPlugins()
-	services, err := gc.kongClient.ListServices(ctx)
+	services, err := gc.kongClient.ListServices(context.Background())
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
 		return err
 	}
 
 	gc.removeDeletedServices(services)
-	gc.processKongServicesList(ctx, services, plugins)
+	gc.processKongServicesList(services, plugins)
 	return nil
 }
 
@@ -91,7 +90,7 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 	return nil
 }
 
-func (gc *Client) processKongServicesList(ctx context.Context, services []*kong.Service, plugins *kutil.Plugins) {
+func (gc *Client) processKongServicesList(services []*kong.Service, plugins *kutil.Plugins) {
 	wg := new(sync.WaitGroup)
 
 	for _, service := range services {
@@ -100,7 +99,7 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*kong.
 		go func(service *kong.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
 
-			err := gc.processSingleKongService(ctx, service, plugins)
+			err := gc.processSingleKongService(context.Background(), service, plugins)
 			if err != nil {
 				log.Error(err)
 			}
