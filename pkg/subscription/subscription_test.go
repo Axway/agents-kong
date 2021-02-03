@@ -1,10 +1,13 @@
 package subscription_test
 
 import (
+	"context"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/Axway/agents-kong/pkg/subscription/apikey"
+	"github.com/kong/go-kong/kong"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
@@ -276,68 +279,70 @@ func TestSubscription(t *testing.T) {
 		SubscriptionConfiguration: config.NewSubscriptionConfig(),
 	})
 
-	/*
-		//
-		// initialize kong client
-		// set your kong url below
-		//
+	//
+	// initialize kong client
+	// set your kong url below
+	//
 
-		kURL := "http://localhost:8001" // change
+	kURL := "http://localhost:8001" // change
 
-		k, err := kong.NewClient(&kURL, &http.Client{})
+	k, err := kong.NewClient(&kURL, &http.Client{})
+	if err != nil {
+		t.Fatalf("Failed due: %s", err)
+	}
+
+	//
+	// create test kong resources
+	//
+	name := stringP("petstore")
+	// create the route and service
+	svc, err := k.Services.Create(context.TODO(), &kong.Service{
+		Name:     name,
+		Host:     stringP("petstore.swagger.io"),
+		Path:     stringP("/v2"),
+		Protocol: stringP("http"),
+	})
+	if err != nil {
+		if e, ok := err.(*kong.APIError); !ok || (ok && e.Code() != 409) {
+			t.Fatalf("Failed due: %s", err)
+		}
+		svc, err = k.Services.Get(context.TODO(), name)
 		if err != nil {
 			t.Fatalf("Failed due: %s", err)
 		}
+	}
+	route, err := k.Routes.CreateInService(context.TODO(), svc.ID, &kong.Route{
+		Name:  name,
+		Hosts: []*string{stringP("localhost")},
+		Paths: []*string{stringP("/" + *name)},
+	})
+	if err != nil {
+		if e, ok := err.(*kong.APIError); !ok || (ok && e.Code() != 409) {
+			t.Fatalf("Failed due: %s", err)
+		}
+		route, err = k.Routes.Get(context.TODO(), name)
+		if err != nil {
+			t.Fatalf("Failed due: %s", err)
+		}
+	}
+	_, err = k.Plugins.Create(context.TODO(), &kong.Plugin{
+		Name:  stringP("key-auth"),
+		Route: route,
+	})
+	if err != nil {
+		if e, ok := err.(*kong.APIError); !ok || (ok && e.Code() != 409) {
+			t.Fatalf("Failed due: %s", err)
+		}
+	}
 
-		//
-		// create test kong resources
-		//
-		name := stringP("petstore")
-		// create the route and service
-		svc, err := k.Services.Create(context.TODO(), &kong.Service{
-			Name:     name,
-			Host:     stringP("petstore.swagger.io"),
-			Path:     stringP("/v2"),
-			Protocol: stringP("http"),
-		})
-		if err != nil {
-			if e, ok := err.(*kong.APIError); !ok || (ok && e.Code() != 409) {
-				t.Fatalf("Failed due: %s", err)
-			}
-			svc, err = k.Services.Get(context.TODO(), name)
-			if err != nil {
-				t.Fatalf("Failed due: %s", err)
-			}
-		}
-		route, err := k.Routes.CreateInService(context.TODO(), svc.ID, &kong.Route{
-			Name:  name,
-			Hosts: []*string{stringP("localhost")},
-			Paths: []*string{stringP("/" + *name)},
-		})
-		if err != nil {
-			if e, ok := err.(*kong.APIError); !ok || (ok && e.Code() != 409) {
-				t.Fatalf("Failed due: %s", err)
-			}
-			route, err = k.Routes.Get(context.TODO(), name)
-			if err != nil {
-				t.Fatalf("Failed due: %s", err)
-			}
-		}
-		_, err = k.Plugins.Create(context.TODO(), &kong.Plugin{
-			Name:  stringP("key-auth"),
-			Route: route,
-		})
-		if err != nil {
-			if e, ok := err.(*kong.APIError); !ok || (ok && e.Code() != 409) {
-				t.Fatalf("Failed due: %s", err)
-			}
-		}
-	*/
 	//
 	// this should happen as the agent is starting up
 	//
 
-	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient(), k)
+	sm := subscription.New(logrus.StandardLogger(),
+		agent.GetCentralClient(),
+		agent.GetCentralClient(),
+		k)
 
 	// register schemas
 	for _, schema := range sm.Schemas() {

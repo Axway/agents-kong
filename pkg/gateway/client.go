@@ -295,7 +295,11 @@ func doesServiceExists(serviceId string, services []*kong.Service) bool {
 }
 
 func initSubscriptionManager(kc *kong.Client) (*subscription.Manager, error) {
-	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient(), kc)
+	sm := subscription.New(
+		logrus.StandardLogger(),
+		agent.GetCentralClient(),
+		agent.GetCentralClient(),
+		kc)
 
 	// register schemas
 	for _, schema := range sm.Schemas() {

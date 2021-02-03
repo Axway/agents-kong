@@ -1,6 +1,8 @@
 package subscription
 
 import (
+	"sync"
+
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/kong/go-kong/kong"
@@ -16,6 +18,11 @@ func Register(constructor func(*kong.Client) Handler) {
 // ConsumerInstanceGetter gets a consumer instance by id.
 type ConsumerInstanceGetter interface {
 	GetConsumerInstanceByID(id string) (*v1alpha1.ConsumerInstance, error)
+}
+
+// SubscriptionGetter gets the all the subscription in any of the states for the catalog item with id
+type SubscriptionGetter interface {
+	GetSubscriptionsForCatalogItem(states []string, id string) ([]apic.CentralSubscription, error)
 }
 
 type Info struct {
@@ -39,10 +46,15 @@ type Manager struct {
 	log      logrus.FieldLogger
 	handlers map[string]Handler
 	cig      ConsumerInstanceGetter
+	sg       SubscriptionGetter
+	dg       *duplicateGuard
 	//	plugins  *kutil.Plugins
 }
 
-func New(log logrus.FieldLogger, cig ConsumerInstanceGetter, kc *kong.Client) *Manager {
+func New(log logrus.FieldLogger,
+	cig ConsumerInstanceGetter,
+	sg SubscriptionGetter,
+	kc *kong.Client) *Manager {
 	handlers := make(map[string]Handler, len(constructors))
 
 	for _, c := range constructors {
@@ -55,6 +67,11 @@ func New(log logrus.FieldLogger, cig ConsumerInstanceGetter, kc *kong.Client) *M
 		handlers: handlers,
 		cig:      cig,
 		log:      log,
+		sg:       sg,
+		dg: &duplicateGuard{
+			cache: map[string]interface{}{},
+			lock:  &sync.Mutex{},
+		},
 	}
 }
 
@@ -79,16 +96,75 @@ func (sm *Manager) GetSubscriptionInfo(plugins map[string]*kong.Plugin) Info {
 }
 
 func (sm *Manager) ValidateSubscription(subscription apic.Subscription) bool {
-	// TODO
+	if sm.dg.markActive(subscription.GetID()) {
+		sm.log.Info("duplicate subscription event; already handling subscription")
+		return false
+	}
+
 	return true
 }
 
+type duplicateGuard struct {
+	cache map[string]interface{}
+	lock  *sync.Mutex
+}
+
+// markActive returns
+func (dg *duplicateGuard) markActive(id string) bool {
+	dg.lock.Lock()
+	defer dg.lock.Unlock()
+	if _, ok := dg.cache[id]; ok {
+		return true
+	}
+
+	dg.cache[id] = true
+
+	return false
+}
+
+// markActive returns
+func (dg *duplicateGuard) markInactive(id string) bool {
+	dg.lock.Lock()
+	defer dg.lock.Unlock()
+
+	delete(dg.cache, id)
+	return false
+}
+
+func (sm *Manager) checkSubscriptionState(subscriptionID, catalogItemID, subscriptionState string) (bool, error) {
+
+	subs, err := sm.sg.GetSubscriptionsForCatalogItem([]string{string(subscriptionState)}, catalogItemID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, sub := range subs {
+		if sub.GetID() == subscriptionID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func (sm *Manager) ProcessSubscribe(subscription apic.Subscription) {
+	defer sm.dg.markInactive(subscription.GetID())
 	log := sm.log.
 		WithField("subscriptionID", subscription.GetID()).
 		WithField("catalogItemID", subscription.GetCatalogItemID()).
 		WithField("remoteID", subscription.GetRemoteAPIID()).
 		WithField("consumerInstanceID", subscription.GetApicID())
+
+	isApproved, err := sm.checkSubscriptionState(subscription.GetID(), subscription.GetCatalogItemID(), string(apic.SubscriptionApproved))
+	if err != nil {
+		log.WithError(err).Error("Failed to verify subscription state")
+		return
+	}
+
+	if !isApproved {
+		log.Info("Subscription not in approved state. Nothing to do")
+		return
+	}
 
 	log.Info("Processing subscription")
 
@@ -106,11 +182,27 @@ func (sm *Manager) ProcessSubscribe(subscription apic.Subscription) {
 }
 
 func (sm *Manager) ProcessUnsubscribe(subscription apic.Subscription) {
+	defer sm.dg.markInactive(subscription.GetID())
+
 	log := sm.log.
 		WithField("subscriptionID", subscription.GetID()).
 		WithField("catalogItemID", subscription.GetCatalogItemID()).
 		WithField("remoteID", subscription.GetRemoteAPIID()).
 		WithField("consumerInstanceID", subscription.GetApicID())
+
+	if sm.dg.markActive(subscription.GetID()) {
+		sm.log.Info("duplicate subscription event; already handling subscription")
+	}
+	isUnsubscribeInitiated, err := sm.checkSubscriptionState(subscription.GetID(), subscription.GetCatalogItemID(), string(apic.SubscriptionUnsubscribeInitiated))
+	if err != nil {
+		log.WithError(err).Error("Failed to verify subscription state")
+		return
+	}
+
+	if !isUnsubscribeInitiated {
+		log.Info("Subscription not in unsubscribe initiated state. Nothing to do")
+		return
+	}
 
 	log.Info("Removing subscription")
 
