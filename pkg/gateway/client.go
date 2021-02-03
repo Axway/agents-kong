@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
-
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/cache"
+	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	"github.com/kong/go-kong/kong"
 )
 
-const kongChecksum = "kong-api-checksum"
+const kongHash = "kong-hash"
 const externalAPIID = "externalAPIID"
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
@@ -35,23 +35,34 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	apicClient := agent.GetCentralClient()
+	apicClient := CentralClient{
+		client:        agent.GetCentralClient(),
+		envName:       agentConfig.CentralCfg.GetEnvironmentName(),
+		apiServerHost: agentConfig.CentralCfg.GetAPIServerURL(),
+	}
 	return &Client{
-		agentConfig: agentConfig,
-		kongClient:  kongClient,
-		baseClient:  client,
-		apicClient:  apicClient,
+		centralCfg:     agentConfig.CentralCfg,
+		kongGatewayCfg: agentConfig.KongGatewayCfg,
+		kongClient:     kongClient,
+		baseClient:     client,
+		apicClient:     apicClient,
 	}, nil
 }
 
 func (gc *Client) DiscoverAPIs() error {
 	ctx := context.Background()
-	gc.initCache()
+	apiServices, err := gc.apicClient.fetchCentralAPIServices(nil)
+	if err != nil {
+		log.Infof("failed to get central api services: %s", err)
+	}
+	initCache(apiServices)
+
 	services, err := gc.kongClient.Services.ListAll(ctx)
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
 		return err
 	}
+
 	gc.removeDeletedServices(services)
 	gc.processKongServicesList(ctx, services)
 	return nil
@@ -62,14 +73,14 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 	log.Info("checking for deleted kong services")
 	// TODO: add go funcs
 	for _, serviceId := range specCache.GetKeys() {
-		if !gc.serviceExists(serviceId, services) {
+		if !doesServiceExists(serviceId, services) {
 			item, err := specCache.Get(serviceId)
 			if err != nil {
 				log.Errorf("failed to get cached service: %s", serviceId)
 				return err
 			}
 			cachedService := item.(CachedService)
-			err = gc.removeService(cachedService)
+			err = gc.apicClient.deleteCentralAPIService(cachedService)
 			if err != nil {
 				log.Errorf("failed to remove service '%s': %s", cachedService.kongServiceName, err)
 				return err
@@ -81,48 +92,6 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 		}
 	}
 	return nil
-}
-
-func (gc *Client) removeService(cachedService CachedService) error {
-	envName := gc.agentConfig.CentralCfg.GetEnvironmentName()
-	url := fmt.Sprintf("%s%s/apiservices/%s", gc.agentConfig.CentralCfg.GetAPIServerURL(), envName, cachedService.centralName)
-	log.Info(url)
-	// TODO: ExecuteAPI only returns a success when status code is 200
-	gc.apicClient.ExecuteAPI(http.MethodDelete, url, nil, nil)
-
-	log.Infof("service removed: %s", cachedService.kongServiceName)
-	return nil
-}
-
-func (gc *Client) serviceExists(serviceId string, services []*kong.Service) bool {
-	for _, srv := range services {
-		if serviceId == *srv.ID {
-			return true
-		}
-	}
-	log.Infof("Kong service '%s' no longer exists.", serviceId)
-	return false
-}
-
-func (gc *Client) initCache() {
-	envName := gc.agentConfig.CentralCfg.GetEnvironmentName()
-	url := fmt.Sprintf("%s%s/apiservices", gc.agentConfig.CentralCfg.GetAPIServerURL(), envName)
-	data, err := gc.apicClient.ExecuteAPI(http.MethodGet, url, nil, nil)
-	if err != nil {
-		log.Errorf("failed to get apiservices for '%s': %s", envName, err)
-		return
-	}
-
-	var centralAPIServices []*v1alpha1.APIService
-	err = json.Unmarshal(data, &centralAPIServices)
-	if err != nil {
-		log.Errorf("failed to unmarshal apiservices: %s", err)
-		return
-	}
-
-	for _, apiSvc := range centralAPIServices {
-		cacheServiceChecksum(apiSvc.Attributes[externalAPIID], apiSvc.Title, apiSvc.Attributes[kongChecksum], apiSvc.Name)
-	}
 }
 
 func (gc *Client) processKongServicesList(ctx context.Context, services []*kong.Service) {
@@ -145,7 +114,12 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*kong.
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Service) error {
-	serviceBody, err := gc.processKongAPI(ctx, service)
+	routes, err := gc.getRoutesForService(ctx, *service.ID)
+	if err != nil {
+		return err
+	}
+	endpoints := gc.processKongRoute(gc.kongGatewayCfg.ProxyEndpoint, routes[0])
+	serviceBody, err := gc.processKongAPI(ctx, service, endpoints)
 	if err != nil {
 		return err
 	}
@@ -160,9 +134,38 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	return nil
 }
 
-func (gc *Client) buildServiceBody(kongAPI KongAPI, checksum string) (apic.ServiceBody, error) {
+func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []v1alpha1.ApiServiceInstanceSpecEndpoint {
+	var endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint
+	if route == nil {
+		return endpoints
+	}
+	hosts := route.Hosts
+	if len(route.Hosts) == 0 {
+		hosts = []*string{&defaultHost}
+	}
+	for _, host := range hosts {
+		for _, path := range route.Paths {
+			for _, protocol := range route.Protocols {
+				port := 80
+				if *protocol == "https" {
+					port = 443
+				}
+				endpoint := v1alpha1.ApiServiceInstanceSpecEndpoint{
+					Host:     *host,
+					Port:     int32(port),
+					Protocol: *protocol,
+					Routing:  v1alpha1.ApiServiceInstanceSpecRouting{BasePath: *path},
+				}
+				endpoints = append(endpoints, endpoint)
+			}
+		}
+	}
+
+	return endpoints
+}
+
+func (gc *Client) buildServiceBody(kongAPI KongAPI, endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint) (apic.ServiceBody, error) {
 	serviceAttribute := make(map[string]string)
-	serviceAttribute[kongChecksum] = checksum
 	return apic.NewServiceBodyBuilder().
 		SetAPIName(kongAPI.name).
 		SetAPISpec(kongAPI.swaggerSpec).
@@ -175,6 +178,7 @@ func (gc *Client) buildServiceBody(kongAPI KongAPI, checksum string) (apic.Servi
 		SetTitle(kongAPI.name).
 		SetURL(kongAPI.url).
 		SetVersion(kongAPI.version).
+		SetServiceEndpoints(endpoints).
 		Build()
 }
 
@@ -184,8 +188,7 @@ func (gc *Client) getRoutesForService(ctx context.Context, serviceId string) ([]
 }
 
 func (gc *Client) getServiceSpec(ctx context.Context, serviceId string) (*KongServiceSpec, error) {
-	// build out get request
-	endpoint := fmt.Sprintf("%s/services/%s/document_objects", gc.agentConfig.KongGatewayCfg.AdminEndpoint, serviceId)
+	endpoint := fmt.Sprintf("%s/services/%s/document_objects", gc.kongGatewayCfg.AdminEndpoint, serviceId)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %s", err)
@@ -210,7 +213,7 @@ func (gc *Client) getServiceSpec(ctx context.Context, serviceId string) (*KongSe
 }
 
 func (gc *Client) getSpec(ctx context.Context, path string) (*KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/default/files/%s", gc.agentConfig.KongGatewayCfg.AdminEndpoint, path)
+	endpoint := fmt.Sprintf("%s/default/files/%s", gc.kongGatewayCfg.AdminEndpoint, path)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %s", err)
@@ -237,7 +240,11 @@ func (gc *Client) getSpec(ctx context.Context, path string) (*KongServiceSpec, e
 	return kongServiceSpec, nil
 }
 
-func (gc *Client) processKongAPI(ctx context.Context, service *kong.Service) (*apic.ServiceBody, error) {
+func (gc *Client) processKongAPI(
+	ctx context.Context,
+	service *kong.Service,
+	endpoints []v1alpha1.ApiServiceInstanceSpecEndpoint,
+) (*apic.ServiceBody, error) {
 	kongServiceSpec, err := gc.getServiceSpec(ctx, *service.ID)
 	if err != nil {
 		// TODO: If no spec is found, then it was likely deleted, and should be deleted from central
@@ -247,63 +254,28 @@ func (gc *Client) processKongAPI(ctx context.Context, service *kong.Service) (*a
 	oasSpec := Openapi{
 		spec: kongServiceSpec.Contents,
 	}
-	routes, err := gc.getRoutesForService(ctx, *service.ID)
+
+	kongAPI := newKongAPI(service, oasSpec)
+	// TODO: delete api service if needed
+	// If a kong route is deleted, and there are no more routes, then delete the api service?
+	// if a kong route no longer has any paths defined, then delete the api service?
+	// If an api spec is deleted from the service, then delete the api service?
+
+	serviceBody, err := gc.buildServiceBody(kongAPI, endpoints)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get routes: %s", err)
+		return nil, fmt.Errorf("failed to build service body: %s", serviceBody)
 	}
-	var route *kong.Route
-	if len(routes) == 0 {
-		return nil, fmt.Errorf("no routes found for '%s'. at least one route is required", *service.Name)
-	} else {
-		route = routes[0]
-	}
-	oasSpec = gc.setSpecHost(oasSpec, route)
-	serviceBody, err := gc.buildServiceBody(newKongAPI(service, oasSpec), kongServiceSpec.Checksum)
-	isCached := cacheServiceChecksum(*service.ID, *service.Name, kongServiceSpec.Checksum, serviceBody.APIName)
+
+	serviceBodyHash, _ := util.ComputeHash(serviceBody)
+	hash := fmt.Sprintf("%v", serviceBodyHash)
+	serviceBody.ServiceAttributes[kongHash] = hash
+
+	isCached := setCachedService(*service.ID, *service.Name, hash, serviceBody.APIName)
 	if isCached == true {
 		return nil, nil
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to build service body: %s", serviceBody)
-	}
 	return &serviceBody, nil
-}
-
-func (gc *Client) setSpecHost(spec Openapi, route *kong.Route) Openapi {
-	var specAsMap map[string]interface{}
-	err := json.Unmarshal([]byte(spec.spec), &specAsMap)
-	if err != nil {
-		log.Errorf("failed to unmarshal spec: %s", err)
-		return spec
-	}
-
-	if spec.ResourceType() == apic.Oas2 {
-		if route != nil && len(route.Hosts) > 0 {
-			specAsMap["host"] = route.Hosts[0]
-		} else {
-			specAsMap["host"] = gc.agentConfig.KongGatewayCfg.ProxyEndpoint
-		}
-		if route != nil && len(route.Paths) > 0 {
-			specAsMap["basePath"] = route.Paths[0]
-		}
-		if route != nil {
-			specAsMap["schemes"] = route.Protocols
-		} else {
-			specAsMap["schemes"] = gc.agentConfig.KongGatewayCfg.ProxyEndpointProtocols
-		}
-	}
-
-	if spec.ResourceType() == apic.Oas3 {
-
-	}
-
-	specAsJsonBytes, err := json.Marshal(specAsMap)
-	if err != nil {
-		log.Errorf("failed to marshal: %s", err)
-	}
-	spec.spec = string(specAsJsonBytes)
-	return spec
 }
 
 func newKongAPI(service *kong.Service, oasSpec Openapi) KongAPI {
@@ -319,37 +291,12 @@ func newKongAPI(service *kong.Service, oasSpec Openapi) KongAPI {
 	}
 }
 
-// If the item is cached, return true
-func cacheServiceChecksum(kongServiceId string, kongServiceName string, checksum string, centralName string) bool {
-	specCache := cache.GetCache()
-	item, err := specCache.Get(kongServiceId)
-	// if there is an error, then the item is not in the cache
-	if err != nil {
-		cachedService := CachedService{
-			kongServiceId:   kongServiceId,
-			kongServiceName: kongServiceName,
-			checksum:        checksum,
-			centralName:     centralName,
-		}
-		specCache.Set(kongServiceId, cachedService)
-		log.Infof("adding to the cache: '%s'. centralName: '%s'", kongServiceName, centralName)
-		return false
-	}
-
-	if item != nil {
-		if cachedService, ok := item.(CachedService); ok {
-			if cachedService.kongServiceId == kongServiceId && cachedService.checksum == checksum {
-				cachedService.centralName = centralName
-				cachedService.kongServiceName = kongServiceName
-				specCache.Set(kongServiceId, cachedService)
-				return true
-			} else {
-				cachedService.kongServiceName = kongServiceName
-				cachedService.checksum = checksum
-				specCache.Set(kongServiceId, cachedService)
-				log.Infof("adding to the cache: '%s'. centralName: '%'", kongServiceName, centralName)
-			}
+func doesServiceExists(serviceId string, services []*kong.Service) bool {
+	for _, srv := range services {
+		if serviceId == *srv.ID {
+			return true
 		}
 	}
+	log.Infof("Kong service '%s' no longer exists.", serviceId)
 	return false
 }

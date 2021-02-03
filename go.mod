@@ -3,7 +3,7 @@ module github.com/Axway/agents-kong
 go 1.13
 
 require (
-	github.com/Axway/agent-sdk v0.0.19-0.20210126163226-3d297ae76e96
+	github.com/Axway/agent-sdk v0.0.20-0.20210203041543-842ab976be9a
 	github.com/Shopify/sarama v1.26.4 // indirect
 	github.com/docker/docker v1.13.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect

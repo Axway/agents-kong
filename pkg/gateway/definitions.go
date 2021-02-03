@@ -3,7 +3,7 @@ package gateway
 import (
 	"net/http"
 
-	"github.com/Axway/agent-sdk/pkg/apic"
+	corecfg "github.com/Axway/agent-sdk/pkg/config"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	"github.com/kong/go-kong/kong"
@@ -59,10 +59,11 @@ type KongServiceSpec struct {
 }
 
 type Client struct {
-	agentConfig config.AgentConfig
-	kongClient  *kong.Client
-	baseClient  http.Client
-	apicClient  apic.Client
+	centralCfg     corecfg.CentralConfig
+	kongGatewayCfg *config.KongGatewayConfig
+	kongClient     *kong.Client
+	baseClient     http.Client
+	apicClient     CentralClient
 }
 
 type KongAPI struct {
@@ -79,6 +80,6 @@ type KongAPI struct {
 type CachedService struct {
 	kongServiceId   string
 	kongServiceName string
-	checksum        string
+	hash            string
 	centralName     string
 }
