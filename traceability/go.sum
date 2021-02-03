@@ -21,6 +21,8 @@ code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a/go.mod h1:tkZo8
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/Axway/agent-sdk v0.0.19-0.20210126163226-3d297ae76e96 h1:w99KVTrHHFFT8f9Ej0OcnPAKyWITMCxjfV4DsU2IfKA=
 github.com/Axway/agent-sdk v0.0.19-0.20210126163226-3d297ae76e96/go.mod h1:fOaWmFFg1eDheNJZNe2+T/jRwfSm8AWcap1p+ytBv8I=
+github.com/Axway/agents-kong v0.0.0-20210129173821-dee0bc310e0f h1:HDNODYNT8/Al1ryjRHQDJL4503hOEOLNiQab5ej+uO8=
+github.com/Axway/agents-kong v0.0.0-20210129173821-dee0bc310e0f/go.mod h1:9i8YPCTtXTypkKE58xWfyxQeW67RpJr/fMdfFEw0kiM=
 github.com/Azure/azure-amqp-common-go/v3 v3.0.0/go.mod h1:SY08giD/XbhTz07tJdpw1SoxQXHPN30+DI3Z04SYqyg=
 github.com/Azure/azure-event-hubs-go/v3 v3.1.2/go.mod h1:hR40byNJjKkS74+3RhloPQ8sJ8zFQeJ920Uk3oYY0+k=
 github.com/Azure/azure-pipeline-go v0.1.8/go.mod h1:XA1kFWRVhSK+KNFiOhfv83Fv8L9achrP7OxIzeTn1Yg=

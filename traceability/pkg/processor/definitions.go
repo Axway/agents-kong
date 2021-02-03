@@ -1,4 +1,4 @@
-package gateway
+package processor
 
 // KongTrafficLogEntry - Represents the structure of log entry the agent will receive from Kong's HTTP Log Plugin
 type KongTrafficLogEntry struct {
