@@ -11,13 +11,10 @@ download: tidy
 	@go mod download
 
 build:
-	@go build -o bin/agents-kong ./cmd/main.go
+	@go build -o bin/kong_traceability_agent main.go
 
-run-discovery:
-	./bin/agents-kong kong_discovery_agent run
-
-run-traceability:
-	./bin/agents-kong kong_traceability_agent run
+run:
+	./bin/kong_traceability_agent
 
 lint:
 	@golangci-lint run -v

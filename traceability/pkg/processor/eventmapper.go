@@ -1,4 +1,4 @@
-package gateway
+package processor
 
 import (
 	"bytes"
@@ -33,6 +33,10 @@ func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([
 		log.Errorf("Error while building transaction summary event: %s", err)
 		return nil, err
 	}
+
+	jTransactionSummary, err := json.Marshal(transSummaryLogEvent)
+
+	log.Info("Generated Transaction summary event: ", string(jTransactionSummary))
 
 	return []*transaction.LogEvent{
 		transSummaryLogEvent,
@@ -109,7 +113,7 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 		SetTimestamp(ktle.StartedAt).
 		SetTransactionID(ktle.Request.Headers[requestID]).
 		SetID("leg0").
-		SetParentID("null").
+		SetParentID("").
 		SetSource("client_ip").
 		SetDestination("backend_api").
 		SetDirection("outbound").
@@ -133,6 +137,6 @@ func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string
 		SetDuration(ktle.Latencies.Request).
 		SetProxy(transaction.FormatProxyID(ktle.Service.ID),
 			ktle.Service.Name,
-			0).
+			1).
 		Build()
 }
