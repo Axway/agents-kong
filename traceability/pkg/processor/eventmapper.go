@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/transaction"
@@ -19,6 +20,7 @@ type EventMapper struct {
 const requestID = "kong-request-id"
 const host = "host"
 const userAgent = "user-agent"
+const hash = "#"
 
 func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
 	centralCfg := agent.GetCentralConfig()
@@ -98,6 +100,13 @@ func (m *EventMapper) processQueryArgs(args map[string]string) string {
 	return b.String()
 }
 
+func (m *EventMapper) trimRequestId(reqId string) string {
+	if strings.Contains(reqId, hash) {
+		return strings.Split(reqId, hash)[0]
+	}
+	return reqId
+}
+
 func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transaction.LogEvent, error) {
 
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
@@ -121,7 +130,7 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 
 	return transaction.NewTransactionEventBuilder().
 		SetTimestamp(ktle.StartedAt).
-		SetTransactionID(ktle.Request.Headers[requestID]).
+		SetTransactionID(m.trimRequestId(ktle.Request.Headers[requestID])).
 		SetID("leg0").
 		SetParentID("").
 		SetSource("client_ip").
@@ -137,7 +146,7 @@ func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string
 
 	return transaction.NewTransactionSummaryBuilder().
 		SetTimestamp(ktle.StartedAt).
-		SetTransactionID(ktle.Request.Headers[requestID]).
+		SetTransactionID(m.trimRequestId(ktle.Request.Headers[requestID])).
 		SetStatus(m.getTransactionSummaryStatus(ktle.Response.Status),
 			strconv.Itoa(ktle.Response.Status)).
 		SetTeam(teamID).
