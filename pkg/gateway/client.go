@@ -335,6 +335,7 @@ func initSubscriptionManager(kc *klib.Client) (*subscription.Manager, error) {
 	agent.GetCentralClient().GetSubscriptionManager().RegisterValidator(sm.ValidateSubscription)
 	// register validator and handlers
 	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionApproved, sm.ProcessSubscribe)
+	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionUnsubscribeInitiated, sm.ProcessUnsubscribe)
 
 	// start polling for subscriptions
 	agent.GetCentralClient().GetSubscriptionManager().Start()
