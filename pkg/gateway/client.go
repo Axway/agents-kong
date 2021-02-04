@@ -147,8 +147,6 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 
 	subscriptionInfo := gc.subscriptionManager.GetSubscriptionInfo(ep)
 
-	endpoints := gc.processKongRoute(proxyEndpoint, route, httpPort, httpsPort)
-
 	kongServiceSpec, err := specmanager.GetSpecification(ctx, service)
 	if err != nil {
 		// TODO: If no spec is found, then it was likely deleted, and should be deleted from central
@@ -158,6 +156,8 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	oasSpec := Openapi{
 		spec: kongServiceSpec.Contents,
 	}
+
+	endpoints := gc.processKongRoute(proxyEndpoint, oasSpec.BasePath(), route, httpPort, httpsPort)
 
 	serviceBody, err := gc.processKongAPI(*route.ID, service, oasSpec, endpoints, subscriptionInfo)
 	if err != nil {
@@ -194,7 +194,7 @@ func (gc *Client) deleteCentralService(serviceID string, serviceName string) {
 	}
 }
 
-func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPort, httpsPort int) []InstanceEndpoint {
+func (gc *Client) processKongRoute(defaultHost string, basePath string, route *klib.Route, httpPort, httpsPort int) []InstanceEndpoint {
 	var endpoints []InstanceEndpoint
 	if route == nil {
 		return endpoints
@@ -210,11 +210,16 @@ func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPo
 				if *protocol == "https" {
 					port = httpsPort
 				}
+
+				routingBasePath := *path
+				if *route.StripPath == true {
+					routingBasePath = routingBasePath + basePath
+				}
 				endpoint := InstanceEndpoint{
 					Host:     *host,
 					Port:     int32(port),
 					Protocol: *protocol,
-					Routing:  v1alpha1.ApiServiceInstanceSpecRouting{BasePath: *path},
+					Routing:  v1alpha1.ApiServiceInstanceSpecRouting{BasePath: routingBasePath},
 				}
 				endpoints = append(endpoints, endpoint)
 			}
