@@ -44,10 +44,10 @@ type SubscriptionManager struct {
 func New(
 	log logrus.FieldLogger,
 	cig ConsumerInstanceGetter,
-	kc *kong.Client) *SubscriptionManager {
+	kc *kong.Client, url, token string) *SubscriptionManager {
 	return &SubscriptionManager{
 		handlers: map[string]SubscriptionHandler{
-			apikey.Name: apikey.New(kc, &kutil.Plugins{PluginLister: kc.Plugins}),
+			apikey.Name: apikey.New(kc, &kutil.Plugins{PluginLister: kc.Plugins}, url, token),
 		},
 		cig: cig,
 		log: log,
