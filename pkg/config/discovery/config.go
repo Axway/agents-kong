@@ -31,13 +31,13 @@ func (c *KongGatewayConfig) ValidateCfg() (err error) {
 		return fmt.Errorf("error: token is required")
 	}
 	if c.AdminEndpoint == "" {
-		return fmt.Errorf("error: admin_endpoint is required")
+		return fmt.Errorf("error: adminEndpoint is required")
 	}
 	if c.ProxyEndpoint == "" {
-		return fmt.Errorf("error: proxy_endpoint is required")
+		return fmt.Errorf("error: proxyEndpoint is required")
 	}
-	if c.ProxyHttpPort == 0 || c.ProxyHttpsPort == 0 {
-		return fmt.Errorf("error: proxy_endpoint_protocols requires at least one value of either http or https")
+	if c.ProxyHttpPort == 0 && c.ProxyHttpsPort == 0 {
+		return fmt.Errorf("error: proxyEndpointProtocols requires at least one value of either http or https")
 	}
 	if c.User == "" {
 		return fmt.Errorf("error: user is required")
