@@ -3,11 +3,12 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 	"github.com/Axway/agents-kong/pkg/kong/specmanager/devportal"
 	"github.com/Axway/agents-kong/pkg/kong/specmanager/localdir"
-	"net/http"
-	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -173,7 +174,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		spec: kongServiceSpec.Contents,
 	}
 
-	serviceBody, err := gc.processKongAPI(service, oasSpec, endpoints, subscriptionInfo)
+	serviceBody, err := gc.processKongAPI(*route.ID, service, oasSpec, endpoints, subscriptionInfo)
 	if err != nil {
 		return err
 	}
@@ -222,13 +223,14 @@ func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPo
 }
 
 func (gc *Client) processKongAPI(
+	routeID string,
 	service *klib.Service,
 	oasSpec Openapi,
 	endpoints []InstanceEndpoint,
 	subscriptionInfo subscription.Info,
 ) (*apic.ServiceBody, error) {
 	name := gc.centralCfg.GetEnvironmentName() + "." + *service.Name
-	kongAPI := newKongAPI(service, oasSpec, endpoints, name, subscriptionInfo)
+	kongAPI := newKongAPI(routeID, service, oasSpec, endpoints, name, subscriptionInfo)
 
 	serviceBody, err := kongAPI.buildServiceBody()
 	if err != nil {
@@ -240,7 +242,7 @@ func (gc *Client) processKongAPI(
 	serviceBody.ServiceAttributes[kongHash] = hash
 
 	isCached := setCachedService(*service.ID, *service.Name, hash, serviceBody.APIName)
-	if isCached == true {
+	if isCached {
 		return nil, nil
 	}
 
@@ -248,6 +250,7 @@ func (gc *Client) processKongAPI(
 }
 
 func newKongAPI(
+	routeID string,
 	service *klib.Service,
 	oasSpec Openapi,
 	endpoints []InstanceEndpoint,
@@ -255,7 +258,7 @@ func newKongAPI(
 	info subscription.Info,
 ) KongAPI {
 	return KongAPI{
-		id:               *service.ID,
+		id:               routeID,
 		name:             *service.Name,
 		description:      oasSpec.Description(),
 		version:          oasSpec.Version(),
