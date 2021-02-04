@@ -75,15 +75,17 @@ type Client struct {
 }
 
 type KongAPI struct {
-	swaggerSpec   []byte
-	id            string
-	name          string
-	description   string
-	version       string
-	url           string
-	documentation []byte
-	resourceType  string
-	endpoints     []InstanceEndpoint
+	swaggerSpec         []byte
+	id                  string
+	name                string
+	description         string
+	version             string
+	url                 string
+	documentation       []byte
+	resourceType        string
+	endpoints           []InstanceEndpoint
+	subscriptionHandler subscription.SubscriptionHandler
+	nameToPush          string
 }
 
 type CachedService struct {

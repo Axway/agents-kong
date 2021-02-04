@@ -16,9 +16,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/Axway/agents-kong/pkg/subscription"
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kong/go-kong/kong"
 )
 
@@ -52,7 +50,6 @@ func (gc *Client) DiscoverAPIs() error {
 	// TODO: initCache should only run once
 	initCache(apiServices)
 
-	plugins := gc.kongClient.GetKongPlugins()
 	services, err := gc.kongClient.ListServices(context.Background())
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
@@ -60,11 +57,11 @@ func (gc *Client) DiscoverAPIs() error {
 	}
 
 	gc.removeDeletedServices(services)
-	gc.processKongServicesList(services, plugins)
+	gc.processKongServicesList(services)
 	return nil
 }
 
-func (gc *Client) removeDeletedServices(services []*kong.Service) error {
+func (gc *Client) removeDeletedServices(services []*kong.Service) {
 	specCache := cache.GetCache()
 	log.Info("checking for deleted kong services")
 	// TODO: add go funcs
@@ -73,13 +70,12 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 			item, err := specCache.Get(serviceId)
 			if err != nil {
 				log.Errorf("failed to get cached service: %s", serviceId)
-				return err
 			}
 			cachedService := item.(CachedService)
 			err = gc.apicClient.deleteCentralAPIService(cachedService)
 			if err != nil {
-				log.Errorf("failed to remove service '%s': %s", cachedService.kongServiceName, err)
-				return err
+				log.Errorf("failed to delete service '%s': %s", cachedService.kongServiceName, err)
+				continue
 			}
 			err = specCache.Delete(serviceId)
 			if err != nil {
@@ -87,10 +83,9 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) error {
 			}
 		}
 	}
-	return nil
 }
 
-func (gc *Client) processKongServicesList(services []*kong.Service, plugins *kutil.Plugins) {
+func (gc *Client) processKongServicesList(services []*kong.Service) {
 	wg := new(sync.WaitGroup)
 
 	for _, service := range services {
@@ -99,7 +94,7 @@ func (gc *Client) processKongServicesList(services []*kong.Service, plugins *kut
 		go func(service *kong.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
 
-			err := gc.processSingleKongService(context.Background(), service, plugins)
+			err := gc.processSingleKongService(context.Background(), service)
 			if err != nil {
 				log.Error(err)
 			}
@@ -109,7 +104,7 @@ func (gc *Client) processKongServicesList(services []*kong.Service, plugins *kut
 	wg.Wait()
 }
 
-func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Service, plugins *kutil.Plugins) error {
+func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Service) error {
 	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
 	httpPort := gc.kongGatewayCfg.ProxyHttpPort
 	httpsPort := gc.kongGatewayCfg.ProxyHttpsPort
@@ -118,13 +113,28 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	if err != nil {
 		return err
 	}
+
+	// delete services that have no routes
 	if len(routes) == 0 {
-		log.Warnf("Kong service %s (%s) has no route and will be ignored", *service.Name, *service.ID)
+		log.Warnf("kong service '%s' has no routes. Attempting to delete the service from central", *service.Name)
+		item, _ := cache.GetCache().Get(*service.ID)
+
+		if svc, ok := item.(CachedService); ok {
+			err := gc.apicClient.deleteCentralAPIService(svc)
+
+			if err != nil {
+				log.Errorf("failed to delete service '%' from central: %s", err)
+			} else {
+				log.Warnf("deleted Kong service '%s' from central", *service.Name)
+			}
+
+			cache.GetCache().Delete(*service.ID)
+		}
 		return nil
 	}
 
 	route := routes[0]
-	subscriptionHandler, err := gc.getSubscriptionHandler(route, plugins)
+	subscriptionHandler, err := gc.getSubscriptionHandler(route)
 
 	endpoints := gc.processKongRoute(proxyEndpoint, route, httpPort, httpsPort)
 
@@ -137,8 +147,6 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	oasSpec := Openapi{
 		spec: kongServiceSpec.Contents,
 	}
-	oasSpec.SetOas3Servers(endpointsToURL(endpoints))
-	oasSpec.SetOas2Host(proxyEndpoint, *route.Paths[0], route.Protocols)
 
 	serviceBody, err := gc.processKongAPI(service, oasSpec, endpoints, subscriptionHandler)
 	if err != nil {
@@ -158,7 +166,8 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	return nil
 }
 
-func (gc *Client) getSubscriptionHandler(route *kong.Route, plugins *kutil.Plugins) (subscription.SubscriptionHandler, error) {
+func (gc *Client) getSubscriptionHandler(route *kong.Route) (subscription.SubscriptionHandler, error) {
+	plugins := gc.kongClient.GetKongPlugins()
 	return gc.subscriptionManager.GetEffectiveSubscriptionHandler(route.ID, route.Service.ID, plugins)
 }
 
@@ -192,50 +201,16 @@ func (gc *Client) processKongRoute(defaultHost string, route *kong.Route, httpPo
 	return endpoints
 }
 
-func buildServiceBody(kongAPI KongAPI, name string, subscriptionHandler subscription.SubscriptionHandler) (apic.ServiceBody, error) {
-	serviceAttribute := make(map[string]string)
-	body := apic.NewServiceBodyBuilder().
-		SetAPIName(kongAPI.name).
-		SetAPISpec(kongAPI.swaggerSpec).
-		SetDescription(kongAPI.description).
-		SetDocumentation(kongAPI.documentation).
-		SetID(kongAPI.id).
-		SetResourceType(kongAPI.resourceType).
-		SetServiceAttribute(serviceAttribute).
-		SetTitle(kongAPI.name).
-		SetURL(kongAPI.url).
-		SetVersion(kongAPI.version).
-		SetServiceEndpoints(kongAPI.endpoints).
-		SetOverrideDefaultEndpoints(true)
-
-	if subscriptionHandler == nil {
-		body.SetAuthPolicy(apic.Passthrough)
-	} else {
-		body.SetAuthPolicy(subscriptionHandler.APICPolicy())
-		body.SetSubscriptionName(subscriptionHandler.Name())
-	}
-
-	sb, err := body.Build()
-
-	// TODO: add set method for NameToPush
-	// Set add prefix for unique catalog item
-	if err == nil {
-		sb.NameToPush = name
-	}
-
-	return sb, err
-}
-
 func (gc *Client) processKongAPI(
 	service *kong.Service,
 	oasSpec Openapi,
 	endpoints []InstanceEndpoint,
 	subscriptionHandler subscription.SubscriptionHandler,
 ) (*apic.ServiceBody, error) {
-	kongAPI := newKongAPI(service, oasSpec, endpoints)
+	name := gc.centralCfg.GetEnvironmentName() + "." + *service.Name
+	kongAPI := newKongAPI(service, oasSpec, endpoints, name, subscriptionHandler)
 
-	name := gc.centralCfg.GetEnvironmentName() + "." + kongAPI.name
-	serviceBody, err := buildServiceBody(kongAPI, name, subscriptionHandler)
+	serviceBody, err := kongAPI.buildServiceBody()
 	if err != nil {
 		return nil, fmt.Errorf("failed to build service body: %v", serviceBody)
 	}
@@ -252,18 +227,58 @@ func (gc *Client) processKongAPI(
 	return &serviceBody, nil
 }
 
-func newKongAPI(service *kong.Service, oasSpec Openapi, endpoints []InstanceEndpoint) KongAPI {
+func newKongAPI(
+	service *kong.Service,
+	oasSpec Openapi,
+	endpoints []InstanceEndpoint,
+	nameToPush string,
+	handler subscription.SubscriptionHandler,
+) KongAPI {
 	return KongAPI{
-		id:            *service.ID,
-		name:          *service.Name,
-		description:   oasSpec.Description(),
-		version:       oasSpec.Version(),
-		url:           *service.Host,
-		resourceType:  oasSpec.ResourceType(),
-		documentation: []byte("\"Sample documentation for API discovery agent\""),
-		swaggerSpec:   []byte(oasSpec.spec),
-		endpoints:     endpoints,
+		id:                  *service.ID,
+		name:                *service.Name,
+		description:         oasSpec.Description(),
+		version:             oasSpec.Version(),
+		url:                 *service.Host,
+		resourceType:        oasSpec.ResourceType(),
+		documentation:       []byte("\"Sample documentation for API discovery agent\""),
+		swaggerSpec:         []byte(oasSpec.spec),
+		endpoints:           endpoints,
+		nameToPush:          nameToPush,
+		subscriptionHandler: handler,
 	}
+}
+
+func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
+	serviceAttribute := make(map[string]string)
+	body := apic.NewServiceBodyBuilder().
+		SetAPIName(ka.name).
+		SetAPISpec(ka.swaggerSpec).
+		SetDescription(ka.description).
+		SetDocumentation(ka.documentation).
+		SetID(ka.id).
+		SetResourceType(ka.resourceType).
+		SetServiceAttribute(serviceAttribute).
+		SetTitle(ka.name).
+		SetURL(ka.url).
+		SetVersion(ka.version).
+		SetServiceEndpoints(ka.endpoints)
+
+	if ka.subscriptionHandler == nil {
+		body.SetAuthPolicy(apic.Passthrough)
+	} else {
+		body.SetAuthPolicy(ka.subscriptionHandler.APICPolicy())
+		body.SetSubscriptionName(ka.subscriptionHandler.Name())
+	}
+
+	sb, err := body.Build()
+
+	// TODO: add set method for NameToPush
+	if err == nil {
+		sb.NameToPush = ka.nameToPush
+	}
+
+	return sb, err
 }
 
 func doesServiceExists(serviceId string, services []*kong.Service) bool {
@@ -274,15 +289,6 @@ func doesServiceExists(serviceId string, services []*kong.Service) bool {
 	}
 	log.Infof("Kong service '%s' no longer exists.", serviceId)
 	return false
-}
-
-func endpointsToURL(endpoints []InstanceEndpoint) openapi3.Servers {
-	var urls openapi3.Servers
-	for _, endpoint := range endpoints {
-		url := fmt.Sprintf("%s://%s:%d%s", endpoint.Protocol, endpoint.Host, endpoint.Port, endpoint.Routing.BasePath)
-		urls = append(urls, &openapi3.Server{URL: url})
-	}
-	return urls
 }
 
 func enableSubscription() *subscription.SubscriptionManager {
