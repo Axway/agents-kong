@@ -44,7 +44,7 @@ func initCache(centralAPIServices []*v1alpha1.APIService) {
 	clearCache()
 	log.Info("Init the cache")
 	for _, apiSvc := range centralAPIServices {
-		setCachedService(apiSvc.Attributes[externalAPIID], apiSvc.Title, apiSvc.Attributes[kongHash], apiSvc.Name)
+		setCachedService(apiSvc.Attributes[kongServiceID], apiSvc.Title, apiSvc.Attributes[kongHash], apiSvc.Name)
 	}
 }
 

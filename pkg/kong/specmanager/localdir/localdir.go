@@ -3,13 +3,14 @@ package localdir
 import (
 	"context"
 	"fmt"
-	"github.com/Axway/agent-sdk/pkg/util/log"
-	"github.com/Axway/agents-kong/pkg/kong/specmanager"
-	klib "github.com/kong/go-kong/kong"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/Axway/agent-sdk/pkg/util/log"
+	"github.com/Axway/agents-kong/pkg/kong/specmanager"
+	klib "github.com/kong/go-kong/kong"
 )
 
 const tagPrefix = "spec_local_"
@@ -43,7 +44,7 @@ func (sc sourceConfig) GetSpecForService(ctx context.Context, service *klib.Serv
 
 		return sc.loadSpecFile(name)
 	}
-	log.Info("no specification tag found for service %s (%s)", *service.Name, *service.ID)
+	log.Infof("no specification tag found for service %s (%s)", *service.Name, *service.ID)
 	return nil, nil
 }
 

@@ -28,7 +28,7 @@ import (
 )
 
 const kongHash = "kong-hash"
-const externalAPIID = "externalAPIID"
+const kongServiceID = "kong-service-id"
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	kongGatewayConfig := agentConfig.KongGatewayCfg
@@ -132,23 +132,8 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	if err != nil {
 		return err
 	}
-
-	// delete services that have no routes
 	if len(routes) == 0 {
-		log.Warnf("kong service '%s' has no routes. Attempting to delete the service from central", *service.Name)
-		item, _ := cache.GetCache().Get(*service.ID)
-
-		if svc, ok := item.(CachedService); ok {
-			err := gc.apicClient.deleteCentralAPIService(svc)
-
-			if err != nil {
-				log.Errorf("failed to delete service '%' from central: %s", err)
-			} else {
-				log.Warnf("deleted Kong service '%s' from central", *service.Name)
-			}
-
-			cache.GetCache().Delete(*service.ID)
-		}
+		gc.deleteCentralService(*service.ID, *service.Name)
 		return nil
 	}
 
@@ -190,6 +175,23 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	log.Info("Published API " + serviceBody.APIName + " to AMPLIFY Central")
 
 	return nil
+}
+
+func (gc *Client) deleteCentralService(serviceID string, serviceName string) {
+	log.Warnf("kong service '%s' has no routes. Attempting to delete the service from central", serviceName)
+	item, _ := cache.GetCache().Get(serviceID)
+
+	if svc, ok := item.(CachedService); ok {
+		err := gc.apicClient.deleteCentralAPIService(svc)
+
+		if err != nil {
+			log.Errorf("failed to delete service '%' from central: %s", err)
+		} else {
+			log.Warnf("deleted Kong service '%s' from central", serviceName)
+		}
+
+		cache.GetCache().Delete(serviceID)
+	}
 }
 
 func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPort, httpsPort int) []InstanceEndpoint {
@@ -240,6 +242,7 @@ func (gc *Client) processKongAPI(
 	serviceBodyHash, _ := util.ComputeHash(serviceBody)
 	hash := fmt.Sprintf("%v", serviceBodyHash)
 	serviceBody.ServiceAttributes[kongHash] = hash
+	serviceBody.ServiceAttributes[kongServiceID] = *service.ID
 
 	isCached := setCachedService(*service.ID, *service.Name, hash, serviceBody.APIName)
 	if isCached {
