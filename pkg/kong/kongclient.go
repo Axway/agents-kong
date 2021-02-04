@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
@@ -27,20 +28,23 @@ type KongClient struct {
 }
 
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
-	defaultTransport := http.DefaultTransport.(*http.Transport)
-	baseClient.Transport = defaultTransport
+	if kongConfig.Token != "" {
+		defaultTransport := http.DefaultTransport.(*http.Transport)
+		baseClient.Transport = defaultTransport
 
-	headers := make(http.Header)
-	headers.Set("Kong-Admin-Token", kongConfig.Token)
-	client := klib.HTTPClientWithHeaders(baseClient, headers)
+		headers := make(http.Header)
+		headers.Set("Kong-Admin-Token", kongConfig.Token)
+		client := klib.HTTPClientWithHeaders(baseClient, headers)
+		baseClient = &client
+	}
 
-	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, &client)
+	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, baseClient)
 	if err != nil {
 		return nil, err
 	}
 	return &KongClient{
 		Client:            baseKongClient,
-		baseClient:        &client,
+		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
 	}, nil
 }
