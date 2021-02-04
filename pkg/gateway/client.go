@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 	"github.com/Axway/agents-kong/pkg/kong/specmanager/devportal"
+	"github.com/Axway/agents-kong/pkg/kong/specmanager/localdir"
 	"net/http"
 	"sync"
 
@@ -38,7 +39,12 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 
 	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
 
-	specmanager.AddSource(devportal.NewSpecificationSource(kongClient))
+	if agentConfig.KongGatewayCfg.SpecDevPortalEnabled {
+		specmanager.AddSource(devportal.NewSpecificationSource(kongClient))
+	}
+	if len(agentConfig.KongGatewayCfg.SpecHomePath) > 0 {
+		specmanager.AddSource(localdir.NewSpecificationSource(agentConfig.KongGatewayCfg.SpecHomePath))
+	}
 
 	sm, err := initSubscriptionManager(kongClient.Client)
 	if err != nil {

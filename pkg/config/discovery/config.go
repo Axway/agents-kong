@@ -15,12 +15,14 @@ type AgentConfig struct {
 // KongGatewayConfig - represents the config for gateway
 type KongGatewayConfig struct {
 	corecfg.IConfigValidator
-	AdminEndpoint  string `config:"adminEndpoint"`
-	Token          string `config:"token"`
-	User           string `config:"user"`
-	ProxyEndpoint  string `config:"proxyEndpoint"`
-	ProxyHttpPort  int    `config:"proxyHttpPort"`
-	ProxyHttpsPort int    `config:"proxyHttpsPort"`
+	AdminEndpoint        string `config:"adminEndpoint"`
+	Token                string `config:"token"`
+	User                 string `config:"user"`
+	ProxyEndpoint        string `config:"proxyEndpoint"`
+	ProxyHttpPort        int    `config:"proxyHttpPort"`
+	ProxyHttpsPort       int    `config:"proxyHttpsPort"`
+	SpecHomePath         string `config:"specHomePath"`
+	SpecDevPortalEnabled bool   `config:"specDevPortalEnabled"`
 }
 
 // ValidateCfg - Validates the gateway config

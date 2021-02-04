@@ -3,6 +3,7 @@ package specmanager
 import (
 	"context"
 	"fmt"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/kong/go-kong/kong"
 )
 
@@ -25,6 +26,7 @@ var specificationManager struct {
 
 func AddSource(source SpecificationSource) {
 	specificationManager.sources = append(specificationManager.sources, source)
+	log.Infof("specification source added: %s", *source.Name())
 }
 
 func GetSpecification(ctx context.Context, service *kong.Service) (*KongServiceSpec, error) {
