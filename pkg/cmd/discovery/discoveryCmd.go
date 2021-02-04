@@ -30,6 +30,8 @@ func init() {
 	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
 	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong admin endpoint")
 	rootProps.AddStringProperty("kong.proxy_endpoint", "", "The Kong proxy endpoint")
+	rootProps.AddIntProperty("kong.proxy_endpoint_protocols.http", 80, "The Kong proxy http port")
+	rootProps.AddIntProperty("kong.proxy_endpoint_protocols.https", 443, "The Kong proxy https port")
 }
 
 // Callback that agent will call to process the execution
@@ -64,14 +66,15 @@ func run() error {
 // and passed to the callback allowing the agent code to access the central config
 func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := DiscoveryCmd.GetProperties()
-	centralConfig.GetPollInterval()
+
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig := &config.KongGatewayConfig{
-		AdminEndpoint:          rootProps.StringPropertyValue("kong.admin_endpoint"),
-		Token:                  rootProps.StringPropertyValue("kong.token"),
-		User:                   rootProps.StringPropertyValue("kong.user"),
-		ProxyEndpoint:          rootProps.StringPropertyValue("kong.proxy_endpoint"),
-		ProxyEndpointProtocols: rootProps.StringSlicePropertyValue("kong.proxy_endpoint_protocols"),
+		AdminEndpoint:  rootProps.StringPropertyValue("kong.admin_endpoint"),
+		Token:          rootProps.StringPropertyValue("kong.token"),
+		User:           rootProps.StringPropertyValue("kong.user"),
+		ProxyEndpoint:  rootProps.StringPropertyValue("kong.proxy_endpoint"),
+		ProxyHttpPort:  rootProps.IntPropertyValue("kong.proxy_endpoint_protocols.http"),
+		ProxyHttpsPort: rootProps.IntPropertyValue("kong.proxy_endpoint_protocols.https"),
 	}
 
 	agentConfig = config.AgentConfig{

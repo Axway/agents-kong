@@ -110,6 +110,10 @@ func (gc *Client) processKongServicesList(services []*kong.Service, plugins *kut
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Service, plugins *kutil.Plugins) error {
+	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
+	httpPort := gc.kongGatewayCfg.ProxyHttpPort
+	httpsPort := gc.kongGatewayCfg.ProxyHttpsPort
+
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
 		return err
@@ -122,7 +126,8 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	route := routes[0]
 	subscriptionHandler, err := gc.getSubscriptionHandler(route, plugins)
 
-	endpoints := gc.processKongRoute(gc.kongGatewayCfg.ProxyEndpoint, route)
+	endpoints := gc.processKongRoute(proxyEndpoint, route, httpPort, httpsPort)
+
 	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, *service.ID)
 	if err != nil {
 		// TODO: If no spec is found, then it was likely deleted, and should be deleted from central
@@ -133,6 +138,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 		spec: kongServiceSpec.Contents,
 	}
 	oasSpec.SetOas3Servers(endpointsToURL(endpoints))
+	oasSpec.SetOas2Host(proxyEndpoint, *route.Paths[0], route.Protocols)
 
 	serviceBody, err := gc.processKongAPI(service, oasSpec, endpoints, subscriptionHandler)
 	if err != nil {
@@ -156,21 +162,21 @@ func (gc *Client) getSubscriptionHandler(route *kong.Route, plugins *kutil.Plugi
 	return gc.subscriptionManager.GetEffectiveSubscriptionHandler(route.ID, route.Service.ID, plugins)
 }
 
-func (gc *Client) processKongRoute(defaultHost string, route *kong.Route) []InstanceEndpoint {
+func (gc *Client) processKongRoute(defaultHost string, route *kong.Route, httpPort, httpsPort int) []InstanceEndpoint {
 	var endpoints []InstanceEndpoint
 	if route == nil {
 		return endpoints
 	}
+
 	hosts := route.Hosts
-	if len(route.Hosts) == 0 {
-		hosts = []*string{&defaultHost}
-	}
+	hosts = append(hosts, &defaultHost)
+
 	for _, host := range hosts {
 		for _, path := range route.Paths {
 			for _, protocol := range route.Protocols {
-				port := 80
+				port := httpPort
 				if *protocol == "https" {
-					port = 443
+					port = httpsPort
 				}
 				endpoint := InstanceEndpoint{
 					Host:     *host,
@@ -198,11 +204,9 @@ func buildServiceBody(kongAPI KongAPI, name string, subscriptionHandler subscrip
 		SetServiceAttribute(serviceAttribute).
 		SetTitle(kongAPI.name).
 		SetURL(kongAPI.url).
-		SetVersion(kongAPI.version)
-
-	if kongAPI.resourceType == apic.Oas2 {
-		body = body.SetServiceEndpoints(kongAPI.endpoints)
-	}
+		SetVersion(kongAPI.version).
+		SetServiceEndpoints(kongAPI.endpoints).
+		SetOverrideDefaultEndpoints(true)
 
 	if subscriptionHandler == nil {
 		body.SetAuthPolicy(apic.Passthrough)
@@ -275,7 +279,7 @@ func doesServiceExists(serviceId string, services []*kong.Service) bool {
 func endpointsToURL(endpoints []InstanceEndpoint) openapi3.Servers {
 	var urls openapi3.Servers
 	for _, endpoint := range endpoints {
-		url := fmt.Sprintf("%s://%s%s", endpoint.Protocol, endpoint.Host, endpoint.Routing.BasePath)
+		url := fmt.Sprintf("%s://%s:%d%s", endpoint.Protocol, endpoint.Host, endpoint.Port, endpoint.Routing.BasePath)
 		urls = append(urls, &openapi3.Server{URL: url})
 	}
 	return urls

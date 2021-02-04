@@ -2,7 +2,7 @@ package kong
 
 import (
 	"context"
-	"github.com/Axway/agent-sdk/pkg/util/log"
+
 	klib "github.com/kong/go-kong/kong"
 )
 
@@ -51,14 +51,14 @@ func mostSpecific(p1, p2 *klib.Plugin) *klib.Plugin {
 }
 
 // GetEffectivePlugins determines the effective plugin configuration for the route/service combination.
-// Returns a map containg effective Plugin configuration grouped by plugin type.
+// Returns a map containing effective Plugin configuration grouped by plugin type.
 func (p *Plugins) GetEffectivePlugins(routeID, serviceID string) (map[string]*klib.Plugin, error) {
 	plugins, err := p.ListAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	log.Infof("found %d plugins", len(plugins))
+	// log.Infof("found %d plugins", len(plugins))
 
 	pmap := map[string]*klib.Plugin{}
 

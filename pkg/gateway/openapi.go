@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/tidwall/sjson"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -47,5 +48,13 @@ func (oas *Openapi) SetOas3Servers(servers openapi3.Servers) {
 			return
 		}
 		oas.spec = string(swaggerBytes)
+	}
+}
+func (oas *Openapi) SetOas2Host(defaultHost string, defaultBasePath string, schemes []*string) {
+	if oas.ResourceType() == apic.Oas2 {
+		spec, _ := sjson.Set(oas.spec, "host", defaultHost)
+		spec, _ = sjson.Set(spec, "schemes", schemes)
+		spec, _ = sjson.Set(spec, "basePath", defaultBasePath)
+		oas.spec = spec
 	}
 }

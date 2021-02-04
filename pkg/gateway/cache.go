@@ -19,7 +19,6 @@ func setCachedService(kongServiceId string, kongServiceName string, hash string,
 			centralName:     centralName,
 		}
 		specCache.Set(kongServiceId, cachedService)
-		log.Infof("adding to the cache: '%s' centralName: '%s'", kongServiceName, centralName)
 		return false
 	}
 

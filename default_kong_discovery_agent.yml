@@ -27,4 +27,5 @@ kong:
   user: admin
   proxy_endpoint: <Domain>
   proxy_endpoint_protocols:
-    - http
+    http: 80
+    https: 443
