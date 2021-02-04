@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	traceabilityconfig "github.com/Axway/agents-kong/pkg/config/traceability"
+
 	"github.com/Axway/agents-kong/pkg/processor"
 
 	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
@@ -49,30 +51,32 @@ func (bt *customLogBeater) Run(b *beat.Beat) error {
 		return err
 	}
 
-	http.HandleFunc("/requestlogs", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
+	http.HandleFunc(fmt.Sprintf("%s", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Path),
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
 
-		body, err := ioutil.ReadAll(r.Body)
-		defer r.Body.Close()
+			body, err := ioutil.ReadAll(r.Body)
+			defer r.Body.Close()
 
-		if err != nil {
-			fmt.Errorf("Error while reading request body: %s", err)
-		}
+			if err != nil {
+				fmt.Errorf("Error while reading request body: %s", err)
+			}
 
-		w.WriteHeader(200)
-		bt.processAndDispatchEvent(string(body))
-	})
+			w.WriteHeader(200)
+			bt.processAndDispatchEvent(string(body))
+		})
 
 	/* Start a new HTTP server in a separate Go routine that will be the target
 	   for the HTTP Log plugin. It should write events it gets to eventChannel */
 	go func() {
-		if err := http.ListenAndServe(":9000", nil); err != nil {
-			log.Fatalf("Unable to start the HTTP Server: %s", err)
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port),
+			nil); err != nil {
+			log.Fatal("Unable to start the HTTP Server: %s", err)
 		}
-		log.Print("Started HTTP server on port 9000 to receive request logs")
+		fmt.Printf("Started HTTP server on port %d to receive request logs", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port)
 	}()
 
 	for {

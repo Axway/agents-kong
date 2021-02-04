@@ -10,7 +10,7 @@ type KongTrafficLogEntry struct {
 	Response    *Response  `json:"response"`
 	Route       *Route     `json:"route"`
 	Service     *Service   `json:"service"`
-	Tries       []*Tries   `json:"tries"`
+	Consumer    *Consumer  `json:"consumer"`
 }
 
 type Latencies struct {
@@ -70,16 +70,17 @@ type Service struct {
 	WsID           string `json:"ws_id"`
 }
 
-type Tries struct {
-	BalancerLatency int    `json:"balancer_latency"`
-	Port            int    `json:"port"`
-	BalancerStart   int64  `json:"balancer_start"`
-	IP              string `json:"ip"`
-}
-
 type TLS struct {
 	Version                string `json:"version"`
 	Cipher                 string `json:"cipher"`
 	SupportedClientCiphers string `json:"supported_client_ciphers"`
 	ClientVerify           string `json:"client_verify"`
+}
+
+type Consumer struct {
+	CustomID  string   `json:"custom_id"`
+	CreatedAt string   `json:"created_at"`
+	ID        string   `json:"id"`
+	Tags      []string `json:"tags"`
+	Username  string   `json:"username"`
 }

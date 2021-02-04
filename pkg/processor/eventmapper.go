@@ -117,8 +117,7 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 		SetHost(ktle.Request.Headers[host]).
 		SetHeaders(m.buildHeaders(ktle.Request.Headers), m.buildHeaders(ktle.Response.Headers)).
 		SetByteLength(ktle.Request.Size, ktle.Response.Size).
-		SetRemoteAddress("", "", ktle.Tries[0].Port). // No way to find remote address for now
-		SetLocalAddress(ktle.ClientIP, 0).            // Could not determine local port for now
+		SetLocalAddress(ktle.ClientIP, 0). // Could not determine local port for now
 		SetSSLProperties(m.buildSSLInfoIfAvailable(ktle)).
 		SetUserAgent(ktle.Request.Headers[userAgent]).
 		Build()
@@ -144,7 +143,7 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 
 func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string) (*transaction.LogEvent, error) {
 
-	return transaction.NewTransactionSummaryBuilder().
+	builder := transaction.NewTransactionSummaryBuilder().
 		SetTimestamp(ktle.StartedAt).
 		SetTransactionID(m.trimRequestId(ktle.Request.Headers[requestID])).
 		SetStatus(m.getTransactionSummaryStatus(ktle.Response.Status),
@@ -157,6 +156,11 @@ func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string
 		SetDuration(ktle.Latencies.Request).
 		SetProxy(transaction.FormatProxyID(ktle.Service.ID),
 			ktle.Service.Name,
-			1).
-		Build()
+			1)
+
+	if ktle.Consumer != nil {
+		builder.SetApplication(transaction.FormatApplicationID(ktle.Consumer.ID), ktle.Consumer.Username)
+	}
+
+	return builder.Build()
 }

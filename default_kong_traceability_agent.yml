@@ -15,6 +15,12 @@ central:
     timeout: 20s
     url: https://login.axway.com/auth
 
+http_log_plugin_config:
+  # Path used by Kong's HTTP Log plugin to send request logs
+  path: ${LOGS_HTTP_SERVER_PATH}
+  # Port that listens for request logs sent by Kong's HTTP Log plugin
+  port: ${LOGS_HTTP_SERVER_PORT}
+
 # Condor Ingestion service
 output.traceability:
   compression_level: ${TRACEABILITY_COMPRESSIONLEVEL:3}

@@ -31,6 +31,10 @@ func init() {
 		run,
 		corecfg.TraceabilityAgent,
 	)
+
+	rootProps := TraceCmd.GetProperties()
+	rootProps.AddStringProperty("http_log_plugin_config.path", "/requestlogs", "Path on which the HTTP Log plugin sends request logs")
+	rootProps.AddIntProperty("http_log_plugin_config.port", 9000, "Port that listens for request logs from HTTP Log plugin")
 }
 
 func run() error {
@@ -41,9 +45,19 @@ func run() error {
 // and passed to the callback allowing the agent code to access the central config
 func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 
-	agentConfig := &config.AgentConfig{
-		CentralCfg: centralConfig,
+	rootProps := TraceCmd.GetProperties()
+
+	httpLogPluginConfig := &config.HttpLogPluginConfig{
+		Port: rootProps.IntPropertyValue("http_log_plugin_config.port"),
+		Path: rootProps.StringPropertyValue("http_log_plugin_config.path"),
 	}
+
+	agentConfig := &config.AgentConfig{
+		CentralCfg:          centralConfig,
+		HttpLogPluginConfig: httpLogPluginConfig,
+	}
+
+	config.SetAgentConfig(agentConfig)
 
 	return agentConfig, nil
 }
