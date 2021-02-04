@@ -30,3 +30,7 @@ func (oas *Openapi) Description() string {
 func (oas *Openapi) Version() string {
 	return gjson.Get(oas.spec, "info.version").Str
 }
+
+func (oas *Openapi) BasePath() string {
+	return gjson.Get(oas.spec, "basePath").Str
+}
