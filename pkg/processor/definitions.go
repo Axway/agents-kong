@@ -1,12 +1,5 @@
 package processor
 
-import (
-	corecfg "github.com/Axway/agent-sdk/pkg/config"
-	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	"github.com/Axway/agents-kong/pkg/kong"
-	"github.com/Axway/agents-kong/pkg/subscription"
-)
-
 // KongTrafficLogEntry - Represents the structure of log entry the agent will receive from Kong's HTTP Log Plugin
 type KongTrafficLogEntry struct {
 	ClientIP    string     `json:"client_ip"`
@@ -89,33 +82,4 @@ type TLS struct {
 	Cipher                 string `json:"cipher"`
 	SupportedClientCiphers string `json:"supported_client_ciphers"`
 	ClientVerify           string `json:"client_verify"`
-}
-
-type Client struct {
-	centralCfg          corecfg.CentralConfig
-	kongGatewayCfg      *config.KongGatewayConfig
-	kongClient          kong.KongAPIClient
-	apicClient          CentralClient
-	subscriptionManager *subscription.Manager
-}
-
-type KongAPI struct {
-	swaggerSpec      []byte
-	id               string
-	name             string
-	description      string
-	version          string
-	url              string
-	documentation    []byte
-	resourceType     string
-	endpoints        []InstanceEndpoint
-	subscriptionInfo subscription.Info
-	nameToPush       string
-}
-
-type CachedService struct {
-	kongServiceId   string
-	kongServiceName string
-	hash            string
-	centralName     string
 }

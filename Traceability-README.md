@@ -13,9 +13,9 @@ Kong Traceability agent requires **global deployment** of the below plugins in o
 
 ## Build
 
-In order to build, navigate to **traceability** folder and run 
+In order to build, run 
 ```shell
-make build
+make build-trace
 ```
 
 ## Configuration

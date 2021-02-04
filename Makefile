@@ -11,10 +11,10 @@ download: tidy
 	@go mod download
 
 build-disc:
-	@go build -o bin/discovery ./cmd/discovery/discovery.go
+	@go build -o bin/discovery ./cmd/discovery/main.go
 
 build-trace:
-	@go build -o bin/traceability ./cmd/discovery/traceability.go
+	@go build -o bin/traceability ./cmd/traceability/main.go
 
 run-disc:
 	./bin/discovery
