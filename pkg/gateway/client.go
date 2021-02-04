@@ -134,6 +134,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	}
 	if len(routes) == 0 {
 		gc.deleteCentralService(*service.ID, *service.Name)
+		return nil
 	}
 
 	route := routes[0]
