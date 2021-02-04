@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Axway/agents-kong/traceability/pkg/processor"
+	"github.com/Axway/agents-kong/pkg/processor"
 
 	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
 	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"

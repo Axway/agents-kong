@@ -8,8 +8,8 @@ kong_traceability_agent:
     url: https://apicentral.axway.com
     auth:
       clientID: DOSA_9f07ebffe9ab48cc8f8c7206f0fbc06b
-      privateKey: /Users/skalburgi/Documents/APIServer_Integration_Tests/private_key.pem
-      publicKey: /Users/skalburgi/Documents/APIServer_Integration_Tests/public_key.pem
+      privateKey: private_key.pem
+      publicKey: public_key.pem
       realm: Broker
       timeout: 20s
       url: https://login.axway.com/auth

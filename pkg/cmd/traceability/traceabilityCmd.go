@@ -1,17 +1,17 @@
-package cmd
+package traceability
 
 import (
 	"os"
 
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
-	"github.com/Axway/agents-kong/traceability/pkg/beater"
-	"github.com/Axway/agents-kong/traceability/pkg/config"
+	"github.com/Axway/agents-kong/pkg/beater"
+	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	libcmd "github.com/elastic/beats/v7/libbeat/cmd"
 	"github.com/elastic/beats/v7/libbeat/cmd/instance"
 )
 
-var RootCmd corecmd.AgentRootCmd
+var TraceCmd corecmd.AgentRootCmd
 var beatCmd *libcmd.BeatsRootCmd
 
 func Execute() {
@@ -31,7 +31,7 @@ func init() {
 	cmd := beatCmd.Command
 	// Wrap the beat command with the agent command processor with callbacks to initialize the agent config and command execution.
 	// The first parameter identifies the name of the yaml file that agent will look for to load the config
-	RootCmd = corecmd.NewCmd(
+	TraceCmd = corecmd.NewCmd(
 		&cmd,
 		name,
 		"Kong Traceability Agent",
