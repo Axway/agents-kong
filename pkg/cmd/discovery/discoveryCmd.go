@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"os"
 	"time"
 
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
@@ -12,6 +13,12 @@ import (
 
 var DiscoveryCmd corecmd.AgentRootCmd
 var agentConfig config.AgentConfig
+
+func Execute() {
+	if err := DiscoveryCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
 
 func init() {
 	// Create new root command with callbacks to initialize the agent config and command execution.

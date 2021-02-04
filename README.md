@@ -13,7 +13,7 @@ Provide a name and a title, such as "kong-gateway" and then hit "Save" in the to
 ## Create a DOSA Account
 
 Create a public and private key pair locally on your computer.
-Click the "Access" tab on the sidebar, which is the second to last tab.
+In Central, click the "Access" tab on the sidebar, which is the second to last tab.
 Click on "Service Accounts".
 Click the button in the top right that says "+ Service Account".
 Name the account and provide the public key.
@@ -46,7 +46,9 @@ In the `kong_discovery_agent.yml` file provide the details of the kong user. `ad
 
 ## Development
 
-In development you can run the agents by running `go run ./cmd/main.go`. You do not need to build the binary for agents on every change.
+Each agent is built and run independently
+
+In development you can run an agent by running `go run ./cmd/discovery/discovery.go` or `go run ./cmd/discovery/traceability.go`. You do not need to build the binary for agents on every change.
 
 ## Build and run the binary
 

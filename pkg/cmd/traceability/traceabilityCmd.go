@@ -1,6 +1,8 @@
 package traceability
 
 import (
+	"os"
+
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agents-kong/pkg/beater"
@@ -11,6 +13,12 @@ import (
 
 var TraceCmd corecmd.AgentRootCmd
 var beatCmd *libcmd.BeatsRootCmd
+
+func Execute() {
+	if err := TraceCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
 
 func init() {
 	name := "kong_traceability_agent"
