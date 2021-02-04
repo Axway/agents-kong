@@ -30,7 +30,6 @@ func NewCentralClient(client CentralAPIClient, config corecfg.CentralConfig) Cen
 
 func (cc *CentralClient) execute(method, endpoint string, queryParam map[string]string, buffer []byte) ([]byte, error) {
 	host := cc.apiServerHost + cc.envName + endpoint
-	log.Infof("sending %s request: %s", method, host)
 	return cc.client.ExecuteAPI(method, host, queryParam, buffer)
 }
 

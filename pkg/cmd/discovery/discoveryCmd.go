@@ -28,10 +28,10 @@ func init() {
 	rootProps := DiscoveryCmd.GetProperties()
 	rootProps.AddStringProperty("kong.user", "", "Kong Gateway admin user")
 	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
-	rootProps.AddStringProperty("kong.admin_endpoint", "", "The Kong admin endpoint")
-	rootProps.AddStringProperty("kong.proxy_endpoint", "", "The Kong proxy endpoint")
-	rootProps.AddIntProperty("kong.proxy_endpoint_protocols.http", 80, "The Kong proxy http port")
-	rootProps.AddIntProperty("kong.proxy_endpoint_protocols.https", 443, "The Kong proxy https port")
+	rootProps.AddStringProperty("kong.adminEndpoint", "", "The Kong admin endpoint")
+	rootProps.AddStringProperty("kong.proxyEndpoint", "", "The Kong proxy endpoint")
+	rootProps.AddIntProperty("kong.proxyEndpointProtocols.http", 80, "The Kong proxy http port")
+	rootProps.AddIntProperty("kong.proxyEndpointProtocols.https", 443, "The Kong proxy https port")
 }
 
 // Callback that agent will call to process the execution
@@ -69,14 +69,14 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig := &config.KongGatewayConfig{
-		AdminEndpoint:        rootProps.StringPropertyValue("kong.admin_endpoint"),
+		AdminEndpoint:        rootProps.StringPropertyValue("kong.adminEndpoint"),
 		Token:                rootProps.StringPropertyValue("kong.token"),
 		User:                 rootProps.StringPropertyValue("kong.user"),
-		ProxyEndpoint:        rootProps.StringPropertyValue("kong.proxy_endpoint"),
-		ProxyHttpPort:        rootProps.IntPropertyValue("kong.proxy_endpoint_protocols.http"),
-		ProxyHttpsPort:       rootProps.IntPropertyValue("kong.proxy_endpoint_protocols.https"),
-		SpecHomePath:         rootProps.StringPropertyValue("kong.spec_home_path"),
-		SpecDevPortalEnabled: rootProps.BoolPropertyValue("kong.spec_dev_portal_enabled"),
+		ProxyEndpoint:        rootProps.StringPropertyValue("kong.proxyEndpoint"),
+		ProxyHttpPort:        rootProps.IntPropertyValue("kong.proxyEndpointProtocols.http"),
+		ProxyHttpsPort:       rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
+		SpecHomePath:         rootProps.StringPropertyValue("kong.specHomePath"),
+		SpecDevPortalEnabled: rootProps.BoolPropertyValue("kong.specDevPortalEnabled"),
 	}
 
 	agentConfig = config.AgentConfig{

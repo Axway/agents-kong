@@ -22,12 +22,12 @@ log:
   path: logs
 
 kong:
-  admin_endpoint: <Domain>
+  adminEndpoint: <Domain>
   token: 1234
   user: admin
-  proxy_endpoint: <Domain>
-  proxy_endpoint_protocols:
+  proxyEndpoint: <Domain>
+  proxyEndpointProtocols:
     http: 80
     https: 443
-  spec_dev_portal_enabled: <bool>
-  spec_home_path: <Path>
+  specDevPortalEnabled: <bool>
+  specHomePath: <Path>
