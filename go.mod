@@ -10,6 +10,7 @@ require (
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/elastic/beats/v7 v7.7.1
 	github.com/garyburd/redigo v1.6.0 // indirect
+	github.com/google/uuid v1.2.0
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect

@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/transaction"
@@ -17,14 +18,14 @@ import (
 type EventMapper struct {
 }
 
-const requestID = "kong-request-id"
 const host = "host"
 const userAgent = "user-agent"
-const hash = "#"
 
 func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
 	centralCfg := agent.GetCentralConfig()
-	transactionLegEvent, err := m.createTransactionEvent(kongTrafficLogEntry)
+	txnID := uuid.New().String()
+
+	transactionLegEvent, err := m.createTransactionEvent(kongTrafficLogEntry, txnID)
 	if err != nil {
 		log.Errorf("Error while building transaction leg event: %s", err)
 		return nil, err
@@ -37,7 +38,7 @@ func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([
 
 	log.Debug("Generated Transaction leg event: ", string(jTransactionLegEvent))
 
-	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID())
+	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID(), txnID)
 	if err != nil {
 		log.Errorf("Error while building transaction summary event: %s", err)
 		return nil, err
@@ -100,14 +101,7 @@ func (m *EventMapper) processQueryArgs(args map[string]string) string {
 	return b.String()
 }
 
-func (m *EventMapper) trimRequestId(reqId string) string {
-	if strings.Contains(reqId, hash) {
-		return strings.Split(reqId, hash)[0]
-	}
-	return reqId
-}
-
-func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transaction.LogEvent, error) {
+func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid string) (*transaction.LogEvent, error) {
 
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
 		SetURI(ktle.Request.URI).
@@ -129,7 +123,7 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 
 	return transaction.NewTransactionEventBuilder().
 		SetTimestamp(ktle.StartedAt).
-		SetTransactionID(m.trimRequestId(ktle.Request.Headers[requestID])).
+		SetTransactionID(txnid).
 		SetID("leg0").
 		SetParentID("").
 		SetSource("client_ip").
@@ -141,11 +135,11 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry) (*transac
 		Build()
 }
 
-func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string) (*transaction.LogEvent, error) {
+func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string, txnid string) (*transaction.LogEvent, error) {
 
 	builder := transaction.NewTransactionSummaryBuilder().
 		SetTimestamp(ktle.StartedAt).
-		SetTransactionID(m.trimRequestId(ktle.Request.Headers[requestID])).
+		SetTransactionID(txnid).
 		SetStatus(m.getTransactionSummaryStatus(ktle.Response.Status),
 			strconv.Itoa(ktle.Response.Status)).
 		SetTeam(teamID).
