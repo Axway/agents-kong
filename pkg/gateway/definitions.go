@@ -71,21 +71,21 @@ type Client struct {
 	kongGatewayCfg      *config.KongGatewayConfig
 	kongClient          KongAPIClient
 	apicClient          CentralClient
-	subscriptionManager *subscription.SubscriptionManager
+	subscriptionManager *subscription.Manager
 }
 
 type KongAPI struct {
-	swaggerSpec         []byte
-	id                  string
-	name                string
-	description         string
-	version             string
-	url                 string
-	documentation       []byte
-	resourceType        string
-	endpoints           []InstanceEndpoint
-	subscriptionHandler subscription.SubscriptionHandler
-	nameToPush          string
+	swaggerSpec      []byte
+	id               string
+	name             string
+	description      string
+	version          string
+	url              string
+	documentation    []byte
+	resourceType     string
+	endpoints        []InstanceEndpoint
+	subscriptionInfo subscription.Info
+	nameToPush       string
 }
 
 type CachedService struct {

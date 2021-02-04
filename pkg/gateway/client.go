@@ -16,6 +16,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
+	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/kong/go-kong/kong"
 )
@@ -33,12 +34,17 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 
 	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
 
+	sm, err := initSubscriptionManager(kongClient.Client)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		centralCfg:          agentConfig.CentralCfg,
 		kongGatewayCfg:      kongGatewayConfig,
 		kongClient:          kongClient,
 		apicClient:          apicClient,
-		subscriptionManager: enableSubscription(),
+		subscriptionManager: sm,
 	}, nil
 }
 
@@ -65,11 +71,11 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) {
 	specCache := cache.GetCache()
 	log.Info("checking for deleted kong services")
 	// TODO: add go funcs
-	for _, serviceId := range specCache.GetKeys() {
-		if !doesServiceExists(serviceId, services) {
-			item, err := specCache.Get(serviceId)
+	for _, serviceID := range specCache.GetKeys() {
+		if !doesServiceExists(serviceID, services) {
+			item, err := specCache.Get(serviceID)
 			if err != nil {
-				log.Errorf("failed to get cached service: %s", serviceId)
+				log.Errorf("failed to get cached service: %s", serviceID)
 			}
 			cachedService := item.(CachedService)
 			err = gc.apicClient.deleteCentralAPIService(cachedService)
@@ -77,7 +83,7 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) {
 				log.Errorf("failed to delete service '%s': %s", cachedService.kongServiceName, err)
 				continue
 			}
-			err = specCache.Delete(serviceId)
+			err = specCache.Delete(serviceID)
 			if err != nil {
 				log.Errorf("failed to delete service '%s' from the cache: %s", cachedService.kongServiceName, err)
 			}
@@ -134,7 +140,14 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	}
 
 	route := routes[0]
-	subscriptionHandler, err := gc.getSubscriptionHandler(route)
+
+	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
+	ep, err := plugins.GetEffectivePlugins(*route.ID, *service.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get plugins for route %s: %w", *route.ID, err)
+	}
+
+	subscriptionInfo := gc.subscriptionManager.GetSubscriptionInfo(ep)
 
 	endpoints := gc.processKongRoute(proxyEndpoint, route, httpPort, httpsPort)
 
@@ -148,7 +161,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 		spec: kongServiceSpec.Contents,
 	}
 
-	serviceBody, err := gc.processKongAPI(service, oasSpec, endpoints, subscriptionHandler)
+	serviceBody, err := gc.processKongAPI(service, oasSpec, endpoints, subscriptionInfo)
 	if err != nil {
 		return err
 	}
@@ -164,11 +177,6 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	log.Info("Published API " + serviceBody.APIName + " to AMPLIFY Central")
 
 	return nil
-}
-
-func (gc *Client) getSubscriptionHandler(route *kong.Route) (subscription.SubscriptionHandler, error) {
-	plugins := gc.kongClient.GetKongPlugins()
-	return gc.subscriptionManager.GetEffectiveSubscriptionHandler(route.ID, route.Service.ID, plugins)
 }
 
 func (gc *Client) processKongRoute(defaultHost string, route *kong.Route, httpPort, httpsPort int) []InstanceEndpoint {
@@ -205,10 +213,10 @@ func (gc *Client) processKongAPI(
 	service *kong.Service,
 	oasSpec Openapi,
 	endpoints []InstanceEndpoint,
-	subscriptionHandler subscription.SubscriptionHandler,
+	subscriptionInfo subscription.Info,
 ) (*apic.ServiceBody, error) {
 	name := gc.centralCfg.GetEnvironmentName() + "." + *service.Name
-	kongAPI := newKongAPI(service, oasSpec, endpoints, name, subscriptionHandler)
+	kongAPI := newKongAPI(service, oasSpec, endpoints, name, subscriptionInfo)
 
 	serviceBody, err := kongAPI.buildServiceBody()
 	if err != nil {
@@ -232,20 +240,20 @@ func newKongAPI(
 	oasSpec Openapi,
 	endpoints []InstanceEndpoint,
 	nameToPush string,
-	handler subscription.SubscriptionHandler,
+	info subscription.Info,
 ) KongAPI {
 	return KongAPI{
-		id:                  *service.ID,
-		name:                *service.Name,
-		description:         oasSpec.Description(),
-		version:             oasSpec.Version(),
-		url:                 *service.Host,
-		resourceType:        oasSpec.ResourceType(),
-		documentation:       []byte("\"Sample documentation for API discovery agent\""),
-		swaggerSpec:         []byte(oasSpec.spec),
-		endpoints:           endpoints,
-		nameToPush:          nameToPush,
-		subscriptionHandler: handler,
+		id:               *service.ID,
+		name:             *service.Name,
+		description:      oasSpec.Description(),
+		version:          oasSpec.Version(),
+		url:              *service.Host,
+		resourceType:     oasSpec.ResourceType(),
+		documentation:    []byte("\"Sample documentation for API discovery agent\""),
+		swaggerSpec:      []byte(oasSpec.spec),
+		endpoints:        endpoints,
+		nameToPush:       nameToPush,
+		subscriptionInfo: info,
 	}
 }
 
@@ -262,14 +270,9 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetTitle(ka.name).
 		SetURL(ka.url).
 		SetVersion(ka.version).
-		SetServiceEndpoints(ka.endpoints)
-
-	if ka.subscriptionHandler == nil {
-		body.SetAuthPolicy(apic.Passthrough)
-	} else {
-		body.SetAuthPolicy(ka.subscriptionHandler.APICPolicy())
-		body.SetSubscriptionName(ka.subscriptionHandler.Name())
-	}
+		SetServiceEndpoints(ka.endpoints).
+		SetAuthPolicy(ka.subscriptionInfo.APICPolicyName).
+		SetSubscriptionName(ka.subscriptionInfo.SchemaName)
 
 	sb, err := body.Build()
 
@@ -291,15 +294,13 @@ func doesServiceExists(serviceId string, services []*kong.Service) bool {
 	return false
 }
 
-func enableSubscription() *subscription.SubscriptionManager {
-	// Configure subscription schemas
-	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient())
+func initSubscriptionManager(kc *kong.Client) (*subscription.Manager, error) {
+	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient(), kc)
 
 	// register schemas
 	for _, schema := range sm.Schemas() {
-		err := agent.GetCentralClient().RegisterSubscriptionSchema(schema)
-		if err != nil {
-			log.Errorf("Failed due: %s", err)
+		if err := agent.GetCentralClient().RegisterSubscriptionSchema(schema); err != nil {
+			return nil, fmt.Errorf("failed to register subscription schema %s: %w", schema.GetSubscriptionName(), err)
 		}
 		log.Infof("Schema registered: %s", schema.GetSubscriptionName())
 	}
@@ -311,5 +312,5 @@ func enableSubscription() *subscription.SubscriptionManager {
 	// start polling for subscriptions
 	agent.GetCentralClient().GetSubscriptionManager().Start()
 
-	return sm
+	return sm, nil
 }

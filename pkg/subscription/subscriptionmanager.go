@@ -1,24 +1,16 @@
 package subscription
 
 import (
-	"strings"
-
-	kutil "github.com/Axway/agents-kong/pkg/kong"
-
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
-	"github.com/Axway/agent-sdk/pkg/util/log"
-	"github.com/Axway/agents-kong/pkg/subscription/apikey"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
 )
 
-type SubscriptionSchemaRegistry interface {
-	RegisterSubscriptionSchema(schema apic.SubscriptionSchema) error
-}
+var constructors = []func(*kong.Client) Handler{}
 
-type SubscriptionHandlerRegistry interface {
-	RegisterValidator()
+func Register(constructor func(*kong.Client) Handler) {
+	constructors = append(constructors, constructor)
 }
 
 // ConsumerInstanceGetter gets a consumer instance by id.
@@ -26,35 +18,47 @@ type ConsumerInstanceGetter interface {
 	GetConsumerInstanceByID(id string) (*v1alpha1.ConsumerInstance, error)
 }
 
-type SubscriptionHandler interface {
+type Info struct {
+	APICPolicyName string
+	SchemaName     string
+}
+
+var defaultInfo = Info{apic.Passthrough, ""}
+
+type Handler interface {
+	Schema() apic.SubscriptionSchema
 	Name() string
 	APICPolicy() string
-	Schema() apic.SubscriptionSchema
 	IsApplicable(map[string]*kong.Plugin) bool
 	Subscribe(log logrus.FieldLogger, subs apic.Subscription)
 	Unsubscribe(log logrus.FieldLogger, subs apic.Subscription)
 }
 
-// SubscriptionManager handles the subscription aspects
-type SubscriptionManager struct {
+// Manager handles the subscription aspects
+type Manager struct {
 	log      logrus.FieldLogger
-	handlers map[string]SubscriptionHandler
+	handlers map[string]Handler
 	cig      ConsumerInstanceGetter
 	//	plugins  *kutil.Plugins
 }
 
-func New(log logrus.FieldLogger, cig ConsumerInstanceGetter) *SubscriptionManager {
-	return &SubscriptionManager{
+func New(log logrus.FieldLogger, cig ConsumerInstanceGetter, kc *kong.Client) *Manager {
+	handlers := make(map[string]Handler, len(constructors))
+
+	for _, c := range constructors {
+		h := c(kc)
+		handlers[h.Name()] = h
+	}
+
+	return &Manager{
 		// set supported subscription handlers
-		handlers: map[string]SubscriptionHandler{
-			apikey.Name: apikey.New(),
-		},
-		cig: cig,
-		log: log,
+		handlers: handlers,
+		cig:      cig,
+		log:      log,
 	}
 }
 
-func (sm *SubscriptionManager) Schemas() []apic.SubscriptionSchema {
+func (sm *Manager) Schemas() []apic.SubscriptionSchema {
 	res := make([]apic.SubscriptionSchema, 0, len(sm.handlers))
 	for _, h := range sm.handlers {
 		res = append(res, h.Schema())
@@ -63,34 +67,23 @@ func (sm *SubscriptionManager) Schemas() []apic.SubscriptionSchema {
 	return res
 }
 
-func (sm *SubscriptionManager) GetEffectiveSubscriptionHandler(routeID *string, serviceID *string, plugins *kutil.Plugins) (SubscriptionHandler, error) {
-	ep, err := plugins.GetEffectivePlugins(*routeID, *serviceID)
-	if err != nil {
-		log.Errorf("error on determine effective plugins: %s", err)
-		return nil, err
-	}
-
-	builder := strings.Builder{}
-	for _, p := range ep {
-		builder.WriteString(*p.Name)
-		builder.WriteString(", ")
-	}
+// GetSubscriptionInfo returns the appropriate Info for the given set of plugins
+func (sm *Manager) GetSubscriptionInfo(plugins map[string]*kong.Plugin) Info {
 
 	for _, h := range sm.handlers {
-		if h.IsApplicable(ep) {
-			log.Info("Using subscription handler: ", h.Name())
-			return h, nil
+		if h.IsApplicable(plugins) {
+			return Info{APICPolicyName: h.APICPolicy(), SchemaName: h.Name()}
 		}
 	}
-	return nil, nil
+	return defaultInfo
 }
 
-func (sm *SubscriptionManager) ValidateSubscription(subscription apic.Subscription) bool {
+func (sm *Manager) ValidateSubscription(subscription apic.Subscription) bool {
 	// TODO
 	return true
 }
 
-func (sm *SubscriptionManager) ProcessSubscribe(subscription apic.Subscription) {
+func (sm *Manager) ProcessSubscribe(subscription apic.Subscription) {
 	log := sm.log.
 		WithField("subscriptionID", subscription.GetID()).
 		WithField("catalogItemID", subscription.GetCatalogItemID()).
@@ -112,7 +105,7 @@ func (sm *SubscriptionManager) ProcessSubscribe(subscription apic.Subscription) 
 	}
 }
 
-func (sm *SubscriptionManager) ProcessUnsubscribe(subscription apic.Subscription) {
+func (sm *Manager) ProcessUnsubscribe(subscription apic.Subscription) {
 	log := sm.log.
 		WithField("subscriptionID", subscription.GetID()).
 		WithField("catalogItemID", subscription.GetCatalogItemID()).

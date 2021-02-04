@@ -1,9 +1,10 @@
 package subscription_test
 
 import (
-	"github.com/Axway/agents-kong/pkg/subscription/apikey"
 	"testing"
 	"time"
+
+	"github.com/Axway/agents-kong/pkg/subscription/apikey"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
@@ -336,7 +337,7 @@ func TestSubscription(t *testing.T) {
 	// this should happen as the agent is starting up
 	//
 
-	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient())
+	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient(), k)
 
 	// register schemas
 	for _, schema := range sm.Schemas() {
