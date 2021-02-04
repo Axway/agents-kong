@@ -26,7 +26,6 @@ func init() {
 
 	// Get the root command properties and bind the config property in YAML definition
 	rootProps := DiscoveryCmd.GetProperties()
-	rootProps.AddStringProperty("kong.user", "", "Kong Gateway admin user")
 	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
 	rootProps.AddStringProperty("kong.adminEndpoint", "", "The Kong admin endpoint")
 	rootProps.AddStringProperty("kong.proxyEndpoint", "", "The Kong proxy endpoint")
@@ -71,7 +70,6 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	gatewayConfig := &config.KongGatewayConfig{
 		AdminEndpoint:        rootProps.StringPropertyValue("kong.adminEndpoint"),
 		Token:                rootProps.StringPropertyValue("kong.token"),
-		User:                 rootProps.StringPropertyValue("kong.user"),
 		ProxyEndpoint:        rootProps.StringPropertyValue("kong.proxyEndpoint"),
 		ProxyHttpPort:        rootProps.IntPropertyValue("kong.proxyEndpointProtocols.http"),
 		ProxyHttpsPort:       rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
