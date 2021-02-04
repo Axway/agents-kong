@@ -23,3 +23,5 @@ bin/
 
 kong_discovery_agent.yml
 kong_traceability_agent.yml
+
+specs/
