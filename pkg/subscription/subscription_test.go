@@ -337,7 +337,10 @@ func TestSubscription(t *testing.T) {
 	// this should happen as the agent is starting up
 	//
 
-	sm := subscription.New(logrus.StandardLogger(), agent.GetCentralClient(), k)
+	sm := subscription.New(logrus.StandardLogger(),
+		agent.GetCentralClient(),
+		agent.GetCentralClient(),
+		k)
 
 	// register schemas
 	for _, schema := range sm.Schemas() {
