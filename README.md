@@ -40,7 +40,7 @@ Copy the content of `default_kong_traceability_agent.yml` to a new file named `k
 In each of the two config files for the agents provide the following variables for your config.
 Provide the `environment`, `organizationID`, `platformURL`, `team`, `url`, `clientID`, `privateKey`, `publicKey` (provide the full file path to the keys).
 
-In the `kong_discovery_agent.yml` file provide the details of the kong user. `admin_endpoint`, `user`, `token`
+In the `kong_discovery_agent.yml` file provide the details of the kong user. `adminEndpoint`, `proxyEndpoint`, `proxyEndpointProtocols`, `user`, `token`
 
 # Run the agents
 
@@ -52,8 +52,19 @@ In development you can run an agent by running `go run ./cmd/discovery/discovery
 
 ## Build and run the binary
 
-To build the agents run `make build`
+To build the discovery agent run `make build-disc`
 
-To run the discovery agent run `make run-discovery`
+To build the traceability agent run `make build-trace`
 
-To run the traceability agent run `make run-traceability`
+To run the discovery agent run `make run-disc`
+
+To run the traceability agent run `make run-trace`
+
+# Kong Discovery Agent
+
+The discovery agent
+
+The discovery agent has two mode to discover specs. Specs can be discovered from either the Kong Developer Portal by setting `specDevPortalEnabled` to `true`, or they can be discovered from a local directory.
+To discover specs from a local directory provide a file path for the agent to look find specs in by setting the `specHomePath` field.
+
+# Kong Traceability Agent

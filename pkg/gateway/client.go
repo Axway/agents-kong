@@ -151,7 +151,6 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 
 	kongServiceSpec, err := specmanager.GetSpecification(ctx, service)
 	if err != nil {
-		// TODO: If no spec is found, then it was likely deleted, and should be deleted from central
 		return fmt.Errorf("failed to get spec for %s: %s", *service.Name, err)
 	}
 
@@ -164,7 +163,8 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		return err
 	}
 	if serviceBody == nil {
-		return fmt.Errorf("not processing '%s' since no changes were detected", *service.Name)
+		log.Debugf("not processing '%s' since no changes were detected", *service.Name)
+		return nil
 	}
 
 	err = agent.PublishAPI(*serviceBody)
@@ -172,13 +172,13 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		return fmt.Errorf("failed to publish api: %s", err)
 	}
 
-	log.Info("Published API " + serviceBody.APIName + " to AMPLIFY Central")
+	log.Infof("Published API '%s' to central", serviceBody.APIName)
 
 	return nil
 }
 
 func (gc *Client) deleteCentralService(serviceID string, serviceName string) {
-	log.Warnf("kong service '%s' has no routes. Attempting to delete the service from central", serviceName)
+	log.Debugf("kong service '%s' has no routes.", serviceName)
 	item, _ := cache.GetCache().Get(serviceID)
 
 	if svc, ok := item.(CachedService); ok {
