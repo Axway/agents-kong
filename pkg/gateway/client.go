@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"github.com/Axway/agents-kong/pkg/kong/specmanager"
+	"github.com/Axway/agents-kong/pkg/kong/specmanager/devportal"
 	"net/http"
 	"sync"
 
@@ -18,7 +20,7 @@ import (
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/Axway/agents-kong/pkg/subscription"
-	"github.com/kong/go-kong/kong"
+	klib "github.com/kong/go-kong/kong"
 
 	_ "github.com/Axway/agents-kong/pkg/subscription/apikey" // needed for apikey subscription initialization
 )
@@ -29,12 +31,14 @@ const externalAPIID = "externalAPIID"
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	kongGatewayConfig := agentConfig.KongGatewayCfg
 	clientBase := &http.Client{}
-	kongClient, err := NewKongClient(clientBase, kongGatewayConfig)
+	kongClient, err := kutil.NewKongClient(clientBase, kongGatewayConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
+
+	specmanager.AddSource(devportal.NewSpecificationSource(kongClient))
 
 	sm, err := initSubscriptionManager(kongClient.Client)
 	if err != nil {
@@ -69,7 +73,7 @@ func (gc *Client) DiscoverAPIs() error {
 	return nil
 }
 
-func (gc *Client) removeDeletedServices(services []*kong.Service) {
+func (gc *Client) removeDeletedServices(services []*klib.Service) {
 	specCache := cache.GetCache()
 	log.Info("checking for deleted kong services")
 	// TODO: add go funcs
@@ -93,13 +97,13 @@ func (gc *Client) removeDeletedServices(services []*kong.Service) {
 	}
 }
 
-func (gc *Client) processKongServicesList(services []*kong.Service) {
+func (gc *Client) processKongServicesList(services []*klib.Service) {
 	wg := new(sync.WaitGroup)
 
 	for _, service := range services {
 		wg.Add(1)
 
-		go func(service *kong.Service, wg *sync.WaitGroup) {
+		go func(service *klib.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
 
 			err := gc.processSingleKongService(context.Background(), service)
@@ -112,7 +116,7 @@ func (gc *Client) processKongServicesList(services []*kong.Service) {
 	wg.Wait()
 }
 
-func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Service) error {
+func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
 	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
 	httpPort := gc.kongGatewayCfg.ProxyHttpPort
 	httpsPort := gc.kongGatewayCfg.ProxyHttpsPort
@@ -153,7 +157,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 
 	endpoints := gc.processKongRoute(proxyEndpoint, route, httpPort, httpsPort)
 
-	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, *service.ID)
+	kongServiceSpec, err := specmanager.GetSpecification(ctx, service)
 	if err != nil {
 		// TODO: If no spec is found, then it was likely deleted, and should be deleted from central
 		return fmt.Errorf("failed to get spec for %s: %s", *service.Name, err)
@@ -181,7 +185,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *kong.Se
 	return nil
 }
 
-func (gc *Client) processKongRoute(defaultHost string, route *kong.Route, httpPort, httpsPort int) []InstanceEndpoint {
+func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPort, httpsPort int) []InstanceEndpoint {
 	var endpoints []InstanceEndpoint
 	if route == nil {
 		return endpoints
@@ -212,7 +216,7 @@ func (gc *Client) processKongRoute(defaultHost string, route *kong.Route, httpPo
 }
 
 func (gc *Client) processKongAPI(
-	service *kong.Service,
+	service *klib.Service,
 	oasSpec Openapi,
 	endpoints []InstanceEndpoint,
 	subscriptionInfo subscription.Info,
@@ -238,7 +242,7 @@ func (gc *Client) processKongAPI(
 }
 
 func newKongAPI(
-	service *kong.Service,
+	service *klib.Service,
 	oasSpec Openapi,
 	endpoints []InstanceEndpoint,
 	nameToPush string,
@@ -286,7 +290,7 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 	return sb, err
 }
 
-func doesServiceExists(serviceId string, services []*kong.Service) bool {
+func doesServiceExists(serviceId string, services []*klib.Service) bool {
 	for _, srv := range services {
 		if serviceId == *srv.ID {
 			return true
@@ -296,7 +300,7 @@ func doesServiceExists(serviceId string, services []*kong.Service) bool {
 	return false
 }
 
-func initSubscriptionManager(kc *kong.Client) (*subscription.Manager, error) {
+func initSubscriptionManager(kc *klib.Client) (*subscription.Manager, error) {
 	sm := subscription.New(
 		logrus.StandardLogger(),
 		agent.GetCentralClient(),

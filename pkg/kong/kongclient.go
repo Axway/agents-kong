@@ -1,28 +1,27 @@
-package gateway
+package kong
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 	"io/ioutil"
 	"net/http"
 
-	kutil "github.com/Axway/agents-kong/pkg/kong"
-
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
-	"github.com/kong/go-kong/kong"
+	klib "github.com/kong/go-kong/kong"
 )
 
 type KongAPIClient interface {
-	ListServices(ctx context.Context) ([]*kong.Service, error)
-	ListRoutesForService(ctx context.Context, serviceId string) ([]*kong.Route, error)
-	GetSpecForService(ctx context.Context, serviceId string) (*KongServiceSpec, error)
-	GetKongPlugins() *kutil.Plugins
+	ListServices(ctx context.Context) ([]*klib.Service, error)
+	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
+	GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error)
+	GetKongPlugins() *Plugins
 }
 
 type KongClient struct {
-	*kong.Client
+	*klib.Client
 	baseClient        DoRequest
 	kongAdminEndpoint string
 }
@@ -33,9 +32,9 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 
 	headers := make(http.Header)
 	headers.Set("Kong-Admin-Token", kongConfig.Token)
-	client := kong.HTTPClientWithHeaders(baseClient, headers)
+	client := klib.HTTPClientWithHeaders(baseClient, headers)
 
-	baseKongClient, err := kong.NewClient(&kongConfig.AdminEndpoint, &client)
+	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, &client)
 	if err != nil {
 		return nil, err
 	}
@@ -46,16 +45,16 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	}, nil
 }
 
-func (k KongClient) ListServices(ctx context.Context) ([]*kong.Service, error) {
+func (k KongClient) ListServices(ctx context.Context) ([]*klib.Service, error) {
 	return k.Services.ListAll(ctx)
 }
 
-func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) ([]*kong.Route, error) {
+func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error) {
 	routes, _, err := k.Routes.ListForService(ctx, &serviceId, nil)
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*KongServiceSpec, error) {
+func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error) {
 	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceId)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
@@ -80,7 +79,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*K
 	return k.getSpec(ctx, documents.Data[0].Path)
 }
 
-func (k KongClient) getSpec(ctx context.Context, path string) (*KongServiceSpec, error) {
+func (k KongClient) getSpec(ctx context.Context, path string) (*specmanager.KongServiceSpec, error) {
 	endpoint := fmt.Sprintf("%s/default/files/%s", k.kongAdminEndpoint, path)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
@@ -97,7 +96,7 @@ func (k KongClient) getSpec(ctx context.Context, path string) (*KongServiceSpec,
 		return nil, fmt.Errorf("failed to read body: %s", err)
 	}
 
-	kongServiceSpec := &KongServiceSpec{}
+	kongServiceSpec := &specmanager.KongServiceSpec{}
 	err = json.Unmarshal(data, kongServiceSpec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal: %s", err)
@@ -108,6 +107,6 @@ func (k KongClient) getSpec(ctx context.Context, path string) (*KongServiceSpec,
 	return kongServiceSpec, nil
 }
 
-func (k KongClient) GetKongPlugins() *kutil.Plugins {
-	return &kutil.Plugins{PluginLister: k.Plugins}
+func (k KongClient) GetKongPlugins() *Plugins {
+	return &Plugins{PluginLister: k.Plugins}
 }
