@@ -19,6 +19,8 @@ import (
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/kong/go-kong/kong"
+
+	_ "github.com/Axway/agents-kong/pkg/subscription/apikey" // needed for apikey subscription initialization
 )
 
 const kongHash = "kong-hash"

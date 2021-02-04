@@ -6,14 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Axway/agents-kong/pkg/subscription/apikey"
 	"github.com/kong/go-kong/kong"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/config"
+	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/sirupsen/logrus"
+
+	_ "github.com/Axway/agents-kong/pkg/subscription/apikey"
 )
 
 var swagger = `
@@ -257,7 +259,7 @@ func TestSubscription(t *testing.T) {
 		TenantID:               "251204211014979",
 		TeamName:               "Default Team",
 		APICDeployment:         "prod",
-		Environment:            "kong-mlo",
+		Environment:            "vibu",
 		URL:                    "https://apicentral.axway.com",
 		PlatformURL:            "https://platform.axway.com",
 		APIServerVersion:       "v1alpha1",
@@ -266,9 +268,9 @@ func TestSubscription(t *testing.T) {
 		Auth: &config.AuthConfiguration{
 			URL:            "https://login.axway.com/auth",
 			Realm:          "Broker",
-			ClientID:       "DOSA_3c5fdc87453f43a597aa117c650b83ee",    // change
-			PrivateKey:     "/home/look/projects/kong/private_key.pem", // change
-			PublicKey:      "/home/look/projects/kong/public_key.pem",  // change
+			ClientID:       "DOSA_0acaa95063a64ff1ba4d76f2a35287b8", // change
+			PrivateKey:     "/home/vibu/.xenutil/privateKey",        // change
+			PublicKey:      "/home/vibu/.xenutil/publicKey",         // change
 			PrivateKeyData: "",
 			PublicKeyData:  "",
 			KeyPwd:         "",
@@ -278,6 +280,9 @@ func TestSubscription(t *testing.T) {
 		ProxyURL:                  "",
 		SubscriptionConfiguration: config.NewSubscriptionConfig(),
 	})
+	if err != nil {
+		t.Fatalf("Failed due: %s", err)
+	}
 
 	//
 	// initialize kong client
@@ -334,6 +339,18 @@ func TestSubscription(t *testing.T) {
 			t.Fatalf("Failed due: %s", err)
 		}
 	}
+	_, err = k.Plugins.Create(context.TODO(), &kong.Plugin{
+		Name:  stringP("acl"),
+		Route: route,
+		Config: kong.Configuration{
+			"allow": []interface{}{"amplify.testsvc"},
+		},
+	})
+	if err != nil {
+		if e, ok := err.(*kong.APIError); !ok || (ok && e.Code() != 409) {
+			t.Fatalf("Failed due: %s", err)
+		}
+	}
 
 	//
 	// this should happen as the agent is starting up
@@ -361,6 +378,13 @@ func TestSubscription(t *testing.T) {
 	// start polling for subscriptions
 	agent.GetCentralClient().GetSubscriptionManager().Start()
 
+	pl := kutil.Plugins{PluginLister: k.Plugins}
+	ep, err := pl.GetEffectivePlugins(*route.ID, *svc.ID)
+	if err != nil {
+		t.Fatalf("Failed due: %s", err)
+	}
+
+	info := sm.GetSubscriptionInfo(ep)
 	//
 	// this should happen for each service
 	//
@@ -377,6 +401,8 @@ func TestSubscription(t *testing.T) {
 		CreatedBy:         "me",
 		Status:            apic.PublishedStatus,
 		ServiceAttributes: map[string]string{"attr": "value"},
+		AuthPolicy:        info.APICPolicyName,
+		SubscriptionName:  info.SchemaName,
 	}
 
 	//
@@ -389,10 +415,6 @@ func TestSubscription(t *testing.T) {
 			t.Fatalf("Failed due: %s", err)
 		}
 	*/
-
-	sb.AuthPolicy = apic.Apikey
-	sb.SubscriptionName = apikey.Name
-
 	_, err = agent.GetCentralClient().PublishService(sb)
 	if err != nil {
 		t.Fatalf("Failed due: %s", err)
