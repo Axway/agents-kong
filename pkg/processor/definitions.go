@@ -37,10 +37,10 @@ type Response struct {
 
 type Route struct {
 	ID                      string            `json:"id"`
-	UpdatedAt               int               `json:"updated_at"`
+	UpdatedAt               int64             `json:"updated_at"`
 	Protocols               []string          `json:"protocols"`
 	StripPath               bool              `json:"strip_path"`
-	CreatedAt               int               `json:"created_at"`
+	CreatedAt               int64             `json:"created_at"`
 	WsID                    string            `json:"ws_id"`
 	Service                 map[string]string `json:"service"`
 	Name                    string            `json:"name"`
@@ -56,7 +56,7 @@ type Route struct {
 
 type Service struct {
 	Host           string `json:"host"`
-	CreatedAt      int    `json:"created_at"`
+	CreatedAt      int64  `json:"created_at"`
 	ConnectTimeout int    `json:"connect_timeout"`
 	ID             string `json:"id"`
 	Protocol       string `json:"protocol"`
@@ -64,7 +64,7 @@ type Service struct {
 	ReadTimeout    int    `json:"read_timeout"`
 	Port           int    `json:"port"`
 	Path           string `json:"path"`
-	UpdatedAt      int    `json:"updated_at"`
+	UpdatedAt      int64  `json:"updated_at"`
 	WriteTimeout   int    `json:"write_timeout"`
 	Retries        int    `json:"retries"`
 	WsID           string `json:"ws_id"`
@@ -79,7 +79,7 @@ type TLS struct {
 
 type Consumer struct {
 	CustomID  string   `json:"custom_id"`
-	CreatedAt string   `json:"created_at"`
+	CreatedAt int64    `json:"created_at"`
 	ID        string   `json:"id"`
 	Tags      []string `json:"tags"`
 	Username  string   `json:"username"`
