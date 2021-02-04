@@ -10,14 +10,17 @@ tidy: go.mod
 download: tidy
 	@go mod download
 
-build:
-	@go build -o bin/agents-kong ./cmd/main.go
+build-disc:
+	@go build -o bin/discovery ./cmd/discovery/main.go
 
-run-discovery:
-	./bin/agents-kong apic_discovery_agent
+build-trace:
+	@go build -o bin/traceability ./cmd/traceability/main.go
 
-run-traceability:
-	./bin/agents-kong apic_traceability_agent
+run-disc:
+	./bin/discovery
+
+run-trace:
+	./bin/traceability
 
 lint:
 	@golangci-lint run -v
