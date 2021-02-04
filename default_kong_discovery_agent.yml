@@ -24,7 +24,6 @@ log:
 kong:
   adminEndpoint: <Domain>
   token: 1234
-  user: admin
   proxyEndpoint: <Domain>
   proxyEndpointProtocols:
     http: 80
