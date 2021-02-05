@@ -13,6 +13,10 @@ Provide a name and a title, such as "kong-gateway" and then hit "Save" in the to
 ## Create a DOSA Account
 
 Create a public and private key pair locally on your computer.
+```shell
+openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+openssl rsa -in private_key.pem -pubout -out public_key.pem
+```
 In Central, click the "Access" tab on the sidebar, which is the second to last tab.
 Click on "Service Accounts".
 Click the button in the top right that says "+ Service Account".
@@ -42,29 +46,36 @@ Provide the `environment`, `organizationID`, `platformURL`, `team`, `url`, `clie
 
 In the `kong_discovery_agent.yml` file provide the details of the kong user. `adminEndpoint`, `proxyEndpoint`, `proxyEndpointProtocols`, `user`, `token`
 
-# Run the agents
+In the `kong_traceability_agent.yml` overrides can be provided if desired under `http_log_plugin_config` for the path and port for http endpoint that listens for request logs from Kong's HTTP Log plugin
 
-## Development
+# Kong Discovery Agent
 
-Each agent is built and run independently
-
-In development you can run an agent by running `go run ./cmd/discovery/discovery.go` or `go run ./cmd/discovery/traceability.go`. You do not need to build the binary for agents on every change.
+The discovery agent has two modes to discover specs. Specs can be discovered from either the Kong Developer Portal by setting `specDevPortalEnabled` to `true`, or they can be discovered from a local directory.
+To discover specs from a local directory provide a file path for the agent to look find specs in by setting the `specHomePath` field.
 
 ## Build and run the binary
 
 To build the discovery agent run `make build-disc`
 
-To build the traceability agent run `make build-trace`
-
 To run the discovery agent run `make run-disc`
+
+# Kong Traceability Agent
+
+Kong Traceability agent does these tasks:
+* Runs an HTTP Server exposing an endpoint that serves as the target for Kong's [HTTP Log Plugin](https://docs.konghq.com/hub/kong-inc/http-log/)
+* Processes the request logs as they are sent by the HTTP Log plugin and builds transaction summary and transaction leg event in the format expected by Central's API Observer
+* Uses libbeat to publish the events to Condor
+
+## Prerequisites
+Kong Traceability agent requires **global deployment** of the below plugin on your Kong instance in order to generate transaction summary and transaction leg event for all Kong's proxies
+* [HTTP Log Plugin](https://docs.konghq.com/hub/kong-inc/http-log/) used to get the request logs associated with Kong proxy invocation
+
+## Build and run the binary
+
+To build the traceability agent run `make build-trace`
 
 To run the traceability agent run `make run-trace`
 
-# Kong Discovery Agent
+# Development
 
-The discovery agent
-
-The discovery agent has two mode to discover specs. Specs can be discovered from either the Kong Developer Portal by setting `specDevPortalEnabled` to `true`, or they can be discovered from a local directory.
-To discover specs from a local directory provide a file path for the agent to look find specs in by setting the `specHomePath` field.
-
-# Kong Traceability Agent
+In development you can run an agent by running `go run ./cmd/discovery/main.go` or `go run ./cmd/traceability/main.go`. You do not need to build the binary for agents on every change.
