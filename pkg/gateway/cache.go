@@ -3,7 +3,6 @@ package gateway
 import (
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/cache"
-	"github.com/Axway/agent-sdk/pkg/util/log"
 )
 
 // If the item is cached, return true
@@ -33,7 +32,6 @@ func setCachedService(kongServiceId string, kongServiceName string, hash string,
 				cachedService.kongServiceName = kongServiceName
 				cachedService.hash = hash
 				specCache.Set(kongServiceId, cachedService)
-				log.Infof("adding to the cache: '%s'. centralName: '%s'", kongServiceName, centralName)
 			}
 		}
 	}

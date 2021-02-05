@@ -58,8 +58,6 @@ func (p *Plugins) GetEffectivePlugins(routeID, serviceID string) (map[string]*kl
 		return nil, err
 	}
 
-	// log.Infof("found %d plugins", len(plugins))
-
 	pmap := map[string]*klib.Plugin{}
 
 	for _, plugin := range plugins {
