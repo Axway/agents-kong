@@ -68,7 +68,8 @@ func (gc *Client) DiscoverAPIs() error {
 	}
 	// TODO: initCache should only run once
 	initCache(apiServices)
-
+	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
+	gc.plugins = plugins
 	services, err := gc.kongClient.ListServices(context.Background())
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
@@ -139,8 +140,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 
 	route := routes[0]
 
-	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
-	ep, err := plugins.GetEffectivePlugins(*route.ID, *service.ID)
+	ep, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get plugins for route %s: %w", *route.ID, err)
 	}
@@ -314,6 +314,7 @@ func doesServiceExists(serviceId string, services []*klib.Service) bool {
 		}
 	}
 	log.Infof("Kong service '%s' no longer exists.", serviceId)
+
 	return false
 }
 
