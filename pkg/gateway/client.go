@@ -314,6 +314,7 @@ func doesServiceExists(serviceId string, services []*klib.Service) bool {
 		}
 	}
 	log.Infof("Kong service '%s' no longer exists.", serviceId)
+
 	return false
 }
 
