@@ -18,8 +18,11 @@ import (
 type EventMapper struct {
 }
 
-const host = "host"
-const userAgent = "user-agent"
+const (
+	host          = "host"
+	userAgent     = "user-agent"
+	redactedValue = "****************************"
+)
 
 func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
 	centralCfg := agent.GetCentralConfig()
@@ -77,10 +80,15 @@ func (m *EventMapper) getTransactionSummaryStatus(statusCode int) transaction.Tx
 }
 
 func (m *EventMapper) buildHeaders(headers map[string]string) string {
+	if headers["apikey"] != "" {
+		headers["apikey"] = redactedValue
+	}
+
 	jsonHeader, err := json.Marshal(headers)
 	if err != nil {
 		log.Error(err.Error())
 	}
+
 	return string(jsonHeader)
 }
 
