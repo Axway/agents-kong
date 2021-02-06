@@ -112,7 +112,7 @@ func (m *EventMapper) processQueryArgs(args map[string]string) string {
 func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid string) (*transaction.LogEvent, error) {
 
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
-		SetURI(ktle.UpstreamURI).
+		SetURI(ktle.Request.URI).
 		SetMethod(ktle.Request.Method).
 		SetArgs(m.processQueryArgs(ktle.Request.QueryString)).
 		SetStatus(ktle.Response.Status, http.StatusText(ktle.Response.Status)).
@@ -135,10 +135,10 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid str
 		SetTransactionID(txnid).
 		SetID("leg0").
 		SetParentID("").
-		SetSource("client_ip").
-		SetDestination("backend_api").
+		SetSource(ktle.ClientIP).
+		SetDestination(ktle.Request.Headers[host]).
 		SetDuration(ktle.Latencies.Request).
-		SetDirection("outbound").
+		SetDirection("inbound").
 		SetStatus(m.getTransactionEventStatus(ktle.Response.Status)).
 		SetProtocolDetail(httpProtocolDetails).
 		Build()
@@ -157,7 +157,7 @@ func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string
 			ktle.Request.URI,
 			ktle.Request.URL).
 		SetDuration(ktle.Latencies.Request).
-		SetProxy(transaction.FormatProxyID(ktle.Service.ID),
+		SetProxy(transaction.FormatProxyID(ktle.Route.ID),
 			ktle.Service.Name,
 			1)
 
