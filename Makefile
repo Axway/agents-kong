@@ -22,8 +22,21 @@ run-disc:
 run-trace:
 	./bin/traceability
 
+run:
+	export DEBUG=1
+	@go run cmd/discovery/main.go &
+	@go run cmd/traceability/main.go
+
+
 lint:
 	@golangci-lint run -v
 
 lint-fix:
-	@golangci-lint run -v --fix
+	@golangci-lint run -v --fixz
+
+
+cs.json: 
+	@curl -s https://apicentral.axway.com/api/v1/docs -o cs.json
+
+gen-clientreg: cs.json
+	@swagger generate client --name clientreg -f $< -t pkg/clientreg -O=getProfilesForApplication
