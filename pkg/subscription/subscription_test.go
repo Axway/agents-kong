@@ -15,6 +15,7 @@ import (
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/sirupsen/logrus"
 
+	kconfig "github.com/Axway/agents-kong/pkg/config/discovery"
 	_ "github.com/Axway/agents-kong/pkg/subscription/apikey"
 )
 
@@ -291,7 +292,15 @@ func TestSubscription(t *testing.T) {
 
 	kURL := "http://localhost:8001" // change
 
-	k, err := kong.NewClient(&kURL, &http.Client{})
+	k, err := kutil.NewKongClient(&http.Client{}, &kconfig.KongGatewayConfig{
+		AdminEndpoint:        kURL,
+		Token:                "",
+		ProxyEndpoint:        kURL,
+		ProxyHttpPort:        0,
+		ProxyHttpsPort:       0,
+		SpecHomePath:         "",
+		SpecDevPortalEnabled: false,
+	})
 	if err != nil {
 		t.Fatalf("Failed due: %s", err)
 	}

@@ -6,12 +6,14 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/kong/go-kong/kong"
+
+	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/sirupsen/logrus"
 )
 
-var constructors = []func(*kong.Client) Handler{}
+var constructors = []func(*kutil.Client) Handler{}
 
-func Register(constructor func(*kong.Client) Handler) {
+func Register(constructor func(*kutil.Client) Handler) {
 	constructors = append(constructors, constructor)
 }
 
@@ -54,7 +56,7 @@ type Manager struct {
 func New(log logrus.FieldLogger,
 	cig ConsumerInstanceGetter,
 	sg SubscriptionGetter,
-	kc *kong.Client) *Manager {
+	kc *kutil.Client) *Manager {
 	handlers := make(map[string]Handler, len(constructors))
 
 	for _, c := range constructors {
@@ -109,7 +111,9 @@ type duplicateGuard struct {
 	lock  *sync.Mutex
 }
 
-// markActive returns
+// markActive returns true if currently a subscription with id is in processing
+// otherwise it marks the id as active and returns false
+// until markInactive is called subsequent calls to markActive with the same id will return true
 func (dg *duplicateGuard) markActive(id string) bool {
 	dg.lock.Lock()
 	defer dg.lock.Unlock()
@@ -122,7 +126,7 @@ func (dg *duplicateGuard) markActive(id string) bool {
 	return false
 }
 
-// markActive returns
+// markInactive marks a subscription as not in processing anymore
 func (dg *duplicateGuard) markInactive(id string) bool {
 	dg.lock.Lock()
 	defer dg.lock.Unlock()

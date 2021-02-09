@@ -25,6 +25,7 @@ import (
 	klib "github.com/kong/go-kong/kong"
 
 	_ "github.com/Axway/agents-kong/pkg/subscription/apikey" // needed for apikey subscription initialization
+	_ "github.com/Axway/agents-kong/pkg/subscription/jwt"    // needed for jwt subscription initialization
 )
 
 const kongHash = "kong-hash"
@@ -47,7 +48,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		specmanager.AddSource(localdir.NewSpecificationSource(agentConfig.KongGatewayCfg.SpecHomePath))
 	}
 
-	sm, err := initSubscriptionManager(kongClient.Client)
+	sm, err := initSubscriptionManager(kongClient)
 	if err != nil {
 		return nil, err
 	}
@@ -307,18 +308,18 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 	return sb, err
 }
 
-func doesServiceExists(serviceId string, services []*klib.Service) bool {
+func doesServiceExists(serviceID string, services []*klib.Service) bool {
 	for _, srv := range services {
-		if serviceId == *srv.ID {
+		if serviceID == *srv.ID {
 			return true
 		}
 	}
-	log.Infof("Kong service '%s' no longer exists.", serviceId)
+	log.Infof("Kong service '%s' no longer exists.", serviceID)
 
 	return false
 }
 
-func initSubscriptionManager(kc *klib.Client) (*subscription.Manager, error) {
+func initSubscriptionManager(kc *kutil.Client) (*subscription.Manager, error) {
 	sm := subscription.New(
 		logrus.StandardLogger(),
 		agent.GetCentralClient(),
