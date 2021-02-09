@@ -21,13 +21,13 @@ type KongAPIClient interface {
 	GetKongPlugins() *Plugins
 }
 
-type KongClient struct {
+type Client struct {
 	*klib.Client
 	baseClient        DoRequest
 	kongAdminEndpoint string
 }
 
-func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
+func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*Client, error) {
 	if kongConfig.Token != "" {
 		defaultTransport := http.DefaultTransport.(*http.Transport)
 		baseClient.Transport = defaultTransport
@@ -42,23 +42,23 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	if err != nil {
 		return nil, err
 	}
-	return &KongClient{
+	return &Client{
 		Client:            baseKongClient,
 		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
 	}, nil
 }
 
-func (k KongClient) ListServices(ctx context.Context) ([]*klib.Service, error) {
+func (k Client) ListServices(ctx context.Context) ([]*klib.Service, error) {
 	return k.Services.ListAll(ctx)
 }
 
-func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error) {
+func (k Client) ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error) {
 	routes, _, err := k.Routes.ListForService(ctx, &serviceId, nil)
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error) {
+func (k Client) GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error) {
 	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceId)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
@@ -83,7 +83,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*s
 	return k.getSpec(ctx, documents.Data[0].Path)
 }
 
-func (k KongClient) getSpec(ctx context.Context, path string) (*specmanager.KongServiceSpec, error) {
+func (k Client) getSpec(ctx context.Context, path string) (*specmanager.KongServiceSpec, error) {
 	endpoint := fmt.Sprintf("%s/default/files/%s", k.kongAdminEndpoint, path)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
@@ -111,6 +111,10 @@ func (k KongClient) getSpec(ctx context.Context, path string) (*specmanager.Kong
 	return kongServiceSpec, nil
 }
 
-func (k KongClient) GetKongPlugins() *Plugins {
+func (k Client) GetKongPlugins() *Plugins {
 	return &Plugins{PluginLister: k.Plugins}
+}
+
+func (k Client) GetKongConsumers() *Consumers {
+	return &Consumers{ConsumerService: k.Consumers}
 }

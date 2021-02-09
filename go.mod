@@ -10,7 +10,12 @@ require (
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/elastic/beats/v7 v7.7.1
 	github.com/garyburd/redigo v1.6.0 // indirect
-	github.com/google/uuid v1.2.0
+	github.com/go-openapi/errors v0.19.9
+	github.com/go-openapi/runtime v0.19.26
+	github.com/go-openapi/strfmt v0.20.0
+	github.com/go-openapi/swag v0.19.12
+	github.com/go-openapi/validate v0.20.1
+	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
@@ -20,6 +25,7 @@ require (
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/miekg/dns v1.1.29 // indirect
 	github.com/mitchellh/hashstructure v1.0.0 // indirect
+	github.com/mitchellh/mapstructure v1.4.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/sirupsen/logrus v1.6.0

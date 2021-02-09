@@ -9,11 +9,12 @@ import (
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/kong/go-kong/kong"
+
 	"github.com/sirupsen/logrus"
 )
 
 type apiKey struct {
-	kc *kong.Client
+	kc *kutil.Client
 }
 
 const Name = "kong-apikey"
@@ -24,7 +25,7 @@ const (
 )
 
 func init() {
-	subscription.Register(func(kc *kong.Client) subscription.Handler {
+	subscription.Register(func(kc *kutil.Client) subscription.Handler {
 		return &apiKey{kc}
 	})
 }
@@ -63,15 +64,23 @@ func (ak *apiKey) Subscribe(log logrus.FieldLogger, subs apic.Subscription) {
 
 	if err != nil {
 		log.WithError(err).Error("Failed to subscribe")
-		subs.UpdateState(apic.SubscriptionFailedToSubscribe, err.Error())
+		err := subs.UpdateState(apic.SubscriptionFailedToSubscribe, err.Error())
+		if err != nil {
+			log.WithError(err).Error("Failed to update subscription state")
+		}
 		return
 	}
 
-	subs.UpdateStateWithProperties(apic.SubscriptionActive, "", map[string]interface{}{propertyName: key})
+	err = subs.UpdateStateWithProperties(apic.SubscriptionActive, "", map[string]interface{}{propertyName: key})
+	if err != nil {
+		log.WithError(err).Error("Failed to update subscription state")
+	}
 }
 
 func (ak *apiKey) doSubscribe(log logrus.FieldLogger, subs apic.Subscription) (string, error) {
 	key := subs.GetPropertyValue(propertyName)
+	testapp := subs.GetPropertyValue("testprofile")
+	log.Info("Got testapp: ", testapp)
 
 	agentTag := "amplify-agent"
 	ctx := context.Background()
@@ -86,13 +95,12 @@ func (ak *apiKey) doSubscribe(log logrus.FieldLogger, subs apic.Subscription) (s
 	}
 	consumerTags := []*string{&apicID, &agentTag}
 
-	plugins := kutil.Plugins{PluginLister: ak.kc.Plugins}
-	ep, err := plugins.GetEffectivePlugins(*route.ID, *route.Service.ID)
+	ep, err := ak.kc.GetKongPlugins().GetEffectivePlugins(*route.ID, *route.Service.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to list route plugins: %w", err)
 	}
 
-	consumerRes, update, err := ak.createOrUpdateConsumer(subscriptionName, subscriptionID, consumerTags)
+	consumerRes, update, err := ak.kc.GetKongConsumers().CreateOrUpdateConsumer(subscriptionName, subscriptionID, consumerTags)
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +125,7 @@ func (ak *apiKey) doSubscribe(log logrus.FieldLogger, subs apic.Subscription) (s
 	acl, ok := ep["acl"]
 	if !ok {
 		log.Warn("ACL Plugin is not configured on route / service")
-		return "", nil
+		return *keyAuthRes.Key, nil
 	}
 
 	// add group
@@ -139,26 +147,6 @@ func (ak *apiKey) doSubscribe(log logrus.FieldLogger, subs apic.Subscription) (s
 	return *keyAuthRes.Key, nil
 }
 
-func (ak *apiKey) createOrUpdateConsumer(name string, customID string, tags []*string) (*kong.Consumer, bool, error) {
-	ctx := context.TODO()
-
-	consumerRes, err := ak.kc.Consumers.Get(ctx, &name)
-	if err == nil {
-		return consumerRes, false, nil
-	}
-
-	consumerRes, err = ak.kc.Consumers.Create(ctx, &kong.Consumer{
-		CustomID: &customID,
-		Username: &name,
-		Tags:     tags,
-	})
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to create consumer: %w", err)
-	}
-
-	return consumerRes, true, nil
-}
-
 func (ak *apiKey) Unsubscribe(log logrus.FieldLogger, subs apic.Subscription) {
 	log.Info("Delete apikey subscription")
 	subscriptionID := subs.GetID()
@@ -169,10 +157,10 @@ func (ak *apiKey) Unsubscribe(log logrus.FieldLogger, subs apic.Subscription) {
 	err := ak.kc.Consumers.Delete(ctx, &subscriptionName)
 	if err != nil {
 		log.WithError(err).Error("Failed to delete Consumer")
-		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("Failed to create API Key %s: %s", routeID, err))
+		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("Failed to delete consumer %s: %s", routeID, err))
 		return
 	}
-	//subs.UpdateState(apic.SubscriptionUnsubscribed, "Toodles")
+
 	err = subs.UpdateState(apic.SubscriptionUnsubscribed, "Toodles")
 	if err != nil {
 		log.WithError(err).Error("failed to update subscription state")
@@ -198,7 +186,7 @@ func (ak *apiKey) deleteAllKeys(consumerID, subscriptionID string) error {
 	for _, k := range keys {
 		err := ak.kc.KeyAuths.Delete(ctx, &consumerID, k.ID)
 		if err != nil {
-			return fmt.Errorf("failed to delete consumer key: ")
+			return fmt.Errorf("failed to delete consumer key: %w", err)
 		}
 	}
 
