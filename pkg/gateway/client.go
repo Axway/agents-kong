@@ -293,9 +293,12 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetTitle(ka.name).
 		SetURL(ka.url).
 		SetVersion(ka.version).
-		SetServiceEndpoints(ka.endpoints).
 		SetAuthPolicy(ka.subscriptionInfo.APICPolicyName).
 		SetSubscriptionName(ka.subscriptionInfo.SchemaName)
+
+	for _, ep := range ka.endpoints {
+		body.SetServiceEndpoint(ep.Protocol, ep.Host, ep.Port, ep.Routing.BasePath)
+	}
 
 	sb, err := body.Build()
 
