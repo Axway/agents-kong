@@ -297,7 +297,7 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetSubscriptionName(ka.subscriptionInfo.SchemaName)
 
 	for _, ep := range ka.endpoints {
-		body.SetServiceEndpoint(ep.Protocol, ep.Host, ep.Port, ep.Routing.BasePath)
+		body.AddServiceEndpoint(ep.Protocol, ep.Host, ep.Port, ep.Routing.BasePath)
 	}
 
 	sb, err := body.Build()
