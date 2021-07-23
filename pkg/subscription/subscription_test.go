@@ -1,3 +1,4 @@
+// +build skip
 package subscription_test
 
 import (
