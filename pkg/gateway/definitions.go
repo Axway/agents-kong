@@ -7,7 +7,6 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	kutil "github.com/Axway/agents-kong/pkg/kong"
 )
 
 type InstanceEndpoint = v1alpha1.ApiServiceInstanceSpecEndpoint
@@ -18,7 +17,7 @@ type Client struct {
 	kongClient          kong.KongAPIClient
 	apicClient          CentralClient
 	subscriptionManager *subscription.Manager
-	plugins             kutil.Plugins
+	plugins             kong.Plugins
 }
 
 type KongAPI struct {
