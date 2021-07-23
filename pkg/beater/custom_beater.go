@@ -74,7 +74,7 @@ func (bt *customLogBeater) Run(b *beat.Beat) error {
 	go func() {
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port),
 			nil); err != nil {
-			log.Fatal("Unable to start the HTTP Server: %s", err)
+			log.Fatalf("Unable to start the HTTP Server: %s", err)
 		}
 		fmt.Printf("Started HTTP server on port %d to receive request logs", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port)
 	}()
