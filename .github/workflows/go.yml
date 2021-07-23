@@ -10,6 +10,8 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: git.ecd.axway.org/apigov
     steps:
     - uses: actions/checkout@v2
 
