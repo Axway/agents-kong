@@ -185,7 +185,7 @@ func (gc *Client) deleteCentralService(serviceID string, serviceName string) {
 		err := gc.apicClient.deleteCentralAPIService(svc)
 
 		if err != nil {
-			log.Errorf("failed to delete service '%' from central: %s", err)
+			log.Errorf("failed to delete service '%' from central: %s", serviceName, err)
 		} else {
 			log.Warnf("deleted Kong service '%s' from central", serviceName)
 		}
