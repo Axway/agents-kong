@@ -49,7 +49,7 @@ type Route struct {
 	RegexPriority           int               `json:"regex_priority"`
 	Paths                   []string          `json:"paths"`
 	ResponseBuffering       bool              `json:"response_buffering"`
-	HttpsRedirectStatusCode int               `json:"https_redirect_status_code"`
+	HTTPSRedirectStatusCode int               `json:"https_redirect_status_code"`
 	PathHandling            string            `json:"path_handling"`
 	RequestBuffering        bool              `json:"request_buffering"`
 }

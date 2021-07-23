@@ -36,7 +36,7 @@ type KongAPI struct {
 }
 
 type CachedService struct {
-	kongServiceId   string
+	kongServiceID   string
 	kongServiceName string
 	hash            string
 	centralName     string

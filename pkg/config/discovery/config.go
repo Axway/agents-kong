@@ -19,8 +19,8 @@ type KongGatewayConfig struct {
 	AdminEndpoint        string `config:"adminEndpoint"`
 	Token                string `config:"token"`
 	ProxyEndpoint        string `config:"proxyEndpoint"`
-	ProxyHttpPort        int    `config:"proxyHttpPort"`
-	ProxyHttpsPort       int    `config:"proxyHttpsPort"`
+	ProxyHTTPPort        int    `config:"proxyHttpPort"`
+	ProxyHTTPSPort       int    `config:"proxyHttpsPort"`
 	SpecHomePath         string `config:"specHomePath"`
 	SpecDevPortalEnabled bool   `config:"specDevPortalEnabled"`
 }
@@ -33,7 +33,7 @@ func (c *KongGatewayConfig) ValidateCfg() (err error) {
 	if c.ProxyEndpoint == "" {
 		return fmt.Errorf("error: proxyEndpoint is required")
 	}
-	if c.ProxyHttpPort == 0 && c.ProxyHttpsPort == 0 {
+	if c.ProxyHTTPPort == 0 && c.ProxyHTTPSPort == 0 {
 		return fmt.Errorf("error: proxyEndpointProtocols requires at least one value of either http or https")
 	}
 	if c.Token == "" {

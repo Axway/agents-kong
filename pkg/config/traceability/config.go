@@ -7,10 +7,10 @@ import (
 // AgentConfig - represents the config for agent
 type AgentConfig struct {
 	CentralCfg          corecfg.CentralConfig `config:"central"`
-	HttpLogPluginConfig *HttpLogPluginConfig  `config:"http_log_plugin_config"`
+	HTTPLogPluginConfig *HTTPLogPluginConfig  `config:"http_log_plugin_config"`
 }
 
-type HttpLogPluginConfig struct {
+type HTTPLogPluginConfig struct {
 	Path string `config:"path"`
 	Port int    `config:"port"`
 }

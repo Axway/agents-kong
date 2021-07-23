@@ -86,7 +86,6 @@ func (sm *Manager) Schemas() []apic.SubscriptionSchema {
 
 // GetSubscriptionInfo returns the appropriate Info for the given set of plugins
 func (sm *Manager) GetSubscriptionInfo(plugins map[string]*kong.Plugin) Info {
-
 	for _, h := range sm.handlers {
 		if h.IsApplicable(plugins) {
 			return Info{APICPolicyName: h.APICPolicy(), SchemaName: h.Name()}
@@ -132,8 +131,7 @@ func (dg *duplicateGuard) markInactive(id string) bool {
 }
 
 func (sm *Manager) checkSubscriptionState(subscriptionID, catalogItemID, subscriptionState string) (bool, error) {
-
-	subs, err := sm.sg.GetSubscriptionsForCatalogItem([]string{string(subscriptionState)}, catalogItemID)
+	subs, err := sm.sg.GetSubscriptionsForCatalogItem([]string{subscriptionState}, catalogItemID)
 	if err != nil {
 		return false, err
 	}
@@ -214,7 +212,6 @@ func (sm *Manager) ProcessUnsubscribe(subscription apic.Subscription) {
 
 	if h, ok := sm.handlers[ci.Spec.Subscription.SubscriptionDefinition]; ok {
 		h.Unsubscribe(log.WithField("handler", h.Name()), subscription)
-
 	} else {
 		log.Info("No known handler for type: ", ci.Spec.Subscription.SubscriptionDefinition)
 	}

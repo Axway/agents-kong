@@ -250,7 +250,6 @@ func stringP(in string) *string {
 }
 
 func TestSubscription(t *testing.T) {
-
 	//
 	// initialize central client
 	// set your client id, privateKey, publicKey below

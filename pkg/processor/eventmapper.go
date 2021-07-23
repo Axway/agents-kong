@@ -15,8 +15,7 @@ import (
 )
 
 // EventMapper -
-type EventMapper struct {
-}
+type EventMapper struct{}
 
 const (
 	host          = "host"
@@ -110,7 +109,6 @@ func (m *EventMapper) processQueryArgs(args map[string]string) string {
 }
 
 func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid string) (*transaction.LogEvent, error) {
-
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
 		SetURI(ktle.Request.URI).
 		SetMethod(ktle.Request.Method).
@@ -124,7 +122,6 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid str
 		SetSSLProperties(m.buildSSLInfoIfAvailable(ktle)).
 		SetUserAgent(ktle.Request.Headers[userAgent]).
 		Build()
-
 	if err != nil {
 		log.Errorf("Error while filling protocol details for transaction event: %s", err)
 		return nil, err
@@ -145,7 +142,6 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid str
 }
 
 func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string, txnid string) (*transaction.LogEvent, error) {
-
 	builder := transaction.NewTransactionSummaryBuilder().
 		SetTimestamp(ktle.StartedAt).
 		SetTransactionID(txnid).

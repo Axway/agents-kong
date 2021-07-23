@@ -27,8 +27,10 @@ import (
 	_ "github.com/Axway/agents-kong/pkg/subscription/apikey" // needed for apikey subscription initialization
 )
 
-const kongHash = "kong-hash"
-const kongServiceID = "kong-service-id"
+const (
+	kongHash      = "kong-hash"
+	kongServiceID = "kong-service-id"
+)
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	kongGatewayConfig := agentConfig.KongGatewayCfg
@@ -126,8 +128,8 @@ func (gc *Client) processKongServicesList(services []*klib.Service) {
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
 	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
-	httpPort := gc.kongGatewayCfg.ProxyHttpPort
-	httpsPort := gc.kongGatewayCfg.ProxyHttpsPort
+	httpPort := gc.kongGatewayCfg.ProxyHTTPPort
+	httpsPort := gc.kongGatewayCfg.ProxyHTTPSPort
 
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
@@ -310,13 +312,13 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 	return sb, err
 }
 
-func doesServiceExists(serviceId string, services []*klib.Service) bool {
+func doesServiceExists(serviceID string, services []*klib.Service) bool {
 	for _, srv := range services {
-		if serviceId == *srv.ID {
+		if serviceID == *srv.ID {
 			return true
 		}
 	}
-	log.Infof("Kong service '%s' no longer exists.", serviceId)
+	log.Infof("Kong service '%s' no longer exists.", serviceID)
 
 	return false
 }

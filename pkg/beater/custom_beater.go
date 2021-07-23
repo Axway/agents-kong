@@ -51,7 +51,7 @@ func (bt *customLogBeater) Run(b *beat.Beat) error {
 		return err
 	}
 
-	http.HandleFunc(fmt.Sprintf("%s", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Path),
+	http.HandleFunc(fmt.Sprintf("%s", traceabilityconfig.GetAgentConfig().HTTPLogPluginConfig.Path),
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
 				w.WriteHeader(http.StatusMethodNotAllowed)
@@ -72,11 +72,11 @@ func (bt *customLogBeater) Run(b *beat.Beat) error {
 	/* Start a new HTTP server in a separate Go routine that will be the target
 	   for the HTTP Log plugin. It should write events it gets to eventChannel */
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port),
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", traceabilityconfig.GetAgentConfig().HTTPLogPluginConfig.Port),
 			nil); err != nil {
 			log.Fatalf("Unable to start the HTTP Server: %s", err)
 		}
-		fmt.Printf("Started HTTP server on port %d to receive request logs", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port)
+		fmt.Printf("Started HTTP server on port %d to receive request logs", traceabilityconfig.GetAgentConfig().HTTPLogPluginConfig.Port)
 	}()
 
 	for {
