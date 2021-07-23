@@ -44,7 +44,7 @@ func run() error {
 		for {
 			err = gatewayClient.DiscoverAPIs()
 			if err != nil {
-				log.Error("error in processing: %s", err)
+				log.Errorf("error in processing: %s", err)
 				stopChan <- struct{}{}
 			}
 			log.Infof("next poll in %s", agentConfig.CentralCfg.GetPollInterval())
