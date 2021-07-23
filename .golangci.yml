@@ -13,9 +13,9 @@ linters:
     - deadcode
     - bodyclose
     - depguard
-    - golint
     - dogsled
     - dupl
+    - exportloopref
     - goconst
     - gocritic
     - gocyclo
@@ -25,7 +25,7 @@ linters:
     - ineffassign
     - misspell
     - nakedret
-    - scopelint
+    - revive
     - stylecheck
     - typecheck
     - unconvert
