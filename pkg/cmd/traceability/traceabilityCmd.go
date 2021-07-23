@@ -9,8 +9,10 @@ import (
 	"github.com/elastic/beats/v7/libbeat/cmd/instance"
 )
 
-var TraceCmd corecmd.AgentRootCmd
-var beatCmd *libcmd.BeatsRootCmd
+var (
+	TraceCmd corecmd.AgentRootCmd
+	beatCmd  *libcmd.BeatsRootCmd
+)
 
 func init() {
 	name := "kong_traceability_agent"
@@ -44,17 +46,16 @@ func run() error {
 // Callback that agent will call to initialize the config. CentralConfig is parsed by Agent SDK
 // and passed to the callback allowing the agent code to access the central config
 func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
-
 	rootProps := TraceCmd.GetProperties()
 
-	httpLogPluginConfig := &config.HttpLogPluginConfig{
+	httpLogPluginConfig := &config.HTTPLogPluginConfig{
 		Port: rootProps.IntPropertyValue("http_log_plugin_config.port"),
 		Path: rootProps.StringPropertyValue("http_log_plugin_config.path"),
 	}
 
 	agentConfig := &config.AgentConfig{
 		CentralCfg:          centralConfig,
-		HttpLogPluginConfig: httpLogPluginConfig,
+		HTTPLogPluginConfig: httpLogPluginConfig,
 	}
 
 	config.SetAgentConfig(agentConfig)

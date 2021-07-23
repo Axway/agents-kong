@@ -55,8 +55,8 @@ func pwrs(id, name, routeID, serviceID string) *klib.Plugin {
 }
 
 func TestGetEffectivePlugins(t *testing.T) {
-	var routeID = "routeID"
-	var serviceID = "serviceID"
+	routeID := "routeID"
+	serviceID := "serviceID"
 	testCases := []struct {
 		name        string
 		plugins     []*klib.Plugin
@@ -95,7 +95,6 @@ func TestGetEffectivePlugins(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
-
 			plugins := kong.Plugins{pluginsMock(tc.plugins)}
 
 			res, err := plugins.GetEffectivePlugins(routeID, serviceID)

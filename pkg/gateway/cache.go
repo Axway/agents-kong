@@ -6,32 +6,32 @@ import (
 )
 
 // If the item is cached, return true
-func setCachedService(kongServiceId string, kongServiceName string, hash string, centralName string) bool {
+func setCachedService(kongServiceID string, kongServiceName string, hash string, centralName string) bool {
 	specCache := cache.GetCache()
-	item, err := specCache.Get(kongServiceId)
+	item, err := specCache.Get(kongServiceID)
 	// if there is an error, then the item is not in the cache
 	if err != nil {
 		cachedService := CachedService{
-			kongServiceId:   kongServiceId,
+			kongServiceID:   kongServiceID,
 			kongServiceName: kongServiceName,
 			hash:            hash,
 			centralName:     centralName,
 		}
-		specCache.Set(kongServiceId, cachedService)
+		specCache.Set(kongServiceID, cachedService)
 		return false
 	}
 
 	if item != nil {
 		if cachedService, ok := item.(CachedService); ok {
-			if cachedService.kongServiceId == kongServiceId && cachedService.hash == hash {
+			if cachedService.kongServiceID == kongServiceID && cachedService.hash == hash {
 				cachedService.centralName = centralName
 				cachedService.kongServiceName = kongServiceName
-				specCache.Set(kongServiceId, cachedService)
+				specCache.Set(kongServiceID, cachedService)
 				return true
 			} else {
 				cachedService.kongServiceName = kongServiceName
 				cachedService.hash = hash
-				specCache.Set(kongServiceId, cachedService)
+				specCache.Set(kongServiceID, cachedService)
 			}
 		}
 	}

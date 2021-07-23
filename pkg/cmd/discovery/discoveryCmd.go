@@ -10,8 +10,10 @@ import (
 	"github.com/Axway/agents-kong/pkg/gateway"
 )
 
-var DiscoveryCmd corecmd.AgentRootCmd
-var agentConfig config.AgentConfig
+var (
+	DiscoveryCmd corecmd.AgentRootCmd
+	agentConfig  config.AgentConfig
+)
 
 func init() {
 	// Create new root command with callbacks to initialize the agent config and command execution.
@@ -44,7 +46,7 @@ func run() error {
 		for {
 			err = gatewayClient.DiscoverAPIs()
 			if err != nil {
-				log.Error("error in processing: %s", err)
+				log.Errorf("error in processing: %s", err)
 				stopChan <- struct{}{}
 			}
 			log.Infof("next poll in %s", agentConfig.CentralCfg.GetPollInterval())
@@ -71,8 +73,8 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 		AdminEndpoint:        rootProps.StringPropertyValue("kong.adminEndpoint"),
 		Token:                rootProps.StringPropertyValue("kong.token"),
 		ProxyEndpoint:        rootProps.StringPropertyValue("kong.proxyEndpoint"),
-		ProxyHttpPort:        rootProps.IntPropertyValue("kong.proxyEndpointProtocols.http"),
-		ProxyHttpsPort:       rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
+		ProxyHTTPPort:        rootProps.IntPropertyValue("kong.proxyEndpointProtocols.http"),
+		ProxyHTTPSPort:       rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
 		SpecHomePath:         rootProps.StringPropertyValue("kong.specHomePath"),
 		SpecDevPortalEnabled: rootProps.BoolPropertyValue("kong.specDevPortalEnabled"),
 	}

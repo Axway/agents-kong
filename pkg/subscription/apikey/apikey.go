@@ -60,7 +60,6 @@ func (*apiKey) IsApplicable(plugins map[string]*kong.Plugin) bool {
 
 func (ak *apiKey) Subscribe(log logrus.FieldLogger, subs apic.Subscription) {
 	key, err := ak.doSubscribe(log, subs)
-
 	if err != nil {
 		log.WithError(err).Error("Failed to subscribe")
 		subs.UpdateState(apic.SubscriptionFailedToSubscribe, err.Error())
@@ -172,7 +171,7 @@ func (ak *apiKey) Unsubscribe(log logrus.FieldLogger, subs apic.Subscription) {
 		subs.UpdateState(apic.SubscriptionFailedToSubscribe, fmt.Sprintf("Failed to create API Key %s: %s", routeID, err))
 		return
 	}
-	//subs.UpdateState(apic.SubscriptionUnsubscribed, "Toodles")
+	// subs.UpdateState(apic.SubscriptionUnsubscribed, "Toodles")
 	err = subs.UpdateState(apic.SubscriptionUnsubscribed, "Toodles")
 	if err != nil {
 		log.WithError(err).Error("failed to update subscription state")

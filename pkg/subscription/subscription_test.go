@@ -1,3 +1,5 @@
+// +build skip
+
 package subscription_test
 
 import (
@@ -248,7 +250,6 @@ func stringP(in string) *string {
 }
 
 func TestSubscription(t *testing.T) {
-
 	//
 	// initialize central client
 	// set your client id, privateKey, publicKey below
@@ -395,7 +396,7 @@ func TestSubscription(t *testing.T) {
 		RestAPIID:         *route.ID,
 		URL:               "https://myapi.com",
 		Version:           "v1",
-		Swagger:           []byte(swagger),
+		SpecDefinition:    []byte(swagger),
 		Tags:              map[string]interface{}{"tag": nil},
 		AgentMode:         config.PublishToEnvironmentAndCatalog,
 		CreatedBy:         "me",

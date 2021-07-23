@@ -3,6 +3,7 @@ package specmanager
 import (
 	"context"
 	"fmt"
+
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/kong/go-kong/kong"
 )

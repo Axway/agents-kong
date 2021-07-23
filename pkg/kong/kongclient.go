@@ -16,8 +16,8 @@ import (
 
 type KongAPIClient interface {
 	ListServices(ctx context.Context) ([]*klib.Service, error)
-	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error)
+	ListRoutesForService(ctx context.Context, serviceID string) ([]*klib.Route, error)
+	GetSpecForService(ctx context.Context, serviceID string) (*specmanager.KongServiceSpec, error)
 	GetKongPlugins() *Plugins
 }
 
@@ -53,13 +53,13 @@ func (k KongClient) ListServices(ctx context.Context) ([]*klib.Service, error) {
 	return k.Services.ListAll(ctx)
 }
 
-func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error) {
-	routes, _, err := k.Routes.ListForService(ctx, &serviceId, nil)
+func (k KongClient) ListRoutesForService(ctx context.Context, serviceID string) ([]*klib.Route, error) {
+	routes, _, err := k.Routes.ListForService(ctx, &serviceID, nil)
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceId)
+func (k KongClient) GetSpecForService(ctx context.Context, serviceID string) (*specmanager.KongServiceSpec, error) {
+	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceID)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %s", err)
