@@ -40,6 +40,10 @@ func run() error {
 	stopChan = make(chan struct{})
 
 	gatewayClient, err := gateway.NewClient(agentConfig)
+	if err != nil {
+		return err
+	}
+
 	go func() {
 		for {
 			err = gatewayClient.DiscoverAPIs()
