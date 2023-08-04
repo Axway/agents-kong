@@ -17,7 +17,7 @@ func Register(constructor func(*kong.Client) Handler) {
 
 // ConsumerInstanceGetter gets a consumer instance by id.
 type ConsumerInstanceGetter interface {
-	GetConsumerInstanceByID(id string) (*v1alpha1.ConsumerInstance, error)
+	GetConsumerInstanceByID(id string) (*management.ConsumerInstance, error)
 }
 
 // SubscriptionGetter gets the all the subscription in any of the states for the catalog item with id

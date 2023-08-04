@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/Axway/agents-kong/pkg/kong/specmanager"
@@ -35,7 +35,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		headers := make(http.Header)
 		headers.Set("Kong-Admin-Token", kongConfig.Token)
 		client := klib.HTTPClientWithHeaders(baseClient, headers)
-		baseClient = &client
+		baseClient = client
 	}
 
 	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, baseClient)
@@ -68,7 +68,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*s
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %s", err)
 	}
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %s", err)
 	}
@@ -95,7 +95,7 @@ func (k KongClient) getSpec(ctx context.Context, path string) (*specmanager.Kong
 		return nil, fmt.Errorf("failed to execute request: %s", err)
 	}
 
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %s", err)
 	}
