@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   kong-db:
-    image: postgres:13
+    image: postgres:11
     environment:
       POSTGRES_USER: kong
       POSTGRES_DB: kong
@@ -12,7 +12,8 @@ services:
     ports:
       - "5432:5432"
   kong-migration:
-    image: kong:3.3.1
+#    image: kong:3.3.1
+    image: kong:2.8.3
     command: kong migrations bootstrap
     environment:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
@@ -31,7 +32,7 @@ services:
     depends_on:
       - kong-db
   kong:
-    image: kong:3.3.1
+    image: kong:2.8.3
     environment:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ERROR_LOG: /dev/stderr
