@@ -19,7 +19,7 @@ import (
 	"github.com/Axway/agents-kong/pkg/subscription"
 	klib "github.com/kong/go-kong/kong"
 
-	_ "github.com/Axway/agents-kong/pkg/subscription/apikey" // needed for apikey subscription initialization
+	_ "github.com/Axway/agents-kong/pkg/subscription/auth" // needed for apikey subscription initialization
 )
 
 const kongHash = "kong-hash"
