@@ -1,12 +1,13 @@
-package auth
+package apikey
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
+	"github.com/Axway/agents-kong/pkg/gateway"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
@@ -23,7 +24,7 @@ const (
 )
 
 func init() {
-	subscription.Register(func(kc *kong.Client) subscription.Handler {
+	subscription.Add(func(kc *kong.Client) subscription.Handler {
 		return &apiKey{kc}
 	})
 }
@@ -32,22 +33,15 @@ func (*apiKey) Name() string {
 	return Name
 }
 
-func (*apiKey) APICPolicy() string {
-	return apic.Apikey
-}
-
-// Schema returns the schema
-func (*apiKey) Schema() apic.SubscriptionSchema {
-	schema := apic.NewSubscriptionSchema(Name)
-
-	schema.AddProperty(propertyName,
-		"string",
-		"The api key. Leave empty for autogeneration",
-		"",
-		false,
-		nil)
-
-	return schema
+func (*apiKey) Register() {
+	//"The api key. Leave empty for autogeneration"
+	corsProp := gateway.GetCorsSchemaPropertyBuilder()
+	apiKeyProp := provisioning.NewSchemaPropertyBuilder().
+		SetName(Name).
+		SetLabel(propertyName).
+		IsString()
+	agent.NewAPIKeyAccessRequestBuilder().Register()
+	agent.NewAPIKeyCredentialRequestBuilder(agent.WithCRDProvisionSchemaProperty(apiKeyProp), agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
 }
 
 func (ak *apiKey) deleteAllKeys(consumerID, subscriptionID string) error {
@@ -56,21 +50,18 @@ func (ak *apiKey) deleteAllKeys(consumerID, subscriptionID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to list all consumers: %w", err)
 	}
-
 	for _, k := range keys {
 		err := ak.kc.KeyAuths.Delete(ctx, &consumerID, k.ID)
 		if err != nil {
 			return fmt.Errorf("failed to delete consumer key: ")
 		}
 	}
-
 	return nil
 }
 
 func (ak *apiKey) UpdateCredential(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {
 	logrus.Info("provisioning credential update")
 	rs := provisioning.NewRequestStatusBuilder()
-
 	ctx := context.Background()
 	agentTag := "amplify-agent"
 	consumerTags := []*string{&agentTag}
@@ -95,7 +86,6 @@ func (ak *apiKey) UpdateCredential(request provisioning.CredentialRequest) (prov
 func (ak *apiKey) CreateCredential(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {
 	logrus.Info("provisioning credentials")
 	rs := provisioning.NewRequestStatusBuilder()
-
 	ctx := context.Background()
 	agentTag := "amplify-agent"
 	consumerTags := []*string{&agentTag}
@@ -123,7 +113,6 @@ func (ak *apiKey) DeleteCredential(request provisioning.CredentialRequest) provi
 	ctx := context.Background()
 	consumerId := request.GetCredentialDetailsValue(common.AttrAppID)
 	apiKeyId := request.GetCredentialDetailsValue(common.AttrAppID)
-
 	logrus.Infof("consumerId : %s", consumerId)
 	if consumerId == "" {
 		return subscription.Failed(rs, errors.New("unable to delete Credential as consumerId is empty"))
