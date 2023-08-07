@@ -2,7 +2,7 @@ package common
 
 const (
 	AttrServiceId = "serviceId"
-	AttrRouteId   = "serviceId"
+	AttrRouteId   = "routeId"
 	AttrChecksum  = "checksum"
 	AttrAppID     = "kongApplicationId"
 )

@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
+	"github.com/Axway/agents-kong/pkg/gateway"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
 )
-
-const aclGroup = "amplify.group"
 
 type Info struct {
 	APICPolicyName string
@@ -23,14 +22,13 @@ type Info struct {
 
 var constructors []func(*kong.Client) Handler
 
-func Register(constructor func(*kong.Client) Handler) {
+func Add(constructor func(*kong.Client) Handler) {
 	constructors = append(constructors, constructor)
 }
 
 type Handler interface {
-	Schema() apic.SubscriptionSchema
+	Register()
 	Name() string
-	APICPolicy() string
 	CreateCredential(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential)
 	DeleteCredential(request provisioning.CredentialRequest) provisioning.RequestStatus
 	UpdateCredential(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential)
@@ -54,39 +52,23 @@ func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (p
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func (p provisioner) NewProvisioner(kc *kong.Client, log logrus.FieldLogger) (provisioning.Provisioning, error) {
-	ctx := context.Background()
+func NewProvisioner(kc *kong.Client, log logrus.FieldLogger) {
 	handlers := make(map[string]Handler, len(constructors))
 	for _, c := range constructors {
 		h := c(kc)
+		h.Register()
 		handlers[h.Name()] = h
 	}
-
-	plugins, err := kc.Plugins.ListAll(ctx)
-	if err != nil {
-		return nil, err
+	provisioner := &provisioner{
+		// set supported subscription handlers
+		kc:       kc,
+		handlers: handlers,
+		log:      log,
 	}
-	for _, plugin := range plugins {
-		if *plugin.Name == "acl" {
-			if groups, ok := plugin.Config["allow"].([]interface{}); ok {
-				allowedGroup := findACLGroup(groups)
-				logrus.Infof("Allowed ACL group %s", allowedGroup)
-				if allowedGroup == "" {
-					return nil, fmt.Errorf("failed to find  acl with group value amplify.group")
-				} else {
-					return &provisioner{
-						// set supported subscription handlers
-						kc:       kc,
-						handlers: handlers,
-						log:      log,
-					}, nil
-				}
-
-			}
-		}
+	agent.RegisterProvisioner(provisioner)
+	for _, handler := range handlers {
+		handler.Register()
 	}
-	return nil, fmt.Errorf("failed to find  acl with group value amplify.group")
-
 }
 
 func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
@@ -171,7 +153,7 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 			return Failed(rs, fmt.Errorf("failed to add ACL pluing to service: %w", err)), nil
 		}
 	}
-	group := fmt.Sprintf("group=%s", aclGroup)
+	group := fmt.Sprintf("group=%s", gateway.AclGroup)
 	consumerTags := []*string{&agentTag}
 
 	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &kong.ACLGroup{Group: &group, Tags: consumerTags})
@@ -252,13 +234,4 @@ func Failed(rs provisioning.RequestStatusBuilder, err error) provisioning.Reques
 
 func notFound(msg string) error {
 	return fmt.Errorf("%s not found", msg)
-}
-
-func findACLGroup(groups []interface{}) string {
-	for _, group := range groups {
-		if groupStr, ok := group.(string); ok && groupStr == aclGroup {
-			return groupStr
-		}
-	}
-	return ""
 }
