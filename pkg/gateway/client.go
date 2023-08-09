@@ -266,7 +266,6 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetAPIName(ka.name).
 		SetAPISpec(ka.swaggerSpec).
 		SetAPIUpdateSeverity(ka.apiUpdateSeverity).
-		SetAuthPolicy(ka.subscriptionInfo.APICPolicyName).
 		SetDescription(ka.description).
 		SetDocumentation(ka.documentation).
 		SetID(ka.id).
@@ -282,7 +281,7 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetTitle(ka.name).
 		SetURL(ka.url).
 		SetVersion(ka.version).
-		SetSubscriptionName(ka.subscriptionInfo.SchemaName).SetServiceEndpoints(ka.endpoints).
+		SetServiceEndpoints(ka.endpoints).
 		SetAccessRequestDefinitionName(ka.accessRequestDefinition, false).
 		SetCredentialRequestDefinitions(ka.CRDs).Build()
 }

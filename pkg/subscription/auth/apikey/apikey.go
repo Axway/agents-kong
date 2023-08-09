@@ -40,8 +40,14 @@ func (*apiKey) Register() {
 		SetLabel(propertyName).
 		SetDescription("The api key. Leave empty for auto generation").
 		IsString()
-	agent.NewAPIKeyAccessRequestBuilder().SetName(Name).Register()
-	agent.NewAPIKeyCredentialRequestBuilder(agent.WithCRDProvisionSchemaProperty(apiKeyProp), agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
+	_, err := agent.NewAPIKeyAccessRequestBuilder().SetName(Name).Register()
+	if err != nil {
+		logrus.Error("Error registering API key Access Request")
+	}
+	_, err = agent.NewAPIKeyCredentialRequestBuilder(agent.WithCRDProvisionSchemaProperty(apiKeyProp), agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
+	if err != nil {
+		logrus.Error("Error registering API Credential Access Request")
+	}
 }
 
 func (ak *apiKey) deleteAllKeys(consumerID, subscriptionID string) error {
@@ -103,14 +109,18 @@ func (ak *apiKey) CreateCredential(request provisioning.CredentialRequest) (prov
 		return subscription.Failed(rs, fmt.Errorf("failed to create API Key: %w", err)), nil
 	}
 	credential := provisioning.NewCredentialBuilder().SetAPIKey(*keyAuthRes.Key)
+	rs.AddProperty(common.AttrAppID, consumerId)
+	rs.AddProperty(common.AttrCredentialID, *keyAuthRes.ID)
 	return rs.Success(), credential
 }
 
 func (ak *apiKey) DeleteCredential(request provisioning.CredentialRequest) provisioning.RequestStatus {
+
+	logrus.Infof("%+v\n", request)
 	rs := provisioning.NewRequestStatusBuilder()
 	ctx := context.Background()
 	consumerId := request.GetCredentialDetailsValue(common.AttrAppID)
-	apiKeyId := request.GetCredentialDetailsValue(common.AttrAppID)
+	apiKeyId := request.GetCredentialDetailsValue(common.AttrCredentialID)
 	logrus.Infof("consumerId : %s", consumerId)
 	if consumerId == "" {
 		return subscription.Failed(rs, errors.New("unable to delete Credential as consumerId is empty"))

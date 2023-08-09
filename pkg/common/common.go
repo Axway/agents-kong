@@ -6,6 +6,8 @@ const (
 	AttrChecksum  = "checksum"
 	AttrAppID     = "kongApplicationId"
 
+	AttrCredentialID = "kongCredentialId"
+
 	AclGroup    = "amplify.group"
 	Marketplace = "marketplace"
 	// CorsField -

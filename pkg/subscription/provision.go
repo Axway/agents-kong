@@ -14,11 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Info struct {
-	APICPolicyName string
-	SchemaName     string
-}
-
 var constructors []func(*kong.Client) Handler
 
 func Add(constructor func(*kong.Client) Handler) {
@@ -37,17 +32,6 @@ type provisioner struct {
 	kc       *kong.Client
 	log      logrus.FieldLogger
 	handlers map[string]Handler
-}
-
-func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {
-	p.log.Info("provisioning credentials update")
-	credentialType := request.GetCredentialType()
-	if h, ok := p.handlers[credentialType]; ok {
-		return h.UpdateCredential(request)
-	}
-	errorMsg := fmt.Sprintf("No known handler for type: %s", credentialType)
-	logrus.Info(errorMsg)
-	return Failed(provisioning.NewRequestStatusBuilder(), errors.New(errorMsg)), nil
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
@@ -71,6 +55,17 @@ func NewProvisioner(kc *kong.Client, log logrus.FieldLogger) {
 		logrus.Infof("Registering authentication :%s", handler.Name())
 		handler.Register()
 	}
+}
+
+func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {
+	p.log.Info("provisioning credentials update")
+	credentialType := request.GetCredentialType()
+	if h, ok := p.handlers[credentialType]; ok {
+		return h.UpdateCredential(request)
+	}
+	errorMsg := fmt.Sprintf("No known handler for type: %s", credentialType)
+	logrus.Info(errorMsg)
+	return Failed(provisioning.NewRequestStatusBuilder(), errors.New(errorMsg)), nil
 }
 
 func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
@@ -184,6 +179,7 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 }
 func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest) provisioning.RequestStatus {
 	p.log.Info("deprovisioning access request")
+	ctx := context.Background()
 	rs := provisioning.NewRequestStatusBuilder()
 	instDetails := request.GetInstanceDetails()
 	serviceId := util.ToString(instDetails[common.AttrServiceId])
@@ -200,7 +196,11 @@ func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest
 	if kongConsumerId == "" {
 		return Failed(rs, notFound(common.AttrAppID))
 	}
-
+	group := common.AclGroup
+	err := p.kc.ACLs.Delete(ctx, &kongConsumerId, &group)
+	if err != nil {
+		return Failed(rs, fmt.Errorf("failed to remove acl group on consumer: %w", err))
+	}
 	p.log.
 		WithField("api", serviceId).
 		WithField("app", request.GetApplicationName()).
@@ -220,7 +220,6 @@ func (p provisioner) CredentialProvision(request provisioning.CredentialRequest)
 }
 func (p provisioner) CredentialDeprovision(request provisioning.CredentialRequest) provisioning.RequestStatus {
 	p.log.Info("de_provisioning credentials")
-
 	credentialType := request.GetCredentialType()
 	if h, ok := p.handlers[credentialType]; ok {
 		return h.DeleteCredential(request)
