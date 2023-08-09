@@ -3,7 +3,6 @@ package localdir
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -56,7 +55,7 @@ func (sc sourceConfig) loadSpecFile(name string) (*specmanager.KongServiceSpec, 
 		return nil, nil
 	}
 
-	data, err := ioutil.ReadFile(specFilePath)
+	data, err := os.ReadFile(specFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("error on reading spec file %s: %s", specFilePath, err)
 	}
