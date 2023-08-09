@@ -88,7 +88,7 @@ func (p provisioner) ApplicationRequestProvision(request provisioning.Applicatio
 	}
 	consumerResponse, err := createConsumer(p.kc, consumer, ctx)
 	if err != nil {
-		return Failed(rs, errors.New("error creating consumer"))
+		return Failed(rs, errors.New("error creating consumer "+err.Error()))
 	}
 	// process application create
 	rs.AddProperty(common.AttrAppID, *consumerResponse.ID)
@@ -168,9 +168,8 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 			return Failed(rs, fmt.Errorf("failed to add ACL pluing to service: %w", err)), nil
 		}
 	}
-	group := fmt.Sprintf("group=%s", common.AclGroup)
+	group := common.AclGroup
 	consumerTags := []*string{&agentTag}
-
 	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &kong.ACLGroup{Group: &group, Tags: consumerTags})
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to add acl group on consumer: %w", err)), nil
@@ -196,9 +195,9 @@ func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest
 		return Failed(rs, notFound(common.AttrRouteId))
 	}
 	// process access request delete
-	webmethodsApplicationId := request.GetAccessRequestDetailsValue(common.AttrAppID)
+	kongConsumerId := request.GetAccessRequestDetailsValue(common.AttrAppID)
 	//GetApplicationDetailsValue(common.AttrAppID)
-	if webmethodsApplicationId == "" {
+	if kongConsumerId == "" {
 		return Failed(rs, notFound(common.AttrAppID))
 	}
 
@@ -245,13 +244,11 @@ func notFound(msg string) error {
 func createConsumer(kc *kong.Client, consumer kong.Consumer, ctx context.Context) (*kong.Consumer, error) {
 	consumerResponse, err := kc.Consumers.Get(ctx, consumer.CustomID)
 	if err != nil {
-		return nil, errors.New("error contacting Kong")
-	}
-	if consumerResponse == nil {
+		log.Infof("Unable to find consumer application, Response from kong %s", err.Error())
 		log.Infof("Creating new application with name %s", consumer.Username)
 		consumerResponse, err = kc.Consumers.Create(ctx, &consumer)
 		if err != nil {
-			return nil, errors.New("error creating consumer")
+			return nil, err
 		}
 	} else {
 		log.Infof("Using the existing consumer %s", consumer.Username)

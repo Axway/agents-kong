@@ -214,6 +214,7 @@ func (gc *Client) processKongAPI(
 	//specType, _ := getSpecType(kongAPI.swaggerSpec)
 	//logrus.Infof("Specification Type %s", specType)
 	ardName, crdName := getFirstAuthPluginArdAndCrd(apiPlugins)
+	logrus.Infof("API %v Access Request Definition %s Credential Request Definition %s", kongAPI.name, ardName, crdName)
 	kongAPI.accessRequestDefinition = ardName
 	kongAPI.CRDs = []string{crdName}
 	agentDetails := map[string]string{
@@ -275,8 +276,8 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetServiceAgentDetails(util.MapStringStringToMapStringInterface(ka.agentDetails)).
 		SetServiceAttribute(serviceAttributes).
 		SetStage(ka.stage).
-		SetState(ka.state).
-		SetStatus(ka.status).
+		SetState(apic.PublishedStatus).
+		SetStatus(apic.PublishedStatus).
 		SetTags(tags).
 		SetTitle(ka.name).
 		SetURL(ka.url).
