@@ -35,23 +35,14 @@ func (*basicAuth) Name() string {
 func (*basicAuth) Register() {
 	//"The api key. Leave empty for autogeneration"
 	corsProp := subscription.GetCorsSchemaPropertyBuilder()
-	agent.NewBasicAuthAccessRequestBuilder().SetName(Name).Register()
-	agent.NewBasicAuthCredentialRequestBuilder(agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
-}
-
-func (auth *basicAuth) deleteAllKeys(consumerID, subscriptionID string) error {
-	ctx := context.Background()
-	keys, _, err := auth.kc.KeyAuths.ListForConsumer(ctx, &consumerID, &kong.ListOpt{Tags: []*string{&subscriptionID}})
+	_, err := agent.NewBasicAuthAccessRequestBuilder().SetName(Name).Register()
 	if err != nil {
-		return fmt.Errorf("failed to list all consumers: %w", err)
+		logrus.Error("Failed to register Basic Auth Access request")
 	}
-	for _, k := range keys {
-		err := auth.kc.KeyAuths.Delete(ctx, &consumerID, k.ID)
-		if err != nil {
-			return fmt.Errorf("failed to delete consumer key: ")
-		}
+	_, err = agent.NewBasicAuthCredentialRequestBuilder(agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
+	if err != nil {
+		logrus.Error("Failed to register Basic Auth Credential request")
 	}
-	return nil
 }
 
 func (auth *basicAuth) UpdateCredential(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {
@@ -86,9 +77,7 @@ func (auth *basicAuth) CreateCredential(request provisioning.CredentialRequest) 
 	consumerTags := []*string{&agentTag}
 	username := request.GetCredentialDetailsValue(propertyName)
 	password := request.GetCredentialDetailsValue(propertyName)
-
 	consumerId := request.GetApplicationDetailsValue(common.AttrAppID)
-
 	kongBasicAuth := kong.BasicAuth{
 		Username: &username,
 		Password: &password,
@@ -99,20 +88,21 @@ func (auth *basicAuth) CreateCredential(request provisioning.CredentialRequest) 
 		return subscription.Failed(rs, fmt.Errorf("failed to create API Key: %w", err)), nil
 	}
 	credential := provisioning.NewCredentialBuilder().SetHTTPBasic(*basicAuthResponse.Username, *basicAuthResponse.Password)
+	rs.AddProperty(common.AttrAppID, consumerId)
+	rs.AddProperty(common.AttrCredentialID, *basicAuthResponse.ID)
 	return rs.Success(), credential
-
 }
 
 func (auth *basicAuth) DeleteCredential(request provisioning.CredentialRequest) provisioning.RequestStatus {
 	rs := provisioning.NewRequestStatusBuilder()
 	ctx := context.Background()
 	consumerId := request.GetCredentialDetailsValue(common.AttrAppID)
-	apiKeyId := request.GetCredentialDetailsValue(common.AttrAppID)
+	credId := request.GetCredentialDetailsValue(common.AttrCredentialID)
 	logrus.Infof("consumerId : %s", consumerId)
 	if consumerId == "" {
 		return subscription.Failed(rs, errors.New("unable to delete Credential as consumerId is empty"))
 	}
-	err := auth.kc.BasicAuths.Delete(ctx, &consumerId, &apiKeyId)
+	err := auth.kc.BasicAuths.Delete(ctx, &consumerId, &credId)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to delete Consumer")
 		return subscription.Failed(rs, errors.New(fmt.Sprintf("Failed to create API Key %s: %s", consumerId, err)))

@@ -2,11 +2,9 @@ package gateway
 
 import (
 	"github.com/Axway/agent-sdk/pkg/apic"
-	"github.com/Axway/agents-kong/pkg/kong"
-	"github.com/Axway/agents-kong/pkg/subscription"
-
 	"github.com/Axway/agent-sdk/pkg/cache"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
+	"github.com/Axway/agents-kong/pkg/kong"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
@@ -33,7 +31,6 @@ type KongAPI struct {
 	documentation           []byte
 	resourceType            string
 	endpoints               []apic.EndpointDefinition
-	subscriptionInfo        subscription.Info
 	image                   string
 	imageContentType        string
 	CRDs                    []string
