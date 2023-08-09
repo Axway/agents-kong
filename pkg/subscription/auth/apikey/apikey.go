@@ -7,7 +7,6 @@ import (
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
-	"github.com/Axway/agents-kong/pkg/gateway"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
@@ -17,7 +16,7 @@ type apiKey struct {
 	kc *kong.Client
 }
 
-const Name = "kong-apikey"
+const Name = provisioning.APIKeyARD
 
 const (
 	propertyName = "api-key"
@@ -35,12 +34,13 @@ func (*apiKey) Name() string {
 
 func (*apiKey) Register() {
 	//"The api key. Leave empty for autogeneration"
-	corsProp := gateway.GetCorsSchemaPropertyBuilder()
+	corsProp := subscription.GetCorsSchemaPropertyBuilder()
 	apiKeyProp := provisioning.NewSchemaPropertyBuilder().
 		SetName(Name).
 		SetLabel(propertyName).
+		SetDescription("The api key. Leave empty for auto generation").
 		IsString()
-	agent.NewAPIKeyAccessRequestBuilder().Register()
+	agent.NewAPIKeyAccessRequestBuilder().SetName(Name).Register()
 	agent.NewAPIKeyCredentialRequestBuilder(agent.WithCRDProvisionSchemaProperty(apiKeyProp), agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
 }
 
@@ -91,7 +91,6 @@ func (ak *apiKey) CreateCredential(request provisioning.CredentialRequest) (prov
 	consumerTags := []*string{&agentTag}
 	key := request.GetCredentialDetailsValue(propertyName)
 	consumerId := request.GetApplicationDetailsValue(common.AttrAppID)
-
 	keyAuth := &kong.KeyAuth{
 		Tags: consumerTags,
 	}
@@ -105,7 +104,6 @@ func (ak *apiKey) CreateCredential(request provisioning.CredentialRequest) (prov
 	}
 	credential := provisioning.NewCredentialBuilder().SetAPIKey(*keyAuthRes.Key)
 	return rs.Success(), credential
-
 }
 
 func (ak *apiKey) DeleteCredential(request provisioning.CredentialRequest) provisioning.RequestStatus {

@@ -7,7 +7,6 @@ import (
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
-	"github.com/Axway/agents-kong/pkg/gateway"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
@@ -17,7 +16,7 @@ type basicAuth struct {
 	kc *kong.Client
 }
 
-const Name = "kong-basic-auth"
+const Name = provisioning.BasicAuthARD
 
 const (
 	propertyName = "basic-auth"
@@ -35,8 +34,8 @@ func (*basicAuth) Name() string {
 
 func (*basicAuth) Register() {
 	//"The api key. Leave empty for autogeneration"
-	corsProp := gateway.GetCorsSchemaPropertyBuilder()
-	agent.NewBasicAuthAccessRequestBuilder().Register()
+	corsProp := subscription.GetCorsSchemaPropertyBuilder()
+	agent.NewBasicAuthAccessRequestBuilder().SetName(Name).Register()
 	agent.NewBasicAuthCredentialRequestBuilder(agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
 }
 

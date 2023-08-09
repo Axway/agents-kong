@@ -9,7 +9,6 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
-	"github.com/Axway/agents-kong/pkg/gateway"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	"github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
@@ -53,6 +52,8 @@ func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (p
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
 func NewProvisioner(kc *kong.Client, log logrus.FieldLogger) {
+	logrus.Info("Registering provisioning callbacks")
+	logrus.Infof("Handlers : %d", len(constructors))
 	handlers := make(map[string]Handler, len(constructors))
 	for _, c := range constructors {
 		h := c(kc)
@@ -67,6 +68,7 @@ func NewProvisioner(kc *kong.Client, log logrus.FieldLogger) {
 	}
 	agent.RegisterProvisioner(provisioner)
 	for _, handler := range handlers {
+		logrus.Infof("Registering authentication :%s", handler.Name())
 		handler.Register()
 	}
 }
@@ -79,13 +81,12 @@ func (p provisioner) ApplicationRequestProvision(request provisioning.Applicatio
 	if appName == "" {
 		return Failed(rs, notFound("managed application name"))
 	}
-
 	id := request.GetID()
 	consumer := kong.Consumer{
 		CustomID: &id,
 		Username: &appName,
 	}
-	consumerResponse, err := p.kc.Consumers.Create(ctx, &consumer)
+	consumerResponse, err := createConsumer(p.kc, consumer, ctx)
 	if err != nil {
 		return Failed(rs, errors.New("error creating consumer"))
 	}
@@ -140,6 +141,20 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 		return Failed(rs, notFound(common.AttrRouteId)), nil
 	}
 	kongApplicationId := request.GetApplicationDetailsValue(common.AttrAppID)
+	if kongApplicationId == "" {
+		// Using the existing application
+		appName := request.GetApplicationName()
+		consumer := kong.Consumer{
+			CustomID: &kongApplicationId,
+			Username: &appName,
+		}
+		var err error
+		consumerResponse, err := createConsumer(p.kc, consumer, ctx)
+		if err != nil {
+			return Failed(rs, errors.New("error creating kong consumer")), nil
+		}
+		kongApplicationId = *consumerResponse.ID
+	}
 	plugins := kutil.Plugins{PluginLister: p.kc.Plugins}
 	ep, err := plugins.GetEffectivePlugins(routeId, serviceId)
 	if err != nil {
@@ -153,14 +168,13 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 			return Failed(rs, fmt.Errorf("failed to add ACL pluing to service: %w", err)), nil
 		}
 	}
-	group := fmt.Sprintf("group=%s", gateway.AclGroup)
+	group := fmt.Sprintf("group=%s", common.AclGroup)
 	consumerTags := []*string{&agentTag}
 
 	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &kong.ACLGroup{Group: &group, Tags: consumerTags})
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to add acl group on consumer: %w", err)), nil
 	}
-
 	// process access request create
 	rs.AddProperty(common.AttrAppID, kongApplicationId)
 	p.log.
@@ -173,28 +187,20 @@ func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest
 	p.log.Info("deprovisioning access request")
 	rs := provisioning.NewRequestStatusBuilder()
 	instDetails := request.GetInstanceDetails()
-
 	serviceId := util.ToString(instDetails[common.AttrServiceId])
 	routeId := util.ToString(instDetails[common.AttrRouteId])
-
 	if serviceId == "" {
 		return Failed(rs, notFound(common.AttrServiceId))
 	}
-
 	if routeId == "" {
 		return Failed(rs, notFound(common.AttrRouteId))
 	}
-
 	// process access request delete
 	webmethodsApplicationId := request.GetAccessRequestDetailsValue(common.AttrAppID)
 	//GetApplicationDetailsValue(common.AttrAppID)
 	if webmethodsApplicationId == "" {
 		return Failed(rs, notFound(common.AttrAppID))
 	}
-	//err := p.client.UnsubscribeApplication(webmethodsApplicationId, apiID)
-	//if err != nil {
-	//	return Failed(rs, errors.New("Error removing API from Webmethods Application"))
-	//}
 
 	p.log.
 		WithField("api", serviceId).
@@ -234,4 +240,32 @@ func Failed(rs provisioning.RequestStatusBuilder, err error) provisioning.Reques
 
 func notFound(msg string) error {
 	return fmt.Errorf("%s not found", msg)
+}
+
+func createConsumer(kc *kong.Client, consumer kong.Consumer, ctx context.Context) (*kong.Consumer, error) {
+	consumerResponse, err := kc.Consumers.Get(ctx, consumer.CustomID)
+	if err != nil {
+		return nil, errors.New("error contacting Kong")
+	}
+	if consumerResponse == nil {
+		log.Infof("Creating new application with name %s", consumer.Username)
+		consumerResponse, err = kc.Consumers.Create(ctx, &consumer)
+		if err != nil {
+			return nil, errors.New("error creating consumer")
+		}
+	} else {
+		log.Infof("Using the existing consumer %s", consumer.Username)
+	}
+	return consumerResponse, nil
+}
+
+func GetCorsSchemaPropertyBuilder() provisioning.PropertyBuilder {
+	return provisioning.NewSchemaPropertyBuilder().
+		SetName(common.CorsField).
+		SetLabel("Javascript Origins").
+		IsArray().
+		AddItem(
+			provisioning.NewSchemaPropertyBuilder().
+				SetName("Origins").
+				IsString())
 }

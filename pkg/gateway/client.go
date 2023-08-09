@@ -3,7 +3,6 @@ package gateway
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
@@ -26,25 +25,8 @@ import (
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	klib "github.com/kong/go-kong/kong"
 
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth" // needed for apikey subscription initialization
-)
-
-const (
-	AclGroup    = "amplify.group"
-	marketplace = "marketplace"
-	// CorsField -
-	CorsField = "cors"
-	// RedirectURLsField -
-	RedirectURLsField = "redirectURLs"
-	OauthServerField  = "oauthServer"
-
-	OAuth2AuthType = "oauth2"
-
-	ApplicationTypeField = "applicationType"
-	// ClientTypeField -
-	ClientTypeField = "clientType"
-	AudienceField   = "audience"
-	OauthScopes     = "oauthScopes"
+	_ "github.com/Axway/agents-kong/pkg/subscription/auth/apikey"    // needed for apikey subscription initialization
+	_ "github.com/Axway/agents-kong/pkg/subscription/auth/basicauth" // needed for basicAuth subscription initialization
 )
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
@@ -88,13 +70,14 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		kongClient:     kongClient,
 		apicClient:     apicClient,
 		cache:          daCache,
-		mode:           marketplace,
+		mode:           common.Marketplace,
 	}, nil
 }
 
 func findACLGroup(groups []interface{}) string {
 	for _, group := range groups {
-		if groupStr, ok := group.(string); ok && groupStr == AclGroup {
+		fmt.Println(group)
+		if groupStr, ok := group.(string); ok && groupStr == common.AclGroup {
 			return groupStr
 		}
 	}
@@ -228,8 +211,8 @@ func (gc *Client) processKongAPI(
 	if err != nil {
 		logrus.Errorf("failed to save api to cache: %s", err)
 	}
-	specType, _ := getSpecType(kongAPI.swaggerSpec)
-	logrus.Infof("Specification Type %s", specType)
+	//specType, _ := getSpecType(kongAPI.swaggerSpec)
+	//logrus.Infof("Specification Type %s", specType)
 	ardName, crdName := getFirstAuthPluginArdAndCrd(apiPlugins)
 	kongAPI.accessRequestDefinition = ardName
 	kongAPI.CRDs = []string{crdName}
@@ -275,7 +258,7 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 	}
 
 	serviceAttributes := map[string]string{
-		"GatewayType": "webMethods",
+		"GatewayType": "Kong API Gateway",
 	}
 
 	return apic.NewServiceBodyBuilder().
@@ -303,23 +286,23 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetCredentialRequestDefinitions(ka.CRDs).Build()
 }
 
-func getSpecType(specContent []byte) (string, error) {
-
-	if specContent != nil {
-		jsonMap := make(map[string]interface{})
-		err := json.Unmarshal(specContent, &jsonMap)
-		if err != nil {
-			logrus.Info("Not an swagger or openapi spec")
-			return "", nil
-		}
-		if _, isSwagger := jsonMap["swagger"]; isSwagger {
-			return apic.Oas2, nil
-		} else if _, isOpenAPI := jsonMap["openapi"]; isOpenAPI {
-			return apic.Oas3, nil
-		}
-	}
-	return "", nil
-}
+//func getSpecType(specContent []byte) (string, error) {
+//
+//	if specContent != nil {
+//		jsonMap := make(map[string]interface{})
+//		err := json.Unmarshal(specContent, &jsonMap)
+//		if err != nil {
+//			logrus.Info("Not an swagger or openapi spec")
+//			return "", nil
+//		}
+//		if _, isSwagger := jsonMap["swagger"]; isSwagger {
+//			return apic.Oas2, nil
+//		} else if _, isOpenAPI := jsonMap["openapi"]; isOpenAPI {
+//			return apic.Oas3, nil
+//		}
+//	}
+//	return "", nil
+//}
 
 // makeChecksum generates a makeChecksum for the api for change detection
 func makeChecksum(val interface{}) string {
@@ -353,15 +336,4 @@ func getFirstAuthPluginArdAndCrd(plugins map[string]*klib.Plugin) (string, strin
 
 	}
 	return "", ""
-}
-
-func GetCorsSchemaPropertyBuilder() provisioning.PropertyBuilder {
-	return provisioning.NewSchemaPropertyBuilder().
-		SetName(CorsField).
-		SetLabel("Javascript Origins").
-		IsArray().
-		AddItem(
-			provisioning.NewSchemaPropertyBuilder().
-				SetName("Origins").
-				IsString())
 }
