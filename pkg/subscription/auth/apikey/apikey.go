@@ -19,7 +19,7 @@ type apiKey struct {
 const Name = provisioning.APIKeyARD
 
 const (
-	propertyName = "api-key"
+	propertyName = "kong-api-key"
 )
 
 func init() {
