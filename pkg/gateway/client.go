@@ -27,6 +27,7 @@ import (
 
 	_ "github.com/Axway/agents-kong/pkg/subscription/auth/apikey"    // needed for apikey subscription initialization
 	_ "github.com/Axway/agents-kong/pkg/subscription/auth/basicauth" // needed for basicAuth subscription initialization
+	_ "github.com/Axway/agents-kong/pkg/subscription/auth/oauth2"    // needed for oauth2 subscription initialization
 )
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
