@@ -171,6 +171,24 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 	}
 	// process access request create
 	rs.AddProperty(common.AttrAppID, kongApplicationId)
+	amplifyQuota := request.GetQuota()
+	if amplifyQuota != nil {
+		planName := amplifyQuota.GetPlanName()
+		planDesc := amplifyQuota.GetPlanName()
+		quotaLimit := int(amplifyQuota.GetLimit())
+		p.log.Info(" Plan name :%s, Plan Description :%s Quota Limit: %s", planName, planDesc, quotaLimit)
+		config := kong.Configuration{
+			"limit":  []interface{}{quotaLimit},
+			"policy": "local",
+		}
+		p.log.Info("%v", config)
+		//err := addRateLimit(p.kc, ctx, config, "")
+		//if err != nil {
+		//	return nil, nil
+		//}
+
+		//amplifyQuota.GetInterval().
+	}
 	p.log.
 		WithField("api", serviceId).
 		WithField("app", request.GetApplicationName()).
@@ -265,3 +283,25 @@ func GetCorsSchemaPropertyBuilder() provisioning.PropertyBuilder {
 				SetName("Origins").
 				IsString())
 }
+
+func GetProvisionKeyPropertyBuilder() provisioning.PropertyBuilder {
+	return provisioning.NewSchemaPropertyBuilder().
+		SetName(common.ProvisionKey).
+		SetLabel("Provision key").
+		SetRequired().
+		IsString()
+}
+
+//func addRateLimit(kc *kong.Client, ctx context.Context, config map[string]interface{}, serviceId string) error {
+//	pluginName := "rate-limiting"
+//	rateLimitPlugin := kong.Plugin{
+//		Name:   &pluginName,
+//		Config: config,
+//	}
+//	kc.Do(ctx)
+//	//_, err := kc.Consumers.C(ctx, &serviceId, &rateLimitPlugin)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
