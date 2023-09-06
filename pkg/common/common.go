@@ -11,7 +11,9 @@ const (
 	AclGroup    = "amplify.group"
 	Marketplace = "marketplace"
 	// CorsField -
-	CorsField = "cors"
+	CorsField    = "cors"
+	ProvisionKey = "provision_key"
+
 	// RedirectURLsField -
 	RedirectURLsField = "redirectURLs"
 	OauthServerField  = "oauthServer"

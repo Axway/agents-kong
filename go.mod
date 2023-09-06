@@ -1,7 +1,11 @@
 module github.com/Axway/agents-kong
 
 go 1.18
+//replace (
+//	github.com/Axway/agent-sdk  => target latest
 
+
+replace github.com/Axway/agent-sdk => /Users/rnatarajan/GolandProjects/agent-sdk
 require (
 	github.com/Axway/agent-sdk v1.1.58
 	github.com/elastic/beats/v7 v7.17.5
