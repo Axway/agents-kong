@@ -1,11 +1,7 @@
 module github.com/Axway/agents-kong
 
 go 1.18
-//replace (
-//	github.com/Axway/agent-sdk  => target latest
 
-
-replace github.com/Axway/agent-sdk => /Users/rnatarajan/GolandProjects/agent-sdk
 require (
 	github.com/Axway/agent-sdk v1.1.58
 	github.com/elastic/beats/v7 v7.17.5
@@ -13,7 +9,6 @@ require (
 	github.com/kong/go-kong v0.46.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tidwall/gjson v1.14.4
-	gotest.tools v2.2.0+incompatible
 )
 
 require (
@@ -184,5 +179,4 @@ replace (
 	github.com/getkin/kin-openapi => github.com/getkin/kin-openapi v0.67.0
 	k8s.io/apimachinery => k8s.io/apimachinery v0.21.1
 	k8s.io/client-go => k8s.io/client-go v0.21.1
-
 )
