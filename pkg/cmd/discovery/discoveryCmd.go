@@ -36,8 +36,7 @@ func init() {
 // Callback that agent will call to process the execution
 func run() error {
 	var err error
-	var stopChan chan struct{}
-	stopChan = make(chan struct{})
+	stopChan := make(chan struct{})
 
 	gatewayClient, err := gateway.NewClient(agentConfig)
 	if err != nil {
@@ -48,7 +47,7 @@ func run() error {
 		for {
 			err = gatewayClient.DiscoverAPIs()
 			if err != nil {
-				log.Error("error in processing: %s", err)
+				log.Errorf("error in processing: %s", err)
 				stopChan <- struct{}{}
 			}
 			log.Infof("next poll in %s", agentConfig.CentralCfg.GetPollInterval())
@@ -56,11 +55,8 @@ func run() error {
 		}
 	}()
 
-	select {
-	case <-stopChan:
-		log.Info("Received signal to stop processing")
-		break
-	}
+	<-stopChan
+	log.Info("Received signal to stop processing")
 
 	return err
 }
