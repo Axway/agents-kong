@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"sync"
 
 	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 	"github.com/Axway/agents-kong/pkg/kong/specmanager/devportal"
@@ -45,9 +46,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		specmanager.AddSource(localdir.NewSpecificationSource(agentConfig.KongGatewayCfg.SpecHomePath))
 	}
 	daCache := cache.New()
-	logger := logrus.WithFields(logrus.Fields{
-		"component": "agent",
-	})
+	logger := log.NewFieldLogger().WithField("component", "agent")
 
 	plugins, err := kongClient.Plugins.ListAll(context.Background())
 	if err != nil {
@@ -64,7 +63,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 			}
 		}
 	}
-	subscription.NewProvisioner(kongClient.Client, logger)
+	subscription.NewProvisioner(kongClient, logger)
 	return &Client{
 		centralCfg:     agentConfig.CentralCfg,
 		kongGatewayCfg: kongGatewayConfig,
