@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util"
@@ -29,30 +30,30 @@ type Handler interface {
 }
 
 type provisioner struct {
-	kc       *kong.Client
 	log      logrus.FieldLogger
+	client   *kong.Client
 	handlers map[string]Handler
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(kc *kong.Client, log logrus.FieldLogger) {
-	logrus.Info("Registering provisioning callbacks")
-	logrus.Infof("Handlers : %d", len(constructors))
+func NewProvisioner(client *kong.Client, log logrus.FieldLogger) {
+	log.Info("Registering provisioning callbacks")
+	log.Infof("Handlers : %d", len(constructors))
 	handlers := make(map[string]Handler, len(constructors))
 	for _, c := range constructors {
-		h := c(kc)
+		h := c(client)
 		h.Register()
 		handlers[h.Name()] = h
 	}
 	provisioner := &provisioner{
 		// set supported subscription handlers
-		kc:       kc,
+		client:   client,
 		handlers: handlers,
 		log:      log,
 	}
 	agent.RegisterProvisioner(provisioner)
 	for _, handler := range handlers {
-		logrus.Infof("Registering authentication :%s", handler.Name())
+		log.Infof("Registering authentication :%s", handler.Name())
 		handler.Register()
 	}
 }
@@ -68,59 +69,6 @@ func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (p
 	return Failed(provisioning.NewRequestStatusBuilder(), errors.New(errorMsg)), nil
 }
 
-func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	p.log.Info("provisioning application")
-	ctx := context.Background()
-	rs := provisioning.NewRequestStatusBuilder()
-	appName := request.GetManagedApplicationName()
-	if appName == "" {
-		return Failed(rs, notFound("managed application name"))
-	}
-	id := request.GetID()
-	consumer := kong.Consumer{
-		CustomID: &id,
-		Username: &appName,
-	}
-	consumerResponse, err := createConsumer(p.kc, consumer, ctx)
-	if err != nil {
-		return Failed(rs, errors.New("error creating consumer "+err.Error()))
-	}
-	// process application create
-	rs.AddProperty(common.AttrAppID, *consumerResponse.ID)
-	p.log.
-		WithField("appName", request.GetManagedApplicationName()).
-		Info("created application")
-
-	return rs.Success()
-}
-
-func (p provisioner) ApplicationRequestDeprovision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	p.log.Info("de-provisioning application")
-	ctx := context.Background()
-	rs := provisioning.NewRequestStatusBuilder()
-	appID := request.GetApplicationDetailsValue(common.AttrAppID)
-	if appID == "" {
-		return Failed(rs, notFound(common.AttrAppID))
-	}
-	consumerResponse, err := p.kc.Consumers.Get(ctx, &appID)
-	if err != nil {
-		return Failed(rs, errors.New("error getting consumer details"))
-	}
-	if consumerResponse == nil {
-		log.Warnf("Application with id %s is already deleted", appID)
-		return rs.Success()
-	}
-	err = p.kc.Consumers.Delete(ctx, &appID)
-	if err != nil {
-		return Failed(rs, errors.New("error deleting kong consumer"))
-	}
-	log.Infof("Application with Id %s deleted successfully on Kong", appID)
-	p.log.
-		WithField("appName", request.GetManagedApplicationName()).
-		WithField("appID", appID).
-		Info("removed application")
-	return rs.Success()
-}
 func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) (provisioning.RequestStatus, provisioning.AccessData) {
 	p.log.Info("provisioning access request")
 	agentTag := "amplify-agent"
@@ -144,13 +92,13 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 			Username: &appName,
 		}
 		var err error
-		consumerResponse, err := createConsumer(p.kc, consumer, ctx)
+		consumerResponse, err := createConsumer(p.client, consumer, ctx)
 		if err != nil {
 			return Failed(rs, errors.New("error creating kong consumer")), nil
 		}
 		kongApplicationId = *consumerResponse.ID
 	}
-	plugins := kutil.Plugins{PluginLister: p.kc.Plugins}
+	plugins := kutil.Plugins{PluginLister: p.client.Plugins}
 	ep, err := plugins.GetEffectivePlugins(routeId, serviceId)
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to list route plugins: %w", err)), nil
@@ -158,14 +106,14 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 	plugin, ok := ep["acl"]
 	if !ok {
 		log.Infof("ACL Plugin is not configured on route / service %s", serviceId)
-		_, err := p.kc.Plugins.CreateForService(ctx, &serviceId, plugin)
+		_, err := p.client.Plugins.CreateForService(ctx, &serviceId, plugin)
 		if err != nil {
 			return Failed(rs, fmt.Errorf("failed to add ACL pluing to service: %w", err)), nil
 		}
 	}
 	group := common.AclGroup
 	consumerTags := []*string{&agentTag}
-	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &kong.ACLGroup{Group: &group, Tags: consumerTags})
+	_, err = p.client.ACLs.Create(ctx, &kongApplicationId, &kong.ACLGroup{Group: &group, Tags: consumerTags})
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to add acl group on consumer: %w", err)), nil
 	}
@@ -215,7 +163,7 @@ func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest
 		return Failed(rs, notFound(common.AttrAppID))
 	}
 	group := common.AclGroup
-	err := p.kc.ACLs.Delete(ctx, &kongConsumerId, &group)
+	err := p.client.ACLs.Delete(ctx, &kongConsumerId, &group)
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to remove acl group on consumer: %w", err))
 	}
