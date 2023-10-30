@@ -157,12 +157,12 @@ func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string
 			ktle.Request.URI,
 			ktle.Request.URL).
 		SetDuration(ktle.Latencies.Request).
-		SetProxy(transaction.FormatProxyID(ktle.Route.ID),
+		SetProxy(ktle.Route.ID,
 			ktle.Service.Name,
 			1)
 
 	if ktle.Consumer != nil {
-		builder.SetApplication(transaction.FormatApplicationID(ktle.Consumer.ID), ktle.Consumer.Username)
+		builder.SetApplication(ktle.Consumer.ID, ktle.Consumer.Username)
 	}
 
 	return builder.Build()
