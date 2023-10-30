@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
@@ -15,6 +16,9 @@ import (
 )
 
 type KongAPIClient interface {
+	// Provisioning
+	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
+
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
 	GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error)
@@ -23,6 +27,7 @@ type KongAPIClient interface {
 
 type KongClient struct {
 	*klib.Client
+	logger            log.FieldLogger
 	baseClient        DoRequest
 	kongAdminEndpoint string
 }
@@ -44,6 +49,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	}
 	return &KongClient{
 		Client:            baseKongClient,
+		logger:            log.NewFieldLogger().WithComponent("apiClient").WithPackage("kong"),
 		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
 	}, nil
