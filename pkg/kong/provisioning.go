@@ -23,14 +23,11 @@ func (k KongClient) CreateConsumer(ctx context.Context, id, name string) (*klib.
 }
 
 func (k KongClient) DeleteConsumer(ctx context.Context, id string) error {
-	// validate that the consumer does not already exist
+	// validate that the consumer has not already been removed
 	log := k.logger.WithField("consumerID", id)
-	consumer, err := k.Consumers.Get(ctx, &id)
+	_, err := k.Consumers.Get(ctx, &id)
 	if err != nil {
-		return err
-	}
-	if consumer == nil {
-		log.Debug("consumer does not exist")
+		log.Debug("could not get consumer")
 		return nil
 	}
 
