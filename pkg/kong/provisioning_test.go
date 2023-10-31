@@ -3,6 +3,7 @@ package kong
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,25 +14,27 @@ import (
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 )
 
+func formatRequestKey(method, path string) string {
+	return fmt.Sprintf("%s-%s", method, path)
+}
+
 type response struct {
 	code      int
 	dataIface interface{}
 	data      []byte
 }
 
-func createClient(responses map[string]map[string]response) KongAPIClient {
+func createClient(responses map[string]response) KongAPIClient {
 	s := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if pathRes, foundPath := responses[req.URL.Path]; foundPath {
-			if res, found := pathRes[req.Method]; found {
-				resp.WriteHeader(res.code)
-				if res.dataIface != nil {
-					data, _ := json.Marshal(res.dataIface)
-					resp.Write(data)
-				} else {
-					resp.Write(res.data)
-				}
-				return
+		if res, found := responses[formatRequestKey(req.Method, req.URL.Path)]; found {
+			resp.WriteHeader(res.code)
+			if res.dataIface != nil {
+				data, _ := json.Marshal(res.dataIface)
+				resp.Write(data)
+			} else {
+				resp.Write(res.data)
 			}
+			return
 		}
 	}))
 	cfg := &config.KongGatewayConfig{
@@ -46,20 +49,18 @@ func TestCreateConsumer(t *testing.T) {
 		expectErr bool
 		id        string
 		name      string
-		responses map[string]map[string]response
+		responses map[string]response
 	}{
 		"find existing consumer": {
 			expectErr: false,
 			id:        "existingID",
 			name:      "existingName",
-			responses: map[string]map[string]response{
-				"/consumers/" + "existingID": {
-					http.MethodGet: {
-						code: http.StatusOK,
-						dataIface: &klib.Consumer{
-							ID:       klib.String("existingID"),
-							Username: klib.String("existingName"),
-						},
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/existingID"): {
+					code: http.StatusOK,
+					dataIface: &klib.Consumer{
+						ID:       klib.String("existingID"),
+						Username: klib.String("existingName"),
 					},
 				},
 			},
@@ -68,19 +69,15 @@ func TestCreateConsumer(t *testing.T) {
 			expectErr: false,
 			id:        "nameID",
 			name:      "newName",
-			responses: map[string]map[string]response{
-				"/consumers/" + "nameID": {
-					http.MethodGet: {
-						code: http.StatusNotFound,
-					},
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/nameID"): {
+					code: http.StatusNotFound,
 				},
-				"/consumers": {
-					http.MethodPost: {
-						code: http.StatusCreated,
-						dataIface: &klib.Consumer{
-							ID:       klib.String("nameID"),
-							Username: klib.String("newName"),
-						},
+				formatRequestKey(http.MethodPost, "/consumers"): {
+					code: http.StatusCreated,
+					dataIface: &klib.Consumer{
+						ID:       klib.String("nameID"),
+						Username: klib.String("newName"),
 					},
 				},
 			},
@@ -89,16 +86,12 @@ func TestCreateConsumer(t *testing.T) {
 			expectErr: true,
 			id:        "nameID",
 			name:      "newName",
-			responses: map[string]map[string]response{
-				"/consumers/" + "nameID": {
-					http.MethodGet: {
-						code: http.StatusNotFound,
-					},
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/nameID"): {
+					code: http.StatusNotFound,
 				},
-				"/consumers": {
-					http.MethodPost: {
-						code: http.StatusBadRequest,
-					},
+				formatRequestKey(http.MethodPost, "/consumers"): {
+					code: http.StatusBadRequest,
 				},
 			},
 		},
@@ -121,49 +114,43 @@ func TestCreateConsumer(t *testing.T) {
 func TestDeleteConsumer(t *testing.T) {
 	testCases := map[string]struct {
 		expectErr bool
-		responses map[string]map[string]response
+		responses map[string]response
 	}{
 		"consumer does not exist": {
 			expectErr: false,
-			responses: map[string]map[string]response{
-				"/consumers/" + "id": {
-					http.MethodGet: {
-						code: http.StatusNotFound,
-					},
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/id"): {
+					code: http.StatusNotFound,
 				},
 			},
 		},
 		"delete consumer": {
 			expectErr: false,
-			responses: map[string]map[string]response{
-				"/consumers/" + "id": {
-					http.MethodGet: {
-						code: http.StatusOK,
-						dataIface: &klib.Consumer{
-							ID:       klib.String("id"),
-							Username: klib.String("name"),
-						},
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/id"): {
+					code: http.StatusOK,
+					dataIface: &klib.Consumer{
+						ID:       klib.String("id"),
+						Username: klib.String("name"),
 					},
-					http.MethodDelete: {
-						code: http.StatusAccepted,
-					},
+				},
+				formatRequestKey(http.MethodDelete, "/consumers/id"): {
+					code: http.StatusAccepted,
 				},
 			},
 		},
 		"delete consumer error": {
 			expectErr: true,
-			responses: map[string]map[string]response{
-				"/consumers/" + "id": {
-					http.MethodGet: {
-						code: http.StatusOK,
-						dataIface: &klib.Consumer{
-							ID:       klib.String("id"),
-							Username: klib.String("name"),
-						},
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/id"): {
+					code: http.StatusOK,
+					dataIface: &klib.Consumer{
+						ID:       klib.String("id"),
+						Username: klib.String("name"),
 					},
-					http.MethodDelete: {
-						code: http.StatusBadRequest,
-					},
+				},
+				formatRequestKey(http.MethodDelete, "/consumers/id"): {
+					code: http.StatusBadRequest,
 				},
 			},
 		},
