@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	kongSDK "github.com/kong/go-kong/kong"
+	klib "github.com/kong/go-kong/kong"
 	"github.com/sirupsen/logrus"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
@@ -17,9 +17,9 @@ import (
 	"github.com/Axway/agents-kong/pkg/kong"
 )
 
-var constructors []func(*kongSDK.Client) Handler
+var constructors []func(*klib.Client) Handler
 
-func Add(constructor func(*kongSDK.Client) Handler) {
+func Add(constructor func(*klib.Client) Handler) {
 	constructors = append(constructors, constructor)
 }
 
@@ -34,7 +34,7 @@ type Handler interface {
 type provisioner struct {
 	logger   log.FieldLogger
 	client   kong.KongAPIClient
-	kc       *kongSDK.Client
+	kc       *klib.Client
 	handlers map[string]Handler
 }
 
@@ -105,7 +105,7 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 	}
 	group := common.AclGroup
 	consumerTags := []*string{&agentTag}
-	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &kongSDK.ACLGroup{Group: &group, Tags: consumerTags})
+	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &klib.ACLGroup{Group: &group, Tags: consumerTags})
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to add acl group on consumer: %w", err)), nil
 	}
@@ -117,7 +117,7 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 		planDesc := amplifyQuota.GetPlanName()
 		quotaLimit := int(amplifyQuota.GetLimit())
 		p.logger.Info(" Plan name :%s, Plan Description :%s Quota Limit: %s", planName, planDesc, quotaLimit)
-		config := kongSDK.Configuration{
+		config := klib.Configuration{
 			"limit":  []interface{}{quotaLimit},
 			"policy": "local",
 		}
@@ -217,9 +217,9 @@ func GetProvisionKeyPropertyBuilder() provisioning.PropertyBuilder {
 		IsString()
 }
 
-//func addRateLimit(kc *kongSDK.Client, ctx context.Context, config map[string]interface{}, serviceId string) error {
+//func addRateLimit(kc *klib.Client, ctx context.Context, config map[string]interface{}, serviceId string) error {
 //	pluginName := "rate-limiting"
-//	rateLimitPlugin := kongSDK.Plugin{
+//	rateLimitPlugin := klib.Plugin{
 //		Name:   &pluginName,
 //		Config: config,
 //	}
