@@ -18,6 +18,7 @@ import (
 type KongAPIClient interface {
 	// Provisioning
 	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
+	DeleteConsumer(ctx context.Context, id string) error
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
@@ -49,7 +50,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	}
 	return &KongClient{
 		Client:            baseKongClient,
-		logger:            log.NewFieldLogger().WithComponent("apiClient").WithPackage("kong"),
+		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
 	}, nil
