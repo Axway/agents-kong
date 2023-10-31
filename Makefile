@@ -12,6 +12,10 @@ export GOPRIVATE=git.ecd.axway.org/apigov
 all: clean
 	@echo "Done"
 
+test: dep
+	@go vet ${GO_PKG_LIST}
+	@go test -race -v -short -coverprofile=${WORKSPACE}/gocoverage.out -count=1 ${GO_PKG_LIST}
+	
 clean:
 	@rm -rf ./bin/
 	@mkdir -p ./bin
