@@ -5,56 +5,62 @@ import (
 	"errors"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
-	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
 )
 
+const (
+	logFieldAppID   = "appID"
+	logFieldAppName = "appName"
+)
+
 func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	p.logger.Info("provisioning application")
+	log := p.logger
+	log.Info("provisioning application")
+
 	ctx := context.Background()
 	rs := provisioning.NewRequestStatusBuilder()
+
 	appName := request.GetManagedApplicationName()
 	if appName == "" {
+		log.Error("could not find the managed application name on the resource")
 		return Failed(rs, notFound("managed application name"))
 	}
-	consumer, err := p.client.CreateConsumer(ctx, request.GetID(), appName)
+	appID := request.GetID()
+	log = log.WithField(logFieldAppID, appID).WithField(logFieldAppName, appName)
+
+	consumer, err := p.client.CreateConsumer(ctx, appID, appName)
 	if err != nil {
-		return Failed(rs, errors.New("error creating consumer "+err.Error()))
+		log.WithError(err).Error("error creating kong consumer")
+		return Failed(rs, errors.New("could not create a new consumer in kong"))
 	}
 
 	// process application create
 	rs.AddProperty(common.AttrAppID, *consumer.ID)
-	p.logger.
-		WithField("appName", request.GetManagedApplicationName()).
-		Info("created application")
+	log.Info("created application")
 
 	return rs.Success()
 }
 
 func (p provisioner) ApplicationRequestDeprovision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	p.logger.Info("de-provisioning application")
+	log := p.logger
+	log.Info("deprovisioning application")
+
 	ctx := context.Background()
 	rs := provisioning.NewRequestStatusBuilder()
+
 	appID := request.GetApplicationDetailsValue(common.AttrAppID)
 	if appID == "" {
+		log.Error("could not find the consumer id on the managed application resource")
 		return Failed(rs, notFound(common.AttrAppID))
 	}
-	consumerResponse, err := p.kc.Consumers.Get(ctx, &appID)
+	log = log.WithField(logFieldAppID, appID).WithField(logFieldAppName, request.GetManagedApplicationName())
+
+	err := p.client.DeleteConsumer(ctx, appID)
 	if err != nil {
-		return Failed(rs, errors.New("error getting consumer details"))
+		log.WithError(err).Error("error deleting kong consumer")
+		return Failed(rs, errors.New("could not remove consumer in kong"))
 	}
-	if consumerResponse == nil {
-		log.Warnf("Application with id %s is already deleted", appID)
-		return rs.Success()
-	}
-	err = p.kc.Consumers.Delete(ctx, &appID)
-	if err != nil {
-		return Failed(rs, errors.New("error deleting kong consumer"))
-	}
-	log.Infof("Application with Id %s deleted successfully on Kong", appID)
-	p.logger.
-		WithField("appName", request.GetManagedApplicationName()).
-		WithField("appID", appID).
-		Info("removed application")
+	p.logger.Info("removed application")
+
 	return rs.Success()
 }
