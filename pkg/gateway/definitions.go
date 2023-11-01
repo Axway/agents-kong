@@ -20,10 +20,9 @@ type Client struct {
 	kongGatewayCfg *config.KongGatewayConfig
 	kongClient     kong.KongAPIClient
 	apicClient     CentralClient
-	//subscriptionManager *subscription.Manager
-	plugins kutil.Plugins
-	cache   cache.Cache
-	mode    string
+	plugins        kutil.Plugins
+	cache          cache.Cache
+	mode           string
 }
 
 type KongAPI struct {
