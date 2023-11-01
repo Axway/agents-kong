@@ -4,16 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"sync"
-
-	"github.com/Axway/agents-kong/pkg/kong/specmanager"
-	"github.com/Axway/agents-kong/pkg/kong/specmanager/devportal"
-	"github.com/Axway/agents-kong/pkg/kong/specmanager/localdir"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
@@ -38,15 +35,10 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		return nil, err
 	}
 	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
-	if agentConfig.KongGatewayCfg.SpecDevPortalEnabled {
-		specmanager.AddSource(devportal.NewSpecificationSource(kongClient))
-	}
-	if len(agentConfig.KongGatewayCfg.SpecHomePath) > 0 {
-		specmanager.AddSource(localdir.NewSpecificationSource(agentConfig.KongGatewayCfg.SpecHomePath))
-	}
 	daCache := cache.New()
 	logger := logrus.WithFields(logrus.Fields{
 		"component": "agent",
+		"package":   "discovery",
 	})
 
 	plugins, err := kongClient.Plugins.ListAll(context.Background())
@@ -66,6 +58,8 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}
 	subscription.NewProvisioner(kongClient.Client, logger)
 	return &Client{
+		ctx:            context.Background(),
+		logger:         logger,
 		centralCfg:     agentConfig.CentralCfg,
 		kongGatewayCfg: kongGatewayConfig,
 		kongClient:     kongClient,
@@ -86,13 +80,16 @@ func findACLGroup(groups []interface{}) string {
 }
 
 func (gc *Client) DiscoverAPIs() error {
+	gc.logger.Info("execute discovery process")
+
 	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 	gc.plugins = plugins
-	services, err := gc.kongClient.ListServices(context.Background())
+	services, err := gc.kongClient.ListServices(gc.ctx)
 	if err != nil {
-		log.Errorf("failed to get services: %s", err)
+		gc.logger.WithError(err).Error("failed to get services")
 		return err
 	}
+
 	gc.processKongServicesList(services)
 	return nil
 }
@@ -103,7 +100,7 @@ func (gc *Client) processKongServicesList(services []*klib.Service) {
 		wg.Add(1)
 		go func(service *klib.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
-			err := gc.processSingleKongService(context.Background(), service)
+			err := gc.processSingleKongService(gc.ctx, service)
 			if err != nil {
 				log.Error(err)
 			}
@@ -113,12 +110,15 @@ func (gc *Client) processKongServicesList(services []*klib.Service) {
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
+	gc.logger.Infof("processing service %s", *service.Name)
+
 	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
 	httpPort := gc.kongGatewayCfg.ProxyHttpPort
 	httpsPort := gc.kongGatewayCfg.ProxyHttpsPort
 
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
+		gc.logger.WithError(err).Errorf("failed to get routes for service %s", *service.Name)
 		return err
 	}
 	if len(routes) == 0 {
@@ -130,32 +130,35 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 
 	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get plugins for route %s: %w", *route.ID, err)
+		gc.logger.WithError(err).Errorf("failed to get plugins for route %s", *route.ID)
+		return err
 	}
 
-	kongServiceSpec, err := specmanager.GetSpecification(ctx, service)
+	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, *service.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get spec for %s: %s", *service.Name, err)
+		gc.logger.WithError(err).Errorf("failed to get spec for service %s", *service.Name)
+		return err
 	}
 
 	oasSpec := Openapi{
-		spec: kongServiceSpec.Contents,
+		spec: string(kongServiceSpec),
 	}
 	endpoints := gc.processKongRoute(proxyEndpoint, oasSpec.BasePath(), route, httpPort, httpsPort)
 	serviceBody, err := gc.processKongAPI(*route.ID, service, oasSpec, endpoints, apiPlugins)
-
 	if err != nil {
 		return err
 	}
 	if serviceBody == nil {
-		log.Debugf("not processing '%s' since no changes were detected", *service.Name)
+		gc.logger.Debugf("not processing '%s' since no changes were detected", *service.Name)
 		return nil
 	}
 	err = agent.PublishAPI(*serviceBody)
 	if err != nil {
-		return fmt.Errorf("failed to publish api: %s", err)
+		gc.logger.WithError(err).Error("failed to publish api")
+		return err
 	}
-	log.Infof("Published API '%s' to central", serviceBody.APIName)
+
+	gc.logger.Infof("Published API '%s' to central", serviceBody.APIName)
 	return nil
 }
 
@@ -205,15 +208,14 @@ func (gc *Client) processKongAPI(
 	isAlreadyPublished, checksum := isPublished(&kongAPI, gc.cache)
 	// If true, then the api is published and there were no changes detected
 	if isAlreadyPublished {
-		logrus.Debug("api is already published")
+		gc.logger.Debug("api is already published")
 		return nil, nil
 	}
 	err := gc.cache.Set(checksum, kongAPI)
 	if err != nil {
-		logrus.Errorf("failed to save api to cache: %s", err)
+		gc.logger.WithError(err).Error("failed to save api to cache")
 	}
-	//specType, _ := getSpecType(kongAPI.swaggerSpec)
-	//logrus.Infof("Specification Type %s", specType)
+
 	ardName, crdName := getFirstAuthPluginArdAndCrd(apiPlugins)
 	logrus.Infof("API %v Access Request Definition %s Credential Request Definition %s", kongAPI.name, ardName, crdName)
 	kongAPI.accessRequestDefinition = ardName
@@ -226,7 +228,8 @@ func (gc *Client) processKongAPI(
 	kongAPI.agentDetails = agentDetails
 	serviceBody, err := kongAPI.buildServiceBody()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build service body: %v", serviceBody)
+		gc.logger.WithError(err).Error("failed to build service body")
+		return nil, err
 	}
 	return &serviceBody, nil
 }
@@ -251,7 +254,6 @@ func newKongAPI(
 }
 
 func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
-
 	tags := map[string]interface{}{}
 	if ka.tags != nil {
 		for _, tag := range ka.tags {
@@ -286,24 +288,6 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetAccessRequestDefinitionName(ka.accessRequestDefinition, false).
 		SetCredentialRequestDefinitions(ka.CRDs).Build()
 }
-
-//func getSpecType(specContent []byte) (string, error) {
-//
-//	if specContent != nil {
-//		jsonMap := make(map[string]interface{})
-//		err := json.Unmarshal(specContent, &jsonMap)
-//		if err != nil {
-//			logrus.Info("Not an swagger or openapi spec")
-//			return "", nil
-//		}
-//		if _, isSwagger := jsonMap["swagger"]; isSwagger {
-//			return apic.Oas2, nil
-//		} else if _, isOpenAPI := jsonMap["openapi"]; isOpenAPI {
-//			return apic.Oas3, nil
-//		}
-//	}
-//	return "", nil
-//}
 
 // makeChecksum generates a makeChecksum for the api for change detection
 func makeChecksum(val interface{}) string {

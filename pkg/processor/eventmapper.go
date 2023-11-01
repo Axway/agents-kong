@@ -11,6 +11,7 @@ import (
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/transaction"
+	"github.com/Axway/agent-sdk/pkg/transaction/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 )
 
@@ -157,12 +158,12 @@ func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string
 			ktle.Request.URI,
 			ktle.Request.URL).
 		SetDuration(ktle.Latencies.Request).
-		SetProxy(transaction.FormatProxyID(ktle.Route.ID),
+		SetProxy(util.FormatProxyID(ktle.Route.ID),
 			ktle.Service.Name,
 			1)
 
 	if ktle.Consumer != nil {
-		builder.SetApplication(transaction.FormatApplicationID(ktle.Consumer.ID), ktle.Consumer.Username)
+		builder.SetApplication(util.FormatApplicationID(ktle.Consumer.ID), ktle.Consumer.Username)
 	}
 
 	return builder.Build()
