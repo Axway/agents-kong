@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/subscription"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"sync"
 
 	"github.com/Axway/agents-kong/pkg/kong/specmanager"
 	"github.com/Axway/agents-kong/pkg/kong/specmanager/devportal"
@@ -53,17 +54,11 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, plugin := range plugins {
-		if *plugin.Name == "acl" {
-			if groups, ok := plugin.Config["allow"].([]interface{}); ok {
-				allowedGroup := findACLGroup(groups)
-				logrus.Infof("Allowed ACL group %s", allowedGroup)
-				if allowedGroup == "" {
-					return nil, fmt.Errorf("failed to find  acl with group value amplify.group under allow")
-				}
-			}
-		}
+
+	if err := hasACLEnabledInPlugins(plugins); err != nil {
+		return nil, err
 	}
+
 	subscription.NewProvisioner(kongClient.Client, logger)
 	return &Client{
 		centralCfg:     agentConfig.CentralCfg,
@@ -75,14 +70,14 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}, nil
 }
 
-func findACLGroup(groups []interface{}) string {
-	for _, group := range groups {
-		fmt.Println(group)
-		if groupStr, ok := group.(string); ok && groupStr == common.AclGroup {
-			return groupStr
+// Returns no error in case an ACL plugin which is enabled is found
+func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
+	for _, plugin := range plugins {
+		if *plugin.Name == "acl" && *plugin.Enabled == true {
+			return nil
 		}
 	}
-	return ""
+	return fmt.Errorf("failed to find acl plugin is enabled and installed")
 }
 
 func (gc *Client) DiscoverAPIs() error {
