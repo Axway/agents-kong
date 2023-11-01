@@ -46,7 +46,7 @@ func run() error {
 
 	go func() {
 		for {
-			err = gatewayClient.DiscoverAPIs()
+			err = gatewayClient.ExecuteDiscovery()
 			if err != nil {
 				log.Errorf("error in processing: %s", err)
 				stopChan <- struct{}{}

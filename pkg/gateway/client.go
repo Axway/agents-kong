@@ -26,10 +26,24 @@ import (
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	klib "github.com/kong/go-kong/kong"
 
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/apikey"    // needed for apikey subscription initialization
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/basicauth" // needed for basicAuth subscription initialization
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/oauth2"    // needed for oauth2 subscription initialization
+	"github.com/Axway/agents-kong/pkg/subscription/auth/apikey"    // needed for apikey subscription initialization
+	"github.com/Axway/agents-kong/pkg/subscription/auth/basicauth" // needed for basicAuth subscription initialization
+	"github.com/Axway/agents-kong/pkg/subscription/auth/oauth2"    // needed for oauth2 subscription initialization
 )
+
+var authTypes = []string{apikey.Name, basicauth.Name, oauth2.Name}
+
+var isValidAuthTypeAndEnabled = func(p *klib.Plugin) bool {
+	if *p.Enabled != true {
+		return false
+	}
+	for _, availableAuthName := range authTypes {
+		if *p.Name == availableAuthName {
+			return true
+		}
+	}
+	return false
+}
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	kongGatewayConfig := agentConfig.KongGatewayCfg
@@ -54,6 +68,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	daCache.Set("kong-plugins", plugins)
 
 	if err := hasACLEnabledInPlugins(plugins); err != nil {
 		return nil, err
@@ -70,25 +85,51 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}, nil
 }
 
-// Returns no error in case an ACL plugin which is enabled is found
-func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
-	for _, plugin := range plugins {
-		if *plugin.Name == "acl" && *plugin.Enabled == true {
-			return nil
-		}
-	}
-	return fmt.Errorf("failed to find acl plugin is enabled and installed")
+func (gc *Client) ExecuteDiscovery() error {
+	gc.getPlugins()
+	gc.createRequestDefinitions()
+	return gc.discoverAPIs()
 }
 
-func (gc *Client) DiscoverAPIs() error {
-	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
-	gc.plugins = plugins
+func (gc *Client) discoverAPIs() error {
 	services, err := gc.kongClient.ListServices(context.Background())
 	if err != nil {
 		log.Errorf("failed to get services: %s", err)
 		return err
 	}
 	gc.processKongServicesList(services)
+	return nil
+}
+
+func (gc *Client) createRequestDefinitions() error {
+	log.Debug("creating request definitions")
+	gc.createAccessRequestDefinition()
+	return gc.createCredentialRequestDefinition()
+}
+
+func (gc *Client) createAccessRequestDefinition() {
+	gc.ard = provisioning.APIKeyARD
+}
+
+func (gc *Client) createCredentialRequestDefinition() error {
+	allPlugins, err := gc.cache.Get("kong-plugin")
+	if err != nil {
+		allPlugins, err = gc.plugins.PluginLister.ListAll(context.Background())
+		if err != nil {
+			return fmt.Errorf("failed to fetch kong plugins")
+		}
+	}
+
+	uniqueCrds := map[string]string{}
+	for _, plugin := range allPlugins.([]*klib.Plugin) {
+		if isValidAuthTypeAndEnabled(plugin) {
+			uniqueCrds[*plugin.Name] = *plugin.Name
+		}
+	}
+
+	for _, crd := range uniqueCrds {
+		gc.crds = append(gc.crds, crd)
+	}
 	return nil
 }
 
@@ -207,12 +248,8 @@ func (gc *Client) processKongAPI(
 	if err != nil {
 		logrus.Errorf("failed to save api to cache: %s", err)
 	}
-	//specType, _ := getSpecType(kongAPI.swaggerSpec)
-	//logrus.Infof("Specification Type %s", specType)
-	ardName, crdName := getFirstAuthPluginArdAndCrd(apiPlugins)
-	logrus.Infof("API %v Access Request Definition %s Credential Request Definition %s", kongAPI.name, ardName, crdName)
-	kongAPI.accessRequestDefinition = ardName
-	kongAPI.CRDs = []string{crdName}
+	kongAPI.ard = gc.ard
+	kongAPI.crds = gc.crds
 	agentDetails := map[string]string{
 		common.AttrServiceId: *service.ID,
 		common.AttrRouteId:   routeID,
@@ -278,8 +315,8 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetURL(ka.url).
 		SetVersion(ka.version).
 		SetServiceEndpoints(ka.endpoints).
-		SetAccessRequestDefinitionName(ka.accessRequestDefinition, false).
-		SetCredentialRequestDefinitions(ka.CRDs).Build()
+		SetAccessRequestDefinitionName(ka.ard, false).
+		SetCredentialRequestDefinitions(ka.crds).Build()
 }
 
 //func getSpecType(specContent []byte) (string, error) {
@@ -317,19 +354,16 @@ func isPublished(api *KongAPI, c cache.Cache) (bool, string) {
 	return true, checksum
 }
 
-func getFirstAuthPluginArdAndCrd(plugins map[string]*klib.Plugin) (string, string) {
-	for key := range plugins {
-		switch key {
-		case "key-auth":
-			return provisioning.APIKeyARD, provisioning.APIKeyCRD
-		case "jwt":
-			return "jwt", "jwt"
-		case "basic-auth":
-			return provisioning.BasicAuthARD, provisioning.BasicAuthCRD
-		case "oauth2":
-			return "oauth2", "oauth2"
+// Returns no error in case an ACL plugin which is enabled is found
+func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
+	for _, plugin := range plugins {
+		if *plugin.Name == "acl" && *plugin.Enabled == true {
+			return nil
 		}
-
 	}
-	return "", ""
+	return fmt.Errorf("failed to find acl plugin is enabled and installed")
+}
+
+func (gc *Client) getPlugins() {
+	gc.plugins = kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 }

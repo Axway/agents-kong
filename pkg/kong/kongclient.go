@@ -23,8 +23,8 @@ type KongAPIClient interface {
 
 type KongClient struct {
 	*klib.Client
-	baseClient        DoRequest
-	kongAdminEndpoint string
+	BaseClient        DoRequest
+	KongAdminEndpoint string
 }
 
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
@@ -44,8 +44,8 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	}
 	return &KongClient{
 		Client:            baseKongClient,
-		baseClient:        baseClient,
-		kongAdminEndpoint: kongConfig.AdminEndpoint,
+		BaseClient:        baseClient,
+		KongAdminEndpoint: kongConfig.AdminEndpoint,
 	}, nil
 }
 
@@ -59,12 +59,12 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 }
 
 func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceId)
+	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.KongAdminEndpoint, serviceId)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %s", err)
 	}
-	res, err := k.baseClient.Do(req)
+	res, err := k.BaseClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %s", err)
 	}
@@ -84,13 +84,13 @@ func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*s
 }
 
 func (k KongClient) getSpec(ctx context.Context, path string) (*specmanager.KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/default/files/%s", k.kongAdminEndpoint, path)
+	endpoint := fmt.Sprintf("%s/default/files/%s", k.KongAdminEndpoint, path)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %s", err)
 	}
 
-	res, err := k.baseClient.Do(req)
+	res, err := k.BaseClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %s", err)
 	}

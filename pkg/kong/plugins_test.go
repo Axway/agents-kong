@@ -1,18 +1,10 @@
-package kong_test
+package kong
 
 import (
-	"context"
 	"testing"
 
-	"github.com/Axway/agents-kong/pkg/kong"
 	klib "github.com/kong/go-kong/kong"
 )
-
-type pluginsMock []*klib.Plugin
-
-func (pm pluginsMock) ListAll(_ context.Context) ([]*klib.Plugin, error) {
-	return pm, nil
-}
 
 func p(id, name string) *klib.Plugin {
 	return &klib.Plugin{
@@ -96,7 +88,7 @@ func TestGetEffectivePlugins(t *testing.T) {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
 
-			plugins := kong.Plugins{pluginsMock(tc.plugins)}
+			plugins := Plugins{PluginsMock(tc.plugins)}
 
 			res, err := plugins.GetEffectivePlugins(routeID, serviceID)
 			if err != nil {
