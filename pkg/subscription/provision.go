@@ -15,6 +15,7 @@ import (
 
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/kong"
+	"github.com/Axway/agents-kong/pkg/subscription/application"
 )
 
 var constructors []func(*klib.Client) Handler
@@ -230,3 +231,11 @@ func GetProvisionKeyPropertyBuilder() provisioning.PropertyBuilder {
 //	}
 //	return nil
 //}
+
+func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
+	return application.NewApplicationProvisioner(context.Background(), p.client, request).Provision()
+}
+
+func (p provisioner) ApplicationRequestDeprovision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
+	return application.NewApplicationProvisioner(context.Background(), p.client, request).Deprovision()
+}
