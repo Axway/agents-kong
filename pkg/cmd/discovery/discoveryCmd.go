@@ -72,14 +72,12 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig := &config.KongGatewayConfig{
-		AdminEndpoint:        rootProps.StringPropertyValue("kong.adminEndpoint"),
-		Token:                rootProps.StringPropertyValue("kong.token"),
-		ProxyEndpoint:        rootProps.StringPropertyValue("kong.proxyEndpoint"),
-		ProxyHttpPort:        rootProps.IntPropertyValue("kong.proxyEndpointProtocols.http"),
-		ProxyHttpsPort:       rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
-		SpecHomePath:         rootProps.StringPropertyValue("kong.specHomePath"),
-		SpecDevPortalEnabled: rootProps.BoolPropertyValue("kong.specDevPortalEnabled"),
-		SpecDownloadPaths:    rootProps.StringSlicePropertyValue("kong.specDownloadPaths"),
+		AdminEndpoint:     rootProps.StringPropertyValue("kong.adminEndpoint"),
+		Token:             rootProps.StringPropertyValue("kong.token"),
+		ProxyEndpoint:     rootProps.StringPropertyValue("kong.proxyEndpoint"),
+		ProxyHttpPort:     rootProps.IntPropertyValue("kong.proxyEndpointProtocols.http"),
+		ProxyHttpsPort:    rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
+		SpecDownloadPaths: rootProps.StringSlicePropertyValue("kong.specDownloadPaths"),
 	}
 
 	agentConfig = config.AgentConfig{
