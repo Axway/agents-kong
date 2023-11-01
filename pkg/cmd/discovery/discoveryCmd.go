@@ -48,7 +48,7 @@ func run() error {
 		for {
 			err = gatewayClient.DiscoverAPIs()
 			if err != nil {
-				log.Error("error in processing: %s", err)
+				log.Errorf("error in processing: %v", err)
 				stopChan <- struct{}{}
 			}
 			log.Infof("next poll in %s", agentConfig.CentralCfg.GetPollInterval())
@@ -79,6 +79,7 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 		ProxyHttpsPort:       rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
 		SpecHomePath:         rootProps.StringPropertyValue("kong.specHomePath"),
 		SpecDevPortalEnabled: rootProps.BoolPropertyValue("kong.specDevPortalEnabled"),
+		SpecDownloadPaths:    rootProps.StringSlicePropertyValue("kong.specDownloadPaths"),
 	}
 
 	agentConfig = config.AgentConfig{
