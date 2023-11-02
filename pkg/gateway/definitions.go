@@ -4,15 +4,15 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/cache"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/kong"
-	"github.com/sirupsen/logrus"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 )
 
 type Client struct {
-	logger         logrus.FieldLogger
+	logger         log.FieldLogger
 	centralCfg     corecfg.CentralConfig
 	kongGatewayCfg *config.KongGatewayConfig
 	kongClient     kong.KongAPIClient
