@@ -42,7 +42,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		baseClient = client
 	}
 
-	logger := log.NewFieldLogger().WithComponent("discovery").WithPackage("kong")
+	logger := log.NewFieldLogger().WithComponent("client").WithPackage("kong")
 
 	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, baseClient)
 	if err != nil {
