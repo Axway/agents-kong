@@ -23,6 +23,7 @@ type KongAPIClient interface {
 
 type KongClient struct {
 	*klib.Client
+	ctx               context.Context
 	logger            logrus.FieldLogger
 	baseClient        DoRequest
 	kongAdminEndpoint string
