@@ -18,6 +18,7 @@ const testName log.ContextField = "testName"
 type mockAppClient struct {
 	createErr bool
 	deleteErr bool
+	addACLErr bool
 	consumer  *klib.Consumer
 }
 
@@ -26,6 +27,13 @@ func (m mockAppClient) CreateConsumer(ctx context.Context, id, name string) (*kl
 		return nil, fmt.Errorf("error")
 	}
 	return m.consumer, nil
+}
+
+func (m mockAppClient) AddConsumerACL(ctx context.Context, id string) error {
+	if m.addACLErr {
+		return fmt.Errorf("error")
+	}
+	return nil
 }
 
 func (m mockAppClient) DeleteConsumer(ctx context.Context, id string) error {
@@ -80,6 +88,19 @@ func TestProvision(t *testing.T) {
 				id:   "appID",
 			},
 			expectStatus: provisioning.Error,
+		},
+		"success when provisioning a managed application even when acl call fails": {
+			client: mockAppClient{
+				addACLErr: true,
+				consumer: &klib.Consumer{
+					ID: klib.String(uuid.NewString()),
+				},
+			},
+			request: mockApplicationRequest{
+				name: "appName",
+				id:   "appID",
+			},
+			expectStatus: provisioning.Success,
 		},
 		"success when provisioning a managed application": {
 			client: mockAppClient{
