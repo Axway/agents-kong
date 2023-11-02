@@ -22,6 +22,14 @@ type appClient interface {
 	DeleteConsumer(ctx context.Context, id string) error
 }
 
+type appRequest interface {
+	GetApplicationDetailsValue(key string) string
+	// GetManagedApplicationName returns the name of the managed application for this credential
+	GetManagedApplicationName() string
+	// GetID returns the ID of the resource for the request
+	GetID() string
+}
+
 type AppProvisioner struct {
 	ctx        context.Context
 	logger     log.FieldLogger
@@ -31,7 +39,7 @@ type AppProvisioner struct {
 	consumerID string
 }
 
-func NewApplicationProvisioner(ctx context.Context, client appClient, request provisioning.ApplicationRequest) AppProvisioner {
+func NewApplicationProvisioner(ctx context.Context, client appClient, request appRequest) AppProvisioner {
 	a := AppProvisioner{
 		ctx: context.Background(),
 		logger: log.NewFieldLogger().

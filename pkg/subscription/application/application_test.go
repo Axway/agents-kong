@@ -6,11 +6,14 @@ import (
 	"testing"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/google/uuid"
 	klib "github.com/kong/go-kong/kong"
 	"github.com/stretchr/testify/assert"
 )
+
+const testName log.ContextField = "testName"
 
 type mockAppClient struct {
 	createErr bool
@@ -36,7 +39,6 @@ type mockApplicationRequest struct {
 	values map[string]string
 	name   string
 	id     string
-	team   string
 }
 
 func (m mockApplicationRequest) GetApplicationDetailsValue(key string) string {
@@ -51,10 +53,6 @@ func (m mockApplicationRequest) GetApplicationDetailsValue(key string) string {
 
 func (m mockApplicationRequest) GetManagedApplicationName() string {
 	return m.name
-}
-
-func (m mockApplicationRequest) GetTeamName() string {
-	return m.team
 }
 
 func (m mockApplicationRequest) GetID() string {
@@ -98,7 +96,7 @@ func TestProvision(t *testing.T) {
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "testName", name)
+			ctx := context.WithValue(context.Background(), testName, name)
 
 			result := NewApplicationProvisioner(ctx, tc.client, &tc.request).Provision()
 			assert.Equal(t, tc.expectStatus, result.GetStatus())
@@ -149,7 +147,7 @@ func TestDeleteConsumer(t *testing.T) {
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "testName", name)
+			ctx := context.WithValue(context.Background(), testName, name)
 
 			result := NewApplicationProvisioner(ctx, tc.client, &tc.request).Deprovision()
 			assert.Equal(t, tc.expectStatus, result.GetStatus())
