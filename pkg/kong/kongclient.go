@@ -18,6 +18,7 @@ import (
 type KongAPIClient interface {
 	// Provisioning
 	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
+	AddConsumerACL(ctx context.Context, id string) error
 	DeleteConsumer(ctx context.Context, id string) error
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)

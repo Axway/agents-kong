@@ -111,6 +111,64 @@ func TestCreateConsumer(t *testing.T) {
 	}
 }
 
+func TestAddConsumerACL(t *testing.T) {
+	testCases := map[string]struct {
+		expectErr bool
+		responses map[string]response
+	}{
+		"consumer does not exist": {
+			expectErr: true,
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/id"): {
+					code: http.StatusNotFound,
+				},
+			},
+		},
+		"add consumer acl": {
+			expectErr: false,
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/id"): {
+					code: http.StatusOK,
+					dataIface: &klib.Consumer{
+						ID:       klib.String("id"),
+						Username: klib.String("name"),
+					},
+				},
+				formatRequestKey(http.MethodPost, "/consumers/id/acls"): {
+					code:      http.StatusOK,
+					dataIface: &klib.ACLGroup{},
+				},
+			},
+		},
+		"add consumer acl error": {
+			expectErr: true,
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/id"): {
+					code: http.StatusOK,
+					dataIface: &klib.Consumer{
+						ID:       klib.String("id"),
+						Username: klib.String("name"),
+					},
+				},
+				formatRequestKey(http.MethodPost, "/consumers/id/acls"): {
+					code: http.StatusBadRequest,
+				},
+			},
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			client := createClient(tc.responses)
+			err := client.AddConsumerACL(context.TODO(), "id")
+			if tc.expectErr {
+				assert.NotNil(t, err)
+				return
+			}
+			assert.Nil(t, err)
+		})
+	}
+}
+
 func TestDeleteConsumer(t *testing.T) {
 	testCases := map[string]struct {
 		expectErr bool

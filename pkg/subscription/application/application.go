@@ -19,6 +19,7 @@ const (
 
 type appClient interface {
 	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
+	AddConsumerACL(ctx context.Context, id string) error
 	DeleteConsumer(ctx context.Context, id string) error
 }
 
@@ -67,7 +68,7 @@ func (a AppProvisioner) Provision() provisioning.RequestStatus {
 
 	rs := provisioning.NewRequestStatusBuilder()
 	if a.appName == "" {
-		log.Error("could not find the managed application name on the resource")
+		a.logger.Error("could not find the managed application name on the resource")
 		return rs.SetMessage("managed application name not found").Failed()
 	}
 
@@ -77,8 +78,13 @@ func (a AppProvisioner) Provision() provisioning.RequestStatus {
 		return rs.SetMessage("could not create a new consumer in kong").Failed()
 	}
 
+	err = a.client.AddConsumerACL(a.ctx, *consumer.ID)
+	if err != nil {
+		a.logger.WithError(err).Error("could not add acl to kong consumer")
+	}
+
 	rs.AddProperty(common.AttrAppID, *consumer.ID)
-	a.logger.Info("created application")
+	a.logger.Info("provisioned application")
 
 	return rs.Success()
 }
@@ -89,7 +95,7 @@ func (a AppProvisioner) Deprovision() provisioning.RequestStatus {
 	rs := provisioning.NewRequestStatusBuilder()
 
 	if a.consumerID == "" {
-		log.Error("could not find the consumer id on the managed application resource")
+		a.logger.Error("could not find the consumer id on the managed application resource")
 		return rs.SetMessage(fmt.Sprintf("%s not found", common.AttrAppID)).Failed()
 	}
 
@@ -98,7 +104,7 @@ func (a AppProvisioner) Deprovision() provisioning.RequestStatus {
 		a.logger.WithError(err).Error("error deleting kong consumer")
 		return rs.SetMessage("could not remove consumer in kong").Failed()
 	}
-	a.logger.Info("removed application")
+	a.logger.Info("deprovisioned application")
 
 	return rs.Success()
 }
