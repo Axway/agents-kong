@@ -46,9 +46,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		specmanager.AddSource(localdir.NewSpecificationSource(agentConfig.KongGatewayCfg.SpecHomePath))
 	}
 	daCache := cache.New()
-	logger := logrus.WithFields(logrus.Fields{
-		"component": "agent",
-	})
+	logger := log.NewFieldLogger().WithField("component", "agent")
 
 	plugins, err := kongClient.Plugins.ListAll(context.Background())
 	if err != nil {
@@ -58,8 +56,8 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	if err := hasACLEnabledInPlugins(plugins); err != nil {
 		return nil, err
 	}
-
-	subscription.NewProvisioner(kongClient.Client, logger)
+  
+	subscription.NewProvisioner(kongClient, logger)
 	return &Client{
 		centralCfg:     agentConfig.CentralCfg,
 		kongGatewayCfg: kongGatewayConfig,
