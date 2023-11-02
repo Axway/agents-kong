@@ -263,13 +263,13 @@ func createConsumer(kc *kong.Client, consumer kong.Consumer, ctx context.Context
 	consumerResponse, err := kc.Consumers.Get(ctx, consumer.CustomID)
 	if err != nil {
 		log.Infof("Unable to find consumer application, Response from kong %s", err.Error())
-		log.Infof("Creating new application with name %s", consumer.Username)
+		log.Infof("Creating new application with name %s", *consumer.Username)
 		consumerResponse, err = kc.Consumers.Create(ctx, &consumer)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		log.Infof("Using the existing consumer %s", consumer.Username)
+		log.Infof("Using the existing consumer %s", *consumer.Username)
 	}
 	return consumerResponse, nil
 }
