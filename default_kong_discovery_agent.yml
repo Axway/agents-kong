@@ -28,5 +28,4 @@ kong:
   proxyEndpointProtocols:
     http: 80
     https: 443
-  specDevPortalEnabled: <bool>
-  specHomePath: <Path>
+  specDownloadPaths: [<Paths>]
