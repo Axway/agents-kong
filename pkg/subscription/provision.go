@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util"
@@ -30,12 +31,12 @@ type Handler interface {
 
 type provisioner struct {
 	kc       *kong.Client
-	log      logrus.FieldLogger
+	log      log.FieldLogger
 	handlers map[string]Handler
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(kc *kong.Client, log logrus.FieldLogger) {
+func NewProvisioner(kc *kong.Client, log log.FieldLogger) {
 	logrus.Info("Registering provisioning callbacks")
 	logrus.Infof("Handlers : %d", len(constructors))
 	handlers := make(map[string]Handler, len(constructors))

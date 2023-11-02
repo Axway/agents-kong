@@ -36,10 +36,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}
 	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
 	daCache := cache.New()
-	logger := logrus.WithFields(logrus.Fields{
-		"component": "agent",
-		"package":   "discovery",
-	})
+	logger := log.NewFieldLogger().WithComponent("discovery").WithPackage("kong")
 
 	plugins, err := kongClient.Plugins.ListAll(context.Background())
 	if err != nil {
@@ -56,7 +53,10 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 			}
 		}
 	}
-	subscription.NewProvisioner(kongClient.Client, logger)
+
+	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
+	subscription.NewProvisioner(kongClient.Client, provisionLogger)
+
 	return &Client{
 		logger:         logger,
 		centralCfg:     agentConfig.CentralCfg,
@@ -111,7 +111,8 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
-	gc.logger.Infof("processing service %s", *service.Name)
+	log := gc.logger.WithField("service-name", *service.Name)
+	log.Infof("processing service %s", *service.Name)
 
 	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
 	httpPort := gc.kongGatewayCfg.ProxyHttpPort
@@ -119,7 +120,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
-		gc.logger.WithError(err).Errorf("failed to get routes for service %s", *service.Name)
+		log.WithError(err).Errorf("failed to get routes for service %s", *service.Name)
 		return err
 	}
 	if len(routes) == 0 {
@@ -131,13 +132,13 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 
 	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
-		gc.logger.WithError(err).Errorf("failed to get plugins for route %s", *route.ID)
+		log.WithError(err).Errorf("failed to get plugins for route %s", *route.ID)
 		return err
 	}
 
 	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, *service.Host)
 	if err != nil {
-		gc.logger.WithError(err).Errorf("failed to get spec for service %s", *service.Name)
+		log.WithError(err).Errorf("failed to get spec for service %s", *service.Name)
 		return err
 	}
 
@@ -150,16 +151,16 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		return err
 	}
 	if serviceBody == nil {
-		gc.logger.Debugf("not processing '%s' since no changes were detected", *service.Name)
+		log.Debugf("not processing '%s' since no changes were detected", *service.Name)
 		return nil
 	}
 	err = agent.PublishAPI(*serviceBody)
 	if err != nil {
-		gc.logger.WithError(err).Error("failed to publish api")
+		log.WithError(err).Error("failed to publish api")
 		return err
 	}
 
-	gc.logger.Infof("Published API '%s' to central", serviceBody.APIName)
+	log.Infof("Published API '%s' to central", serviceBody.APIName)
 	return nil
 }
 
