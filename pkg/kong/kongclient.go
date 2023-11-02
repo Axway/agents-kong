@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	"github.com/sirupsen/logrus"
 
 	klib "github.com/kong/go-kong/kong"
 )
@@ -24,7 +24,7 @@ type KongAPIClient interface {
 type KongClient struct {
 	*klib.Client
 	ctx               context.Context
-	logger            logrus.FieldLogger
+	logger            log.FieldLogger
 	baseClient        DoRequest
 	kongAdminEndpoint string
 	specPaths         []string
@@ -42,10 +42,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		baseClient = client
 	}
 
-	logger := logrus.WithFields(logrus.Fields{
-		"component": "agent",
-		"package":   "discovery",
-	})
+	logger := log.NewFieldLogger().WithComponent("discovery").WithPackage("kong")
 
 	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, baseClient)
 	if err != nil {
@@ -77,41 +74,52 @@ func (k KongClient) GetSpecForService(ctx context.Context, backendURL string) ([
 		return nil, nil
 	}
 
+	for _, specPath := range k.specPaths {
+		endpoint := fmt.Sprintf("%s/%s", backendURL, specPath)
+
+		spec, err := k.getSpec(ctx, endpoint)
+		if err != nil {
+			return nil, err
+		}
+		if spec == nil {
+			continue
+		}
+		return spec, nil
+	}
+
+	k.logger.Info("no spec found")
+	return []byte{}, nil
+}
+
+func (k KongClient) getSpec(ctx context.Context, endpoint string) ([]byte, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, k.clientTimeout)
 	defer cancel()
 
-	var specContent []byte
+	req, err := http.NewRequestWithContext(ctxTimeout, "GET", endpoint, nil)
+	if err != nil {
+		k.logger.WithError(err).Error("failed to create request")
+		return nil, err
+	}
+	res, err := k.baseClient.Do(req)
+	if err != nil {
+		k.logger.WithError(err).Error("failed to execute request")
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, nil
+	}
 
-	for _, specPath := range k.specPaths {
-		endpoint := fmt.Sprintf("%s/%s", backendURL, specPath)
-		req, err := http.NewRequestWithContext(ctxTimeout, "GET", endpoint, nil)
-		if err != nil {
-			k.logger.WithError(err).Error("failed to create request")
-			return nil, err
-		}
-		res, err := k.baseClient.Do(req)
-		if err != nil {
-			k.logger.WithError(err).Error("failed to execute request")
-			return nil, err
-		}
-		if res.StatusCode != http.StatusOK {
-			continue
-		}
+	specContent, err := io.ReadAll(res.Body)
+	if err != nil {
+		k.logger.WithError(err).Error("failed to read body")
+		return nil, err
+	}
 
-		specContent, err = io.ReadAll(res.Body)
-		if err != nil {
-			k.logger.WithError(err).Error("failed to read body")
-			return nil, err
-		}
-
-		specParser := apic.NewSpecResourceParser(specContent, "")
-		err = specParser.Parse()
-		if err != nil {
-			k.logger.Debug("invalid api spec")
-			continue
-		}
-		// break if spec is validated
-		break
+	specParser := apic.NewSpecResourceParser(specContent, "")
+	err = specParser.Parse()
+	if err != nil {
+		k.logger.Debug("invalid api spec")
+		return nil, nil
 	}
 
 	return specContent, nil
