@@ -78,8 +78,10 @@ func findACLGroup(groups []interface{}) string {
 	return ""
 }
 
-func (gc *Client) DiscoverAPIs(ctx context.Context) error {
+func (gc *Client) DiscoverAPIs() error {
 	gc.logger.Info("execute discovery process")
+
+	ctx := context.Background()
 
 	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 	gc.plugins = plugins
