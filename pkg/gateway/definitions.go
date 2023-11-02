@@ -1,8 +1,6 @@
 package gateway
 
 import (
-	"context"
-
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/cache"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
@@ -14,7 +12,6 @@ import (
 )
 
 type Client struct {
-	ctx            context.Context
 	logger         logrus.FieldLogger
 	centralCfg     corecfg.CentralConfig
 	kongGatewayCfg *config.KongGatewayConfig

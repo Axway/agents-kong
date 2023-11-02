@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"context"
 	"time"
 
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
@@ -46,7 +47,8 @@ func run() error {
 
 	go func() {
 		for {
-			err = gatewayClient.DiscoverAPIs()
+			ctx := context.Background()
+			err = gatewayClient.DiscoverAPIs(ctx)
 			if err != nil {
 				log.Errorf("error in processing: %v", err)
 				stopChan <- struct{}{}

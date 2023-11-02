@@ -58,7 +58,6 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}
 	subscription.NewProvisioner(kongClient.Client, logger)
 	return &Client{
-		ctx:            context.Background(),
 		logger:         logger,
 		centralCfg:     agentConfig.CentralCfg,
 		kongGatewayCfg: kongGatewayConfig,
@@ -79,28 +78,28 @@ func findACLGroup(groups []interface{}) string {
 	return ""
 }
 
-func (gc *Client) DiscoverAPIs() error {
+func (gc *Client) DiscoverAPIs(ctx context.Context) error {
 	gc.logger.Info("execute discovery process")
 
 	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 	gc.plugins = plugins
-	services, err := gc.kongClient.ListServices(gc.ctx)
+	services, err := gc.kongClient.ListServices(ctx)
 	if err != nil {
 		gc.logger.WithError(err).Error("failed to get services")
 		return err
 	}
 
-	gc.processKongServicesList(services)
+	gc.processKongServicesList(ctx, services)
 	return nil
 }
 
-func (gc *Client) processKongServicesList(services []*klib.Service) {
+func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.Service) {
 	wg := new(sync.WaitGroup)
 	for _, service := range services {
 		wg.Add(1)
 		go func(service *klib.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
-			err := gc.processSingleKongService(gc.ctx, service)
+			err := gc.processSingleKongService(ctx, service)
 			if err != nil {
 				log.Error(err)
 			}
