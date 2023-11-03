@@ -36,7 +36,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}
 	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
 	daCache := cache.New()
-	logger := log.NewFieldLogger().WithComponent("discovery").WithPackage("kong")
+	logger := log.NewFieldLogger().WithField("component", "agent")
 
 	plugins, err := kongClient.Plugins.ListAll(context.Background())
 	if err != nil {
@@ -48,7 +48,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}
 
 	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
-	subscription.NewProvisioner(kongClient.Client, provisionLogger)
+	subscription.NewProvisioner(kongClient, provisionLogger)
 
 	return &Client{
 		logger:         logger,
