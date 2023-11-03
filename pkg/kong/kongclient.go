@@ -2,14 +2,13 @@ package kong
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
+	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/util/log"
-	"github.com/Axway/agents-kong/pkg/kong/specmanager"
-
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
 	klib "github.com/kong/go-kong/kong"
@@ -23,15 +22,18 @@ type KongAPIClient interface {
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error)
+	GetSpecForService(ctx context.Context, backendURL string) ([]byte, error)
 	GetKongPlugins() *Plugins
 }
 
 type KongClient struct {
 	*klib.Client
+	ctx               context.Context
 	logger            log.FieldLogger
 	baseClient        DoRequest
 	kongAdminEndpoint string
+	specPaths         []string
+	clientTimeout     time.Duration
 }
 
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
@@ -45,8 +47,11 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		baseClient = client
 	}
 
+	logger := log.NewFieldLogger().WithComponent("client").WithPackage("kong")
+
 	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, baseClient)
 	if err != nil {
+		logger.WithError(err).Error("failed to create kong client")
 		return nil, err
 	}
 	return &KongClient{
@@ -54,6 +59,8 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
+		specPaths:         kongConfig.SpecDownloadPaths,
+		clientTimeout:     10 * time.Second,
 	}, nil
 }
 
@@ -66,57 +73,61 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, serviceId string) (*specmanager.KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceId)
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %s", err)
+func (k KongClient) GetSpecForService(ctx context.Context, backendURL string) ([]byte, error) {
+	if len(k.specPaths) == 0 {
+		k.logger.Info("no spec paths configured")
+		return nil, nil
 	}
-	res, err := k.baseClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %s", err)
+
+	for _, specPath := range k.specPaths {
+		endpoint := fmt.Sprintf("%s/%s", backendURL, specPath)
+
+		spec, err := k.getSpec(ctx, endpoint)
+		if err != nil {
+			return nil, err
+		}
+		if spec == nil {
+			continue
+		}
+		return spec, nil
 	}
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read body: %s", err)
-	}
-	documents := &DocumentObjects{}
-	err = json.Unmarshal(data, documents)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %s", err)
-	}
-	if len(documents.Data) < 1 {
-		return nil, fmt.Errorf("no documents found")
-	}
-	return k.getSpec(ctx, documents.Data[0].Path)
+
+	k.logger.Info("no spec found")
+	return []byte{}, nil
 }
 
-func (k KongClient) getSpec(ctx context.Context, path string) (*specmanager.KongServiceSpec, error) {
-	endpoint := fmt.Sprintf("%s/default/files/%s", k.kongAdminEndpoint, path)
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %s", err)
-	}
+func (k KongClient) getSpec(ctx context.Context, endpoint string) ([]byte, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, k.clientTimeout)
+	defer cancel()
 
+	req, err := http.NewRequestWithContext(ctxTimeout, "GET", endpoint, nil)
+	if err != nil {
+		k.logger.WithError(err).Error("failed to create request")
+		return nil, err
+	}
 	res, err := k.baseClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %s", err)
+		k.logger.WithError(err).Error("failed to execute request")
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, nil
 	}
 
-	data, err := io.ReadAll(res.Body)
+	specContent, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read body: %s", err)
+		k.logger.WithError(err).Error("failed to read body")
+		return nil, err
 	}
 
-	kongServiceSpec := &specmanager.KongServiceSpec{}
-	err = json.Unmarshal(data, kongServiceSpec)
+	specParser := apic.NewSpecResourceParser(specContent, "")
+	err = specParser.Parse()
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %s", err)
+		k.logger.Debug("invalid api spec")
+		return nil, nil
 	}
-	if len(kongServiceSpec.Contents) == 0 {
-		return nil, fmt.Errorf("spec not found at '%s'", path)
-	}
-	return kongServiceSpec, nil
+
+	return specContent, nil
 }
 
 func (k KongClient) GetKongPlugins() *Plugins {

@@ -4,6 +4,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/cache"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/kong"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
@@ -11,14 +12,14 @@ import (
 )
 
 type Client struct {
+	logger         log.FieldLogger
 	centralCfg     corecfg.CentralConfig
 	kongGatewayCfg *config.KongGatewayConfig
 	kongClient     kong.KongAPIClient
 	apicClient     CentralClient
-	//subscriptionManager *subscription.Manager
-	plugins kutil.Plugins
-	cache   cache.Cache
-	mode    string
+	plugins        kutil.Plugins
+	cache          cache.Cache
+	mode           string
 }
 
 type KongAPI struct {
