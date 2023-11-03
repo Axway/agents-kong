@@ -5,19 +5,22 @@ import (
 	"errors"
 	"fmt"
 
+	klib "github.com/kong/go-kong/kong"
+	"github.com/sirupsen/logrus"
+
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
-	"github.com/Axway/agent-sdk/pkg/util"
+	sdkUtil "github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
+
 	"github.com/Axway/agents-kong/pkg/common"
-	kutil "github.com/Axway/agents-kong/pkg/kong"
-	"github.com/kong/go-kong/kong"
-	"github.com/sirupsen/logrus"
+	"github.com/Axway/agents-kong/pkg/kong"
+	"github.com/Axway/agents-kong/pkg/subscription/application"
 )
 
-var constructors []func(*kong.Client) Handler
+var constructors []func(*klib.Client) Handler
 
-func Add(constructor func(*kong.Client) Handler) {
+func Add(constructor func(*klib.Client) Handler) {
 	constructors = append(constructors, constructor)
 }
 
@@ -30,36 +33,37 @@ type Handler interface {
 }
 
 type provisioner struct {
-	kc       *kong.Client
-	log      log.FieldLogger
+	logger   log.FieldLogger
+	client   kong.KongAPIClient
+	kc       *klib.Client
 	handlers map[string]Handler
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(kc *kong.Client, log log.FieldLogger) {
-	logrus.Info("Registering provisioning callbacks")
-	logrus.Infof("Handlers : %d", len(constructors))
+func NewProvisioner(client kong.KongAPIClient, logger log.FieldLogger) {
+	logger.Info("Registering provisioning callbacks")
+	logger.Infof("Handlers : %d", len(constructors))
 	handlers := make(map[string]Handler, len(constructors))
 	for _, c := range constructors {
-		h := c(kc)
+		h := c(client.(*kong.KongClient).Client)
 		h.Register()
 		handlers[h.Name()] = h
 	}
 	provisioner := &provisioner{
 		// set supported subscription handlers
-		kc:       kc,
+		client:   client,
 		handlers: handlers,
-		log:      log,
+		logger:   logger,
 	}
 	agent.RegisterProvisioner(provisioner)
 	for _, handler := range handlers {
-		logrus.Infof("Registering authentication :%s", handler.Name())
+		log.Infof("Registering authentication :%s", handler.Name())
 		handler.Register()
 	}
 }
 
 func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {
-	p.log.Info("provisioning credentials update")
+	p.logger.Info("provisioning credentials update")
 	credentialType := request.GetCredentialType()
 	if h, ok := p.handlers[credentialType]; ok {
 		return h.UpdateCredential(request)
@@ -69,67 +73,14 @@ func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (p
 	return Failed(provisioning.NewRequestStatusBuilder(), errors.New(errorMsg)), nil
 }
 
-func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	p.log.Info("provisioning application")
-	ctx := context.Background()
-	rs := provisioning.NewRequestStatusBuilder()
-	appName := request.GetManagedApplicationName()
-	if appName == "" {
-		return Failed(rs, notFound("managed application name"))
-	}
-	id := request.GetID()
-	consumer := kong.Consumer{
-		CustomID: &id,
-		Username: &appName,
-	}
-	consumerResponse, err := createConsumer(p.kc, consumer, ctx)
-	if err != nil {
-		return Failed(rs, errors.New("error creating consumer "+err.Error()))
-	}
-	// process application create
-	rs.AddProperty(common.AttrAppID, *consumerResponse.ID)
-	p.log.
-		WithField("appName", request.GetManagedApplicationName()).
-		Info("created application")
-
-	return rs.Success()
-}
-
-func (p provisioner) ApplicationRequestDeprovision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	p.log.Info("de-provisioning application")
-	ctx := context.Background()
-	rs := provisioning.NewRequestStatusBuilder()
-	appID := request.GetApplicationDetailsValue(common.AttrAppID)
-	if appID == "" {
-		return Failed(rs, notFound(common.AttrAppID))
-	}
-	consumerResponse, err := p.kc.Consumers.Get(ctx, &appID)
-	if err != nil {
-		return Failed(rs, errors.New("error getting consumer details"))
-	}
-	if consumerResponse == nil {
-		log.Warnf("Application with id %s is already deleted", appID)
-		return rs.Success()
-	}
-	err = p.kc.Consumers.Delete(ctx, &appID)
-	if err != nil {
-		return Failed(rs, errors.New("error deleting kong consumer"))
-	}
-	log.Infof("Application with Id %s deleted successfully on Kong", appID)
-	p.log.
-		WithField("appName", request.GetManagedApplicationName()).
-		WithField("appID", appID).
-		Info("removed application")
-	return rs.Success()
-}
 func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) (provisioning.RequestStatus, provisioning.AccessData) {
-	p.log.Info("provisioning access request")
+	p.logger.Info("provisioning access request")
 	agentTag := "amplify-agent"
 	ctx := context.Background()
 	rs := provisioning.NewRequestStatusBuilder()
 	instDetails := request.GetInstanceDetails()
-	serviceId := util.ToString(instDetails[common.AttrServiceId])
-	routeId := util.ToString(instDetails[common.AttrRouteId])
+	serviceId := sdkUtil.ToString(instDetails[common.AttrServiceId])
+	routeId := sdkUtil.ToString(instDetails[common.AttrRouteId])
 	if serviceId == "" {
 		return Failed(rs, notFound(common.AttrServiceId)), nil
 	}
@@ -138,20 +89,9 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 	}
 	kongApplicationId := request.GetApplicationDetailsValue(common.AttrAppID)
 	if kongApplicationId == "" {
-		// Using the existing application
-		appName := request.GetApplicationName()
-		consumer := kong.Consumer{
-			CustomID: &kongApplicationId,
-			Username: &appName,
-		}
-		var err error
-		consumerResponse, err := createConsumer(p.kc, consumer, ctx)
-		if err != nil {
-			return Failed(rs, errors.New("error creating kong consumer")), nil
-		}
-		kongApplicationId = *consumerResponse.ID
+		return Failed(rs, fmt.Errorf("kong application id not set")), nil
 	}
-	plugins := kutil.Plugins{PluginLister: p.kc.Plugins}
+	plugins := kong.Plugins{PluginLister: p.kc.Plugins}
 	ep, err := plugins.GetEffectivePlugins(routeId, serviceId)
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to list route plugins: %w", err)), nil
@@ -166,7 +106,7 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 	}
 	group := common.AclGroup
 	consumerTags := []*string{&agentTag}
-	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &kong.ACLGroup{Group: &group, Tags: consumerTags})
+	_, err = p.kc.ACLs.Create(ctx, &kongApplicationId, &klib.ACLGroup{Group: &group, Tags: consumerTags})
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to add acl group on consumer: %w", err)), nil
 	}
@@ -177,12 +117,12 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 		planName := amplifyQuota.GetPlanName()
 		planDesc := amplifyQuota.GetPlanName()
 		quotaLimit := int(amplifyQuota.GetLimit())
-		p.log.Info(" Plan name :%s, Plan Description :%s Quota Limit: %s", planName, planDesc, quotaLimit)
-		config := kong.Configuration{
+		p.logger.Info(" Plan name :%s, Plan Description :%s Quota Limit: %s", planName, planDesc, quotaLimit)
+		config := klib.Configuration{
 			"limit":  []interface{}{quotaLimit},
 			"policy": "local",
 		}
-		p.log.Info("%v", config)
+		p.logger.Info("%v", config)
 		//err := addRateLimit(p.kc, ctx, config, "")
 		//if err != nil {
 		//	return nil, nil
@@ -190,19 +130,19 @@ func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) 
 
 		//amplifyQuota.GetInterval().
 	}
-	p.log.
+	p.logger.
 		WithField("api", serviceId).
 		WithField("app", request.GetApplicationName()).
 		Info("granted access")
 	return rs.Success(), nil
 }
 func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest) provisioning.RequestStatus {
-	p.log.Info("deprovisioning access request")
+	p.logger.Info("deprovisioning access request")
 	ctx := context.Background()
 	rs := provisioning.NewRequestStatusBuilder()
 	instDetails := request.GetInstanceDetails()
-	serviceId := util.ToString(instDetails[common.AttrServiceId])
-	routeId := util.ToString(instDetails[common.AttrRouteId])
+	serviceId := sdkUtil.ToString(instDetails[common.AttrServiceId])
+	routeId := sdkUtil.ToString(instDetails[common.AttrRouteId])
 	if serviceId == "" {
 		return Failed(rs, notFound(common.AttrServiceId))
 	}
@@ -220,7 +160,7 @@ func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest
 	if err != nil {
 		return Failed(rs, fmt.Errorf("failed to remove acl group on consumer: %w", err))
 	}
-	p.log.
+	p.logger.
 		WithField("api", serviceId).
 		WithField("app", request.GetApplicationName()).
 		Info("removed access")
@@ -228,7 +168,7 @@ func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest
 }
 func (p provisioner) CredentialProvision(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {
 
-	p.log.Info("provisioning credentials")
+	p.logger.Info("provisioning credentials")
 	credentialType := request.GetCredentialType()
 	if h, ok := p.handlers[credentialType]; ok {
 		return h.CreateCredential(request)
@@ -238,7 +178,7 @@ func (p provisioner) CredentialProvision(request provisioning.CredentialRequest)
 	return Failed(provisioning.NewRequestStatusBuilder(), errors.New(errorMsg)), nil
 }
 func (p provisioner) CredentialDeprovision(request provisioning.CredentialRequest) provisioning.RequestStatus {
-	p.log.Info("de_provisioning credentials")
+	p.logger.Info("de_provisioning credentials")
 	credentialType := request.GetCredentialType()
 	if h, ok := p.handlers[credentialType]; ok {
 		return h.DeleteCredential(request)
@@ -257,21 +197,6 @@ func Failed(rs provisioning.RequestStatusBuilder, err error) provisioning.Reques
 
 func notFound(msg string) error {
 	return fmt.Errorf("%s not found", msg)
-}
-
-func createConsumer(kc *kong.Client, consumer kong.Consumer, ctx context.Context) (*kong.Consumer, error) {
-	consumerResponse, err := kc.Consumers.Get(ctx, consumer.CustomID)
-	if err != nil {
-		log.Infof("Unable to find consumer application, Response from kong %s", err.Error())
-		log.Infof("Creating new application with name %s", *consumer.Username)
-		consumerResponse, err = kc.Consumers.Create(ctx, &consumer)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		log.Infof("Using the existing consumer %s", *consumer.Username)
-	}
-	return consumerResponse, nil
 }
 
 func GetCorsSchemaPropertyBuilder() provisioning.PropertyBuilder {
@@ -293,9 +218,9 @@ func GetProvisionKeyPropertyBuilder() provisioning.PropertyBuilder {
 		IsString()
 }
 
-//func addRateLimit(kc *kong.Client, ctx context.Context, config map[string]interface{}, serviceId string) error {
+//func addRateLimit(kc *klib.Client, ctx context.Context, config map[string]interface{}, serviceId string) error {
 //	pluginName := "rate-limiting"
-//	rateLimitPlugin := kong.Plugin{
+//	rateLimitPlugin := klib.Plugin{
 //		Name:   &pluginName,
 //		Config: config,
 //	}
@@ -306,3 +231,11 @@ func GetProvisionKeyPropertyBuilder() provisioning.PropertyBuilder {
 //	}
 //	return nil
 //}
+
+func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
+	return application.NewApplicationProvisioner(context.Background(), p.client, request).Provision()
+}
+
+func (p provisioner) ApplicationRequestDeprovision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
+	return application.NewApplicationProvisioner(context.Background(), p.client, request).Deprovision()
+}

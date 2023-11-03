@@ -51,7 +51,7 @@ func (bt *customLogBeater) Run(b *beat.Beat) error {
 		return err
 	}
 
-	http.HandleFunc(fmt.Sprintf("%s", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Path),
+	http.HandleFunc(traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Path,
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
 				w.WriteHeader(http.StatusMethodNotAllowed)
@@ -62,7 +62,7 @@ func (bt *customLogBeater) Run(b *beat.Beat) error {
 			defer r.Body.Close()
 
 			if err != nil {
-				fmt.Errorf("Error while reading request body: %s", err)
+				logp.Error(fmt.Errorf("error while reading request body: %s", err))
 			}
 
 			w.WriteHeader(200)
@@ -74,17 +74,13 @@ func (bt *customLogBeater) Run(b *beat.Beat) error {
 	go func() {
 		if err := http.ListenAndServe(fmt.Sprintf(":%d", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port),
 			nil); err != nil {
-			log.Fatal("Unable to start the HTTP Server: %s", err)
+			log.Fatalf("Unable to start the HTTP Server: %s", err)
 		}
 		fmt.Printf("Started HTTP server on port %d to receive request logs", traceabilityconfig.GetAgentConfig().HttpLogPluginConfig.Port)
 	}()
 
-	for {
-		select {
-		case <-bt.done:
-			return nil
-		}
-	}
+	<-bt.done
+	return nil
 }
 
 // Stop stops kong_traceability_agent.

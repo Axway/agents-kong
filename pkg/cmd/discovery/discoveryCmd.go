@@ -36,8 +36,7 @@ func init() {
 // Callback that agent will call to process the execution
 func run() error {
 	var err error
-	var stopChan chan struct{}
-	stopChan = make(chan struct{})
+	stopChan := make(chan struct{})
 
 	gatewayClient, err := gateway.NewClient(agentConfig)
 	if err != nil {
@@ -56,11 +55,8 @@ func run() error {
 		}
 	}()
 
-	select {
-	case <-stopChan:
-		log.Info("Received signal to stop processing")
-		break
-	}
+	<-stopChan
+	log.Info("Received signal to stop processing")
 
 	return err
 }

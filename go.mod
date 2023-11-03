@@ -2,17 +2,13 @@ module github.com/Axway/agents-kong
 
 go 1.18
 
-//replace (
-//	github.com/Axway/agent-sdk  => target latest
-
-// replace github.com/Axway/agent-sdk => /Users/acrosca/Work/Agents/agent-sdk
-
 require (
-	github.com/Axway/agent-sdk v1.1.58
+	github.com/Axway/agent-sdk v1.1.66
 	github.com/elastic/beats/v7 v7.17.5
 	github.com/google/uuid v1.3.1
 	github.com/kong/go-kong v0.47.0
 	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.16.0
 )
 
@@ -92,11 +88,11 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/kong/semver/v4 v4.0.1 // indirect
-	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
+	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
-	github.com/lestrrat-go/jwx v1.2.26 // indirect
+	github.com/lestrrat-go/jwx/v2 v2.0.12 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/magefile/mage v1.13.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
@@ -114,9 +110,11 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
+	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shirou/gopsutil v3.20.12+incompatible // indirect
 	github.com/snowzach/rotatefilehook v0.0.0-20220211133110-53752135082d // indirect
 	github.com/spf13/afero v1.8.2 // indirect
@@ -184,5 +182,4 @@ replace (
 	github.com/getkin/kin-openapi => github.com/getkin/kin-openapi v0.67.0
 	k8s.io/apimachinery => k8s.io/apimachinery v0.21.1
 	k8s.io/client-go => k8s.io/client-go v0.21.1
-
 )

@@ -15,6 +15,11 @@ import (
 )
 
 type KongAPIClient interface {
+	// Provisioning
+	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
+	AddConsumerACL(ctx context.Context, id string) error
+	DeleteConsumer(ctx context.Context, id string) error
+
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
 	GetSpecForService(ctx context.Context, backendURL string) ([]byte, error)
@@ -50,8 +55,8 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		return nil, err
 	}
 	return &KongClient{
-		logger:            logger,
 		Client:            baseKongClient,
+		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
 		specPaths:         kongConfig.SpecDownloadPaths,
