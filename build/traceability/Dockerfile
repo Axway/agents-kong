@@ -25,7 +25,8 @@ RUN go mod download
 # Copy necessary files and build
 COPY pkg ./pkg/
 
-RUN go build -tags static_all \
+RUN --mount=type=cache,target=/root/.cache/go-build \ 
+  go build -tags static_all \
   -ldflags="-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildTime=${time}' \
   -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildVersion=${version}' \
   -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildCommitSha=${commit_id}' \
