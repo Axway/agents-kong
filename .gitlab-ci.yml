@@ -59,18 +59,22 @@ twistlock-discovery:
   extends: .twistlock
   rules:
     - !reference [.mirror-branch-csr-rules, rules]
+  tags:
+    - twistlock
   before_script:
     - apk --no-cache update && apk add make
-    - make docker-build-discovery 
+    - make docker-da
     - export IMAGE_NAME=kong_discovery_agent:latest
 
 twistlock-traceability:
   extends: .twistlock
-  rules:
+  tags:
+    - twistlock
+  rules:ß
     - !reference [.mirror-branch-csr-rules, rules]
   before_script:
     - apk --no-cache update && apk add make
-    - make docker-build-traceability 
+    - make docker-ta
     - export IMAGE_NAME=kong_traceability_agent:latest
 
 twistlock-discovery:on-schedule:
