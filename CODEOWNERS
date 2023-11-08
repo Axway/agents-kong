@@ -1,1 +1,17 @@
+# Order is important; the last matching pattern takes the most precedence.
 * @jcollins-axway @sbolosan @vivekschauhan @alrosca @dgghinea
+
+#[CSR]
+ # .csr-profile.json requires SPOC approval for any modifications
+.csr-profile.json @dfeldick @jcollins-axway @vivekschauhan
+whitesource.config @dfeldick
+
+#[CICD]
+# cicd-related files
+.gitlab-ci.yml @dfeldick @jcollins-axway @vivekschauhan
+Makefile @dfeldick @jcollins-axway @vivekschauhan
+build/scripts/ @dfeldick @jcollins-axway @vivekschauhan
+.github/** @dfeldick @jcollins-axway @vivekschauhan
+
+#[EXPERT]
+pkg/** @jcollins-axway @vivekschauhan @alrosca @dgghinea
