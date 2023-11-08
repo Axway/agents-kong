@@ -34,6 +34,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
   -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentName=KongTraceabilityAgent' \
 	-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentDescription=Kong Traceability Agent'" \
   -a -o /traceability_agent ${BASEPATH}/pkg/main/traceability/main.go
+  
+RUN copy /go/src/github.com/Axway/agents-kong/build/traceability_agent/kong_traceability_agent.yml /kong_traceability_agent.yml
 
 # Create non-root user
 RUN addgroup -g 2500 axway && adduser -u 2500 -D -G axway axway
@@ -46,11 +48,11 @@ FROM docker.io/alpine@sha256:c5c5fda71656f28e49ac9c5416b3643eaa6a108a8093151d6d1
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /traceability_agent /kong_traceability_agent
+COPY --from=builder /kong_traceability_agent.yml /kong_traceability_agent.yml
 
 RUN mkdir /keys && \
   chown -R axway /keys && \
   apk --no-cache add openssl libssl3 libcrypto3 musl musl-utils libc6-compat busybox curl && \
-  touch /kong_traceability_agent.yml && \
   find / -perm /6000 -type f -exec chmod a-s {} \; || true
 
 USER axway
