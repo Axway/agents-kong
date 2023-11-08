@@ -2,9 +2,11 @@ package kong
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
@@ -39,6 +41,7 @@ type KongClient struct {
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 	if kongConfig.Admin.Auth.APIKey.Value != "" {
 		defaultTransport := http.DefaultTransport.(*http.Transport)
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		baseClient.Transport = defaultTransport
 
 		headers := make(http.Header)
@@ -80,7 +83,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, backendURL string) ([
 	}
 
 	for _, specPath := range k.specPaths {
-		endpoint := fmt.Sprintf("%s/%s", backendURL, specPath)
+		endpoint := fmt.Sprintf("%s/%s", backendURL, strings.TrimPrefix(specPath, "/"))
 
 		spec, err := k.getSpec(ctx, endpoint)
 		if err != nil {
