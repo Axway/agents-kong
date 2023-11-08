@@ -5,7 +5,7 @@ variables:
   CSR_SUPPRESSION_LIST: "/tmp/csr-suppressions/amplify-central/golang-agents-common.json"
 
   # Fortify
-  FORTIFY_PROJECT: "10715"
+  # FORTIFY_PROJECT: "10715"
   FORTIFY_BUILD_ID: "agents-kong"
   FORTIFY_INCLUDE: "**/*.go"
   FORTIFY_EXCLUDE: "**/*_test.go"
