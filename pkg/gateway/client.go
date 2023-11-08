@@ -130,7 +130,16 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		return err
 	}
 
-	backendURL := *service.Protocol + "://" + *service.Host + *service.Path
+	if service.Protocol == nil {
+		return nil
+	}
+	if service.Host == nil {
+		return nil
+	}
+	backendURL := fmt.Sprintf("%s://%s", *service.Protocol, *service.Host)
+	if service.Path != nil {
+		backendURL += *service.Path
+	}
 
 	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, backendURL)
 	if err != nil {
