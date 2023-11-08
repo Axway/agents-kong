@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 	-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentDescription=Kong Traceability Agent'" \
   -a -o /traceability_agent ${BASEPATH}/pkg/main/traceability/main.go
   
-RUN copy ${BASEPATH}/build/traceability/kong_traceability_agent.yml /kong_traceability_agent.yml
+RUN cp ${BASEPATH}/build/traceability/kong_traceability_agent.yml /kong_traceability_agent.yml
 
 # Create non-root user
 RUN addgroup -g 2500 axway && adduser -u 2500 -D -G axway axway
