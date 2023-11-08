@@ -68,10 +68,10 @@ twistlock-discovery:
 
 twistlock-traceability:
   extends: .twistlock
+  rules:
+    - !reference [.mirror-branch-csr-rules, rules]
   tags:
     - twistlock
-  rules:ß
-    - !reference [.mirror-branch-csr-rules, rules]
   before_script:
     - apk --no-cache update && apk add make
     - make docker-ta
