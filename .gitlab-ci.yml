@@ -1,7 +1,7 @@
 image: docker:dind
 
 variables:
-  PROJECT: 'agents-kong'
+  PROJECT: "agents-kong"
   CSR_SUPPRESSION_LIST: "/tmp/csr-suppressions/amplify-central/golang-agents-common.json"
 
   # Fortify
@@ -27,10 +27,10 @@ include:
       - "/gitlabci/variables.yml"
       - "/gitlabci/restrictions.yml"
       - "/gitlabci/jobs.yml"
-  - project: 'scurity/gitlabci'
+  - project: "scurity/gitlabci"
     ref: $SCURITY_V2
     file:
-      - '/.gitlab-ci-fortify.yml'
+      - "/.gitlab-ci-fortify.yml"
       - "/.gitlab-ci-twistlock.yml"
       - "/.gitlab-ci-iriusrisk.yml"
       - "/.gitlab-ci-whitesource.yml"
@@ -64,7 +64,7 @@ twistlock-discovery:
   before_script:
     - apk --no-cache update && apk add make
     - make docker-da
-    - export IMAGE_NAME=kong_discovery_agent:latest
+    - export IMAGE_NAME=kong-discovery-agent:latest
 
 twistlock-traceability:
   extends: .twistlock
@@ -75,7 +75,7 @@ twistlock-traceability:
   before_script:
     - apk --no-cache update && apk add make
     - make docker-ta
-    - export IMAGE_NAME=kong_traceability_agent:latest
+    - export IMAGE_NAME=kong-traceability-agent:latest
 
 twistlock-discovery:on-schedule:
   extends: .twistlock
@@ -111,7 +111,7 @@ whitesource:on-schedule:
     - echo "Checking out ${GIT_TAG_PREFIX}${LATEST_TAG}"
     - git checkout ${GIT_TAG_PREFIX}${LATEST_TAG}
 
-# overridden from csrjobs.yml because mirror repos like this one don't get merge events 
+# overridden from csrjobs.yml because mirror repos like this one don't get merge events
 fortify:
   rules:
     - !reference [.mirror-branch-csr-rules, rules]
@@ -157,4 +157,4 @@ unit_tests:
 
 sonar_preview:
   script:
-    - echo "foo"    
+    - echo "foo"
