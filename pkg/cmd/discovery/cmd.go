@@ -13,6 +13,15 @@ import (
 var DiscoveryCmd corecmd.AgentRootCmd
 var agentConfig config.AgentConfig
 
+const (
+	cfgKongToken             = "kong.token"
+	cfgKongAdminEp           = "kong.adminEndpoint"
+	cfgKongProxyEp           = "kong.proxyEndpoint"
+	cfgKongProxyEpHttp       = "kong.proxyEndpointProtocols.http"
+	cfgKongProxyEpHttps      = "kong.proxyEndpointProtocols.https"
+	cfgKongSpecDownloadPaths = "kong.specDownloadPaths"
+)
+
 func init() {
 	// Create new root command with callbacks to initialize the agent config and command execution.
 	// The first parameter identifies the name of the yaml file that agent will look for to load the config
@@ -26,11 +35,12 @@ func init() {
 
 	// Get the root command properties and bind the config property in YAML definition
 	rootProps := DiscoveryCmd.GetProperties()
-	rootProps.AddStringProperty("kong.token", "", "Token to authenticate with Kong Gateway")
-	rootProps.AddStringProperty("kong.adminEndpoint", "", "The Kong admin endpoint")
-	rootProps.AddStringProperty("kong.proxyEndpoint", "", "The Kong proxy endpoint")
-	rootProps.AddIntProperty("kong.proxyEndpointProtocols.http", 80, "The Kong proxy http port")
-	rootProps.AddIntProperty("kong.proxyEndpointProtocols.https", 443, "The Kong proxy https port")
+	rootProps.AddStringProperty(cfgKongToken, "", "Token to authenticate with Kong Gateway")
+	rootProps.AddStringProperty(cfgKongAdminEp, "", "The Kong admin endpoint")
+	rootProps.AddStringProperty(cfgKongProxyEp, "", "The Kong proxy endpoint")
+	rootProps.AddIntProperty(cfgKongProxyEpHttp, 80, "The Kong proxy http port")
+	rootProps.AddIntProperty(cfgKongProxyEpHttps, 443, "The Kong proxy https port")
+	rootProps.AddStringSliceProperty(cfgKongSpecDownloadPaths, []string{}, "URL paths that the agent will look in for spec files")
 }
 
 // Callback that agent will call to process the execution
@@ -68,12 +78,12 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig := &config.KongGatewayConfig{
-		AdminEndpoint:     rootProps.StringPropertyValue("kong.adminEndpoint"),
-		Token:             rootProps.StringPropertyValue("kong.token"),
-		ProxyEndpoint:     rootProps.StringPropertyValue("kong.proxyEndpoint"),
-		ProxyHttpPort:     rootProps.IntPropertyValue("kong.proxyEndpointProtocols.http"),
-		ProxyHttpsPort:    rootProps.IntPropertyValue("kong.proxyEndpointProtocols.https"),
-		SpecDownloadPaths: rootProps.StringSlicePropertyValue("kong.specDownloadPaths"),
+		Token:             rootProps.StringPropertyValue(cfgKongToken),
+		AdminEndpoint:     rootProps.StringPropertyValue(cfgKongAdminEp),
+		ProxyEndpoint:     rootProps.StringPropertyValue(cfgKongProxyEp),
+		ProxyHttpPort:     rootProps.IntPropertyValue(cfgKongProxyEpHttp),
+		ProxyHttpsPort:    rootProps.IntPropertyValue(cfgKongProxyEpHttps),
+		SpecDownloadPaths: rootProps.StringSlicePropertyValue(cfgKongSpecDownloadPaths),
 	}
 
 	agentConfig = config.AgentConfig{
