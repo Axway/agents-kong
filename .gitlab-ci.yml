@@ -154,3 +154,7 @@ twistlock:on-schedule:
 unit_tests:
   script:
     - echo "foo"
+
+sonar_preview:
+  script:
+    - echo "foo"    
