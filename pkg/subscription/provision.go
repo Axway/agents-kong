@@ -125,20 +125,6 @@ func GetProvisionKeyPropertyBuilder() provisioning.PropertyBuilder {
 		IsString()
 }
 
-func addRateLimit(kc *klib.Client, ctx context.Context, config map[string]interface{}, serviceId string) error {
-	pluginName := "rate-limiting"
-	rateLimitPlugin := klib.Plugin{
-		Name:     &pluginName,
-		Config:   config,
-		Consumer: &klib.Consumer{},
-	}
-	_, err := kc.Plugins.CreateForService(ctx, &serviceId, &rateLimitPlugin)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
 	return application.NewApplicationProvisioner(context.Background(), p.client, request).Provision()
 }
