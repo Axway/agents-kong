@@ -7,8 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
+	"github.com/Axway/agents-kong/pkg/subscription/credential"
+
+	"github.com/Axway/agent-sdk/pkg/apic"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
 	klib "github.com/kong/go-kong/kong"
@@ -19,6 +22,9 @@ type KongAPIClient interface {
 	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
 	AddConsumerACL(ctx context.Context, id string) error
 	DeleteConsumer(ctx context.Context, id string) error
+	CreateCredential(ctx context.Context, req credential.CredRequest) (provisioning.RequestStatus, provisioning.Credential)
+	UpdateCredential(ctx context.Context, req credential.CredRequest) (provisioning.RequestStatus, provisioning.Credential)
+	DeleteCredential(ctx context.Context, req credential.CredRequest) provisioning.RequestStatus
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)

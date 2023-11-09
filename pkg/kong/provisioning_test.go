@@ -24,6 +24,54 @@ type response struct {
 	data      []byte
 }
 
+type mockCredentialRequest struct {
+	id       string
+	credType string
+	appName  string
+	details  string
+}
+
+func (m mockCredentialRequest) GetApplicationDetailsValue(key string) string {
+	return m.details
+}
+
+func (m mockCredentialRequest) GetApplicationName() string {
+	return m.appName
+}
+func (mockCredentialRequest) GetCredentialDetailsValue(key string) string {
+	return key
+}
+func (mockCredentialRequest) GetCredentialData() map[string]interface{} {
+	return nil
+}
+func (m mockCredentialRequest) GetCredentialType() string {
+	return m.credType
+}
+
+type mockKeyAuthService struct{}
+
+func (mockKeyAuthService) Create(ctx context.Context, consumerUsernameOrID *string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error) {
+	return &klib.KeyAuth{}, nil
+}
+func (mockKeyAuthService) Get(ctx context.Context, consumerUsernameOrID, keyOrID *string) (*klib.KeyAuth, error) {
+	return &klib.KeyAuth{}, nil
+}
+func (mockKeyAuthService) Update(ctx context.Context, consumerUsernameOrID *string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error) {
+	return &klib.KeyAuth{}, nil
+}
+func (mockKeyAuthService) Delete(ctx context.Context, consumerUsernameOrID, keyOrID *string) error {
+	return nil
+}
+func (mockKeyAuthService) List(ctx context.Context, opt *klib.ListOpt) ([]*klib.KeyAuth, *klib.ListOpt, error) {
+	return []*klib.KeyAuth{}, &klib.ListOpt{}, nil
+}
+func (mockKeyAuthService) ListAll(ctx context.Context) ([]*klib.KeyAuth, error) {
+	return []*klib.KeyAuth{}, nil
+}
+func (mockKeyAuthService) ListForConsumer(ctx context.Context, consumerUsernameOrID *string, opt *klib.ListOpt) ([]*klib.KeyAuth, *klib.ListOpt, error) {
+	return []*klib.KeyAuth{}, &klib.ListOpt{}, nil
+}
+
 func createClient(responses map[string]response) KongAPIClient {
 	s := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if res, found := responses[formatRequestKey(req.Method, req.URL.Path)]; found {
@@ -107,6 +155,43 @@ func TestCreateConsumer(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, tc.id, *c.ID)
 			assert.Equal(t, tc.name, *c.Username)
+		})
+	}
+}
+
+func TestCreateCredentials(t *testing.T) {
+	testCases := map[string]struct {
+		expectErr bool
+		req       mockCredentialRequest
+		responses map[string]response
+	}{
+		"find existing consumer": {
+			expectErr: false,
+			req: mockCredentialRequest{
+				credType: "api-key",
+			},
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/consumers/existingID"): {
+					code: http.StatusOK,
+					dataIface: &klib.Consumer{
+						ID:       klib.String("existingID"),
+						Username: klib.String("existingName"),
+					},
+				},
+			},
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			client := createClient(tc.responses)
+			c := client.(*KongClient)
+			c.KeyAuths = mockKeyAuthService{}
+			status, err := c.CreateCredential(context.TODO(), tc.req)
+			if tc.expectErr {
+				assert.NotNil(t, err)
+				return
+			}
+			fmt.Print(status)
 		})
 	}
 }

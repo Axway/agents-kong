@@ -21,10 +21,6 @@ import (
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	klib "github.com/kong/go-kong/kong"
-
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/apikey"    // needed for apikey subscription initialization
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/basicauth" // needed for basicAuth subscription initialization
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/oauth2"    // needed for oauth2 subscription initialization
 )
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
@@ -48,7 +44,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}
 
 	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
-	subscription.NewProvisioner(kongClient, provisionLogger)
+	subscription.NewProvisioner(kongClient, provisionLogger, subscription.Register{})
 
 	return &Client{
 		logger:         logger,
