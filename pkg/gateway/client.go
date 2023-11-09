@@ -130,7 +130,9 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		return err
 	}
 
-	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, *service.Host)
+	backendURL := *service.Protocol + "://" + *service.Host + *service.Path
+
+	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, backendURL)
 	if err != nil {
 		log.WithError(err).Errorf("failed to get spec for service")
 		return err
