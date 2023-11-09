@@ -8,7 +8,7 @@ time := $(shell date +%Y%m%d%H%M%S)
 version := $(shell git tag -l --sort='version:refname' | grep -Eo '[0-9]{1,}\.[0-9]{1,}\.[0-9]{1,3}$$' | tail -1)
 CGO_ENABLED := 0
 commit_id := $(shell git rev-parse --short HEAD)
-sdk_version := $(shell go list -m github.com/Axway/agent-sdk | awk '{print $$2}' | awk -F'-' '{print substr($$1, 2)}'`)
+sdk_version := $(shell go list -m github.com/Axway/agent-sdk | awk '{print $$2}' | awk -F'-' '{print substr($$1, 2)}')
 
 export GOFLAGS := -mod=mod
 export GOPRIVATE=git.ecd.axway.org/apigov
@@ -66,11 +66,11 @@ build: build-da build-ta
 
 docker-da:
 	docker build --build-arg commit_id=$(commit_id) --build-arg time=$(time) --build-arg CGO_ENABLED=$(CGO_ENABLED) --build-arg version=$(version) --build-arg sdk_version=$(sdk_version) --build-arg commit_id=$(commit_id) -t kong-discovery-agent:latest -f ${WORKSPACE}/build/discovery/Dockerfile .
-	echo "DA Docker build complete"
+	@echo "DA Docker build complete"
 
 docker-ta:
 	docker build --build-arg commit_id=$(commit_id) --build-arg time=$(time) --build-arg CGO_ENABLED=$(CGO_ENABLED) --build-arg version=$(version) --build-arg sdk_version=$(sdk_version) --build-arg commit_id=$(commit_id) -t kong-traceability-agent:latest -f ${WORKSPACE}/build/traceability/Dockerfile .
-	echo "TA Docker build complete"
+	@echo "TA Docker build complete"
 
 docker: docker-da docker-ta
 	@echo "Docker build complete"
