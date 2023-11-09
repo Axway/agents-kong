@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kong-agents.fullname" . }}
+  name: {{ include "kong-agents.fullname" . }}-traceability
   labels:
     {{- include "kong-agents.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.traceability.replicaCount }}
   selector:
     matchLabels:
       {{- include "kong-agents.selectorLabels" . | nindent 6 }}
@@ -42,7 +42,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.traceability.image.repository }}:{{ .Values.traceability.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.traceability.image.pullPolicy }}
           ports:
           - name: probe-port
             containerPort: {{ .Values.statusPort }}
@@ -82,17 +82,11 @@ spec:
           {{- end }}
           {{- end }}
             - name: KONG_ADMINENDPOINT
-              value: {{ .Values.kong.adminEndpoint }}
+              value: "{{ .Values.kong.adminEndpoint }}"
+            {{- if eq .Values.kong.token "" }}
             - name: KONG_TOKEN
-              value: {{ .Values.kong.token }}
-            - name: KONG_PROXYENDPOINT
-              value: {{ .Values.kong.proxyEndpoint }}
-            - name: KONG_PROXYENDPOINTPROTOCOLS_HTTP
-              value: {{ .Values.kong.proxyEndpointProtocols.http }}
-            - name: KONG_PROXYENDPOINTPROTOCOLS_HTTPS
-              value: {{ .Values.kong.proxyEndpointProtocols.https }}
-            - name: KONG_SPECDOWNLOADPATHS
-              value: {{ include "kong-agents.specDownloadPathsString" . }}
+              value: "{{ .Values.kong.token }}"
+            {{- end }}
           volumeMounts:
             - name: "kong-agent-keys"
               mountPath: "/keys"
