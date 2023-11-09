@@ -30,7 +30,7 @@ kong:
   specDownloadPaths: []
 
 # Add any environment variable overrides here
-env:
+env: {}
 
 secrets:
   credentials: "kong-agent-creds"
