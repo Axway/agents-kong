@@ -1,4 +1,4 @@
-FROM beano.swf-artifactory.lab.phx.axway.int/beano-alpine-base:latest as builder
+FROM ampc-beano-docker-release-phx.artifactory-phx.ecd.axway.int/base-images/beano-alpine-base:latest AS builder
 
 RUN mkdir -p /go/src/git.ecd.axway.org/apigov/kong_traceability_agent
 
