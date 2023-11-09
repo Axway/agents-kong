@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kong-agents.fullname" . }}
+  name: {{ include "kong-agents.fullname" . }}-discovery
   labels:
     {{- include "kong-agents.labels" . | nindent 4 }}
 spec:
@@ -42,7 +42,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.discovery.image.repository }}:{{ .Values.discovery.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.discovery.image.pullPolicy }}
           ports:
           - name: probe-port
             containerPort: {{ .Values.statusPort }}
@@ -82,15 +82,17 @@ spec:
           {{- end }}
           {{- end }}
             - name: KONG_ADMINENDPOINT
-              value: {{ .Values.kong.adminEndpoint }}
+              value: "{{ .Values.kong.adminEndpoint }}"
+            {{- if eq .Values.kong.token "" }}
             - name: KONG_TOKEN
-              value: {{ .Values.kong.token }}
+              value: "{{ .Values.kong.token }}"
+            {{- end }}            
             - name: KONG_PROXYENDPOINT
-              value: {{ .Values.kong.proxyEndpoint }}
+              value: "{{ .Values.kong.proxyEndpoint }}"
             - name: KONG_PROXYENDPOINTPROTOCOLS_HTTP
-              value: {{ .Values.kong.proxyEndpointProtocols.http }}
+              value: "{{ .Values.kong.proxyEndpointProtocols.http }}"
             - name: KONG_PROXYENDPOINTPROTOCOLS_HTTPS
-              value: {{ .Values.kong.proxyEndpointProtocols.https }}
+              value: "{{ .Values.kong.proxyEndpointProtocols.https }}"
             - name: KONG_SPECDOWNLOADPATHS
               value: {{ include "kong-agents.specDownloadPathsString" . }}
           volumeMounts:
