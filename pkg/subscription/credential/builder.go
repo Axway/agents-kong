@@ -48,7 +48,13 @@ func (b *kongCredentialBuilder) WithID(id string) *kongCredentialBuilder {
 	return b
 }
 
+// WithName adds a random UUID if passed an empty string
 func (b *kongCredentialBuilder) WithName(name string) *kongCredentialBuilder {
+	if name == "" {
+		randomName := uuid.New().String()
+		b.name = &randomName
+		return b
+	}
 	b.name = &name
 	return b
 }
@@ -106,7 +112,7 @@ func (b *kongCredentialBuilder) WithClientID(clientID string) *kongCredentialBui
 func (b *kongCredentialBuilder) WithClientSecret(clientSecret string) *kongCredentialBuilder {
 	if clientSecret == "" {
 		randomID := uuid.New().String()
-		b.clientID = &randomID
+		b.clientSecret = &randomID
 		return b
 	}
 	b.clientSecret = &clientSecret

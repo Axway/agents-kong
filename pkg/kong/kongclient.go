@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
-	"github.com/Axway/agents-kong/pkg/subscription/credential"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
@@ -22,9 +20,13 @@ type KongAPIClient interface {
 	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
 	AddConsumerACL(ctx context.Context, id string) error
 	DeleteConsumer(ctx context.Context, id string) error
-	CreateCredential(ctx context.Context, req credential.CredRequest) (provisioning.RequestStatus, provisioning.Credential)
-	UpdateCredential(ctx context.Context, req credential.CredRequest) (provisioning.RequestStatus, provisioning.Credential)
-	DeleteCredential(ctx context.Context, req credential.CredRequest) provisioning.RequestStatus
+	// Credential
+	DeleteOauth2(ctx context.Context, consumerID, clientID string) error
+	DeleteHttpBasic(ctx context.Context, consumerID, username string) error
+	DeleteAuthKey(ctx context.Context, consumerID, authKey string) error
+	CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error)
+	CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error)
+	CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error)
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)

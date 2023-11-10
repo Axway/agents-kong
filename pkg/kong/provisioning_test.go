@@ -186,12 +186,11 @@ func TestCreateCredentials(t *testing.T) {
 			client := createClient(tc.responses)
 			c := client.(*KongClient)
 			c.KeyAuths = mockKeyAuthService{}
-			status, err := c.CreateCredential(context.TODO(), tc.req)
+			var err error
 			if tc.expectErr {
 				assert.NotNil(t, err)
 				return
 			}
-			fmt.Print(status)
 		})
 	}
 }

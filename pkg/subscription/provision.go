@@ -18,12 +18,6 @@ import (
 	"github.com/Axway/agents-kong/pkg/subscription/credential"
 )
 
-type RequestRegister interface {
-	RegisterOauth2()
-	RegisterBasicAuth()
-	RegisterKeyAuth()
-}
-
 type provisioner struct {
 	logger log.FieldLogger
 	client kong.KongAPIClient
@@ -31,16 +25,16 @@ type provisioner struct {
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(client kong.KongAPIClient, logger log.FieldLogger, reqReg RequestRegister) {
+func NewProvisioner(client kong.KongAPIClient, logger log.FieldLogger) {
 	logger.Info("Registering provisioning callbacks")
 	provisioner := &provisioner{
 		client: client,
 		logger: logger,
 	}
 	agent.RegisterProvisioner(provisioner)
-	reqReg.RegisterOauth2()
-	reqReg.RegisterBasicAuth()
-	reqReg.RegisterKeyAuth()
+	registerOauth2()
+	registerBasicAuth()
+	registerKeyAuth()
 }
 
 func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) (provisioning.RequestStatus, provisioning.AccessData) {

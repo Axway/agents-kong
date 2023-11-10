@@ -23,27 +23,27 @@ type Client struct {
 }
 
 type KongAPI struct {
-	swaggerSpec             []byte
-	id                      string
-	name                    string
-	description             string
-	version                 string
-	url                     string
-	documentation           []byte
-	resourceType            string
-	endpoints               []apic.EndpointDefinition
-	image                   string
-	imageContentType        string
-	CRDs                    []string
-	apiUpdateSeverity       string
-	serviceAttributes       map[string]string
-	agentDetails            map[string]string
-	subscriptionName        string
-	tags                    []string
-	stage                   string
-	state                   string
-	status                  string
-	accessRequestDefinition string
+	swaggerSpec       []byte
+	id                string
+	name              string
+	description       string
+	version           string
+	url               string
+	documentation     []byte
+	resourceType      string
+	endpoints         []apic.EndpointDefinition
+	image             string
+	imageContentType  string
+	crds              []string
+	apiUpdateSeverity string
+	serviceAttributes map[string]string
+	agentDetails      map[string]string
+	subscriptionName  string
+	tags              []string
+	stage             string
+	state             string
+	status            string
+	ard               string
 }
 
 type CachedService struct {

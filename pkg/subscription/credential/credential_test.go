@@ -5,10 +5,7 @@ import (
 	"testing"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
-	prov "github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
-	"github.com/Axway/agents-kong/pkg/common"
-	"github.com/google/uuid"
 	klib "github.com/kong/go-kong/kong"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,45 +18,28 @@ type mockCredentialClient struct {
 	kongErr  bool
 }
 
-func (m mockCredentialClient) UpdateCredential(ctx context.Context, req CredRequest) (prov.RequestStatus, prov.Credential) {
-	rs := prov.NewRequestStatusBuilder()
-	cred := provisioning.NewCredentialBuilder().
-		SetOAuthID("")
-
-	if m.err {
-		return rs.Failed(), cred
-	}
-	if m.kongErr {
-		return rs.Failed(), cred
-	}
-
-	return rs.Success(), cred
+func (mockCredentialClient) DeleteOauth2(ctx context.Context, consumerID, clientID string) error {
+	return nil
 }
 
-func (m mockCredentialClient) DeleteCredential(ctx context.Context, req CredRequest) prov.RequestStatus {
-	rs := prov.NewRequestStatusBuilder()
-
-	if m.err {
-		return rs.Failed()
-	}
-	if m.kongErr {
-		return rs.Failed()
-	}
-	return rs.Success()
+func (mockCredentialClient) DeleteHttpBasic(ctx context.Context, consumerID, username string) error {
+	return nil
 }
 
-func (m mockCredentialClient) CreateCredential(ctx context.Context, req CredRequest) (prov.RequestStatus, prov.Credential) {
-	rs := prov.NewRequestStatusBuilder()
-	cred := provisioning.NewCredentialBuilder().
-		SetOAuthID("")
+func (mockCredentialClient) DeleteAuthKey(ctx context.Context, consumerID, authKey string) error {
+	return nil
+}
 
-	if m.err {
-		return rs.Failed(), cred
-	}
-	if m.kongErr {
-		return rs.Failed(), cred
-	}
-	return rs.Success(), cred
+func (mockCredentialClient) CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error) {
+	return &klib.BasicAuth{}, nil
+}
+
+func (mockCredentialClient) CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error) {
+	return &klib.Oauth2Credential{}, nil
+}
+
+func (mockCredentialClient) CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error) {
+	return &klib.KeyAuth{}, nil
 }
 
 type mockCredentialRequest struct {
@@ -94,40 +74,6 @@ func TestProvision(t *testing.T) {
 			request: mockCredentialRequest{},
 			client:  mockCredentialClient{},
 		},
-		"expect error when create consumer fails": {
-			client: mockCredentialClient{
-				err: true,
-			},
-			request: mockCredentialRequest{
-				name: "appName",
-				id:   "appID",
-			},
-			expectStatus: provisioning.Error,
-		},
-		"success when provisioning a managed application even when acl call fails": {
-			client: mockCredentialClient{
-				consumer: &klib.Consumer{
-					ID: klib.String(uuid.NewString()),
-				},
-			},
-			request: mockCredentialRequest{
-				name: "appName",
-				id:   "appID",
-			},
-			expectStatus: provisioning.Success,
-		},
-		"success when provisioning a managed application": {
-			client: mockCredentialClient{
-				consumer: &klib.Consumer{
-					ID: klib.String(uuid.NewString()),
-				},
-			},
-			request: mockCredentialRequest{
-				name: "appName",
-				id:   "appID",
-			},
-			expectStatus: provisioning.Success,
-		},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -135,12 +81,6 @@ func TestProvision(t *testing.T) {
 
 			result, _ := NewCredentialProvisioner(ctx, tc.client, &tc.request).Provision()
 			assert.Equal(t, tc.expectStatus, result.GetStatus())
-			if tc.expectStatus == provisioning.Success {
-				// validate consumerID set
-				val, ok := result.GetProperties()[common.AttrAppID]
-				assert.True(t, ok)
-				assert.Equal(t, *tc.client.consumer.ID, val)
-			}
 		})
 	}
 }

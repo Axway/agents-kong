@@ -16,9 +16,7 @@ func getCredTypes() []string {
 	return []string{"confidential", "public"}
 }
 
-type Register struct{}
-
-func (Register) RegisterOauth2() {
+func registerOauth2() {
 	oAuthRedirects := getAuthRedirectSchemaPropertyBuilder()
 	corsProp := getCorsSchemaPropertyBuilder()
 	provisionKey := getProvisionKeyPropertyBuilder()
@@ -54,7 +52,7 @@ func (Register) RegisterOauth2() {
 	}
 }
 
-func (Register) RegisterBasicAuth() {
+func registerBasicAuth() {
 	corsProp := getCorsSchemaPropertyBuilder()
 	_, err := agent.NewBasicAuthAccessRequestBuilder().SetName(HttpBasicName).Register()
 	if err != nil {
@@ -66,7 +64,7 @@ func (Register) RegisterBasicAuth() {
 	}
 }
 
-func (Register) RegisterKeyAuth() {
+func registerKeyAuth() {
 	//"The api key. Leave empty for autogeneration"
 	corsProp := getCorsSchemaPropertyBuilder()
 	apiKeyProp := provisioning.NewSchemaPropertyBuilder().
