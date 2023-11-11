@@ -38,7 +38,9 @@ func createClient(responses map[string]response) KongAPIClient {
 		}
 	}))
 	cfg := &config.KongGatewayConfig{
-		AdminEndpoint: s.URL,
+		Admin: config.KongAdminConfig{
+			URL: s.URL,
+		},
 	}
 	client, _ := NewKongClient(&http.Client{}, cfg)
 	return client
