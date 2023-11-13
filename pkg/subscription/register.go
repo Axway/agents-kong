@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const Oauth2Name = "oauth2"
+const Oauth2Name = provisioning.OAuthSecretCRD
 const HttpBasicName = provisioning.BasicAuthARD
 const ApiKeyName = provisioning.APIKeyARD
 const propertyName = "kong-api-key"

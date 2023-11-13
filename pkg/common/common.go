@@ -7,6 +7,7 @@ const (
 	AttrAppID     = "kongApplicationId"
 
 	AttrCredentialID = "kongCredentialId"
+	AttrCredUpdater  = "kongCredentialUpdate"
 
 	AclGroup    = "amplify.group"
 	Marketplace = "marketplace"

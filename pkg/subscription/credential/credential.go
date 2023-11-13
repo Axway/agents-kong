@@ -62,27 +62,29 @@ func (p credentialProvisioner) Deprovision() prov.RequestStatus {
 	ctx := context.Background()
 
 	credentialType := p.request.GetCredentialType()
+	credentialID := p.request.GetCredentialDetailsValue(common.AttrCredentialID)
+	if credentialID == "" {
+		return rs.SetMessage("CredentialID cannot be empty").Failed()
+	}
+
 	switch credentialType {
 	case provisioning.APIKeyARD:
 		{
-			authKey := p.request.GetCredentialDetailsValue(reqApiKey)
-			if err := p.client.DeleteAuthKey(ctx, consumerID, authKey); err != nil {
+			if err := p.client.DeleteAuthKey(ctx, consumerID, credentialID); err != nil {
 				return rs.SetMessage("Could not delete auth key credential").Failed()
 			}
 			return rs.SetMessage("API Key successfully deleted.").Success()
 		}
 	case provisioning.BasicAuthARD:
 		{
-			username := p.request.GetCredentialDetailsValue(common.AttrCredentialID)
-			if err := p.client.DeleteHttpBasic(ctx, consumerID, username); err != nil {
+			if err := p.client.DeleteHttpBasic(ctx, consumerID, credentialID); err != nil {
 				return rs.SetMessage("Could not delete basic auth credential").Failed()
 			}
 			return rs.SetMessage("Basic auth credential successfully deleted.").Success()
 		}
 	case provisioning.OAuthSecretCRD:
 		{
-			clientID := p.request.GetApplicationDetailsValue(reqClientID)
-			if err := p.client.DeleteOauth2(ctx, consumerID, clientID); err != nil {
+			if err := p.client.DeleteOauth2(ctx, consumerID, credentialID); err != nil {
 				return rs.SetMessage("Could not delete oauth2 credential").Failed()
 			}
 			return rs.SetMessage("OAuth2 credential successfully deleted.").Success()
@@ -113,6 +115,7 @@ func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential)
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
+			rs.AddProperty(common.AttrCredUpdater, *resp.Key)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetAPIKey(*resp.Key)
 		}
 	case provisioning.BasicAuthARD:
@@ -126,6 +129,7 @@ func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential)
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
+			rs.AddProperty(common.AttrCredUpdater, *resp.Username)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetHTTPBasic(*resp.Username, *resp.Password)
 		}
 	case provisioning.OAuthSecretCRD:
@@ -140,6 +144,7 @@ func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential)
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
+			rs.AddProperty(common.AttrCredUpdater, *resp.ClientID)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetOAuthIDAndSecret(*resp.ClientID, *resp.ClientSecret)
 		}
 	}
@@ -156,18 +161,19 @@ func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
 	ctx := context.Background()
 	rs := provisioning.NewRequestStatusBuilder()
 	credentialType := p.request.GetCredentialType()
+	credentialID := p.request.GetCredentialDetailsValue(common.AttrCredentialID)
+	key := p.request.GetCredentialDetailsValue(common.AttrCredUpdater)
+	if credentialID == "" || key == "" {
+		return rs.SetMessage("CredentialID and the key to update cannot be empty").Failed(), nil
+	}
 
 	switch credentialType {
 	case provisioning.APIKeyARD:
 		{
-			authKey := p.request.GetCredentialDetailsValue(reqApiKey)
-			if authKey == "" {
-				return rs.SetMessage("Empty api-key passed").Failed(), nil
-			}
-			if err := p.client.DeleteAuthKey(ctx, consumerID, authKey); err != nil {
+			if err := p.client.DeleteAuthKey(ctx, consumerID, credentialID); err != nil {
 				return rs.SetMessage("Could not delete api-key credential").Failed(), nil
 			}
-			keyAuth := kongBuilder.WithAuthKey(authKey).
+			keyAuth := kongBuilder.WithAuthKey(key).
 				ToKeyAuth()
 			resp, err := p.client.CreateAuthKey(ctx, consumerID, keyAuth)
 			if err != nil {
@@ -175,19 +181,15 @@ func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
+			rs.AddProperty(common.AttrCredUpdater, *resp.Key)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetAPIKey(*resp.Key)
 		}
 	case provisioning.BasicAuthARD:
 		{
-			username := p.request.GetCredentialDetailsValue(reqUsername)
-			if username == "" {
-				return rs.SetMessage("Empty username passed").Failed(), nil
-			}
-			if err := p.client.DeleteHttpBasic(ctx, consumerID, username); err != nil {
+			if err := p.client.DeleteHttpBasic(ctx, consumerID, credentialID); err != nil {
 				return rs.SetMessage("Failed to delete basic auth credential").Failed(), nil
 			}
-
-			basicAuth := kongBuilder.WithUsername(username).
+			basicAuth := kongBuilder.WithUsername(key).
 				WithPassword("").
 				ToBasicAuth()
 			resp, err := p.client.CreateHttpBasic(ctx, consumerID, basicAuth)
@@ -196,19 +198,15 @@ func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
+			rs.AddProperty(common.AttrCredUpdater, *resp.Username)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetHTTPBasic(*resp.Username, *resp.Password)
 		}
 	case provisioning.OAuthSecretCRD:
 		{
-			clientID := p.request.GetCredentialDetailsValue(reqClientID)
-			if clientID == "" {
-				return rs.SetMessage("Empty client ID passed").Failed(), nil
-			}
-			if err := p.client.DeleteOauth2(ctx, consumerID, clientID); err != nil {
+			if err := p.client.DeleteOauth2(ctx, consumerID, credentialID); err != nil {
 				return rs.SetMessage("Failed to delete oauth2 credential").Failed(), nil
 			}
-
-			oauth2 := kongBuilder.WithClientID(reqClientID).
+			oauth2 := kongBuilder.WithClientID(key).
 				WithClientSecret("").
 				WithName("").
 				ToOauth2()
@@ -218,6 +216,7 @@ func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
+			rs.AddProperty(common.AttrCredUpdater, *resp.ClientID)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetOAuthIDAndSecret(*resp.ClientID, *resp.ClientSecret)
 		}
 	}
