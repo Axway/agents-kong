@@ -156,8 +156,7 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, routeID, managedApp
 		return nil
 	}
 
-	enabled := false
-	rateLimitingPlugin.Enabled = &enabled
+	rateLimitingPlugin.Enabled = klib.Bool(false)
 	_, err = k.Plugins.UpdateForRoute(ctx, &routeID, rateLimitingPlugin)
 	if err != nil {
 		log.WithError(err).Error("failed to disable plugin")
@@ -184,8 +183,7 @@ func (k KongClient) AddQuota(ctx context.Context, routeID, managedAppID, quotaIn
 			log.Info("plugin already enabled")
 			return nil
 		} else {
-			enabled := true
-			rateLimitPlugin.Enabled = &enabled
+			rateLimitPlugin.Enabled = klib.Bool(true)
 			_, err := k.Plugins.UpdateForRoute(ctx, &routeID, rateLimitPlugin)
 			if err != nil {
 				log.WithError(err).Error("failed to update plugin")
@@ -259,9 +257,7 @@ func (k KongClient) updateOrDeleteACL(ctx context.Context, aclPlugin *klib.Plugi
 	}
 
 	// enable the plugin in case it is disabled
-	enabled := true
-	aclPlugin.Enabled = &enabled
-
+	aclPlugin.Enabled = klib.Bool(true)
 	aclPlugin, err := k.Plugins.UpdateForRoute(ctx, &routeID, aclPlugin)
 	if err != nil {
 		return err
@@ -271,9 +267,8 @@ func (k KongClient) updateOrDeleteACL(ctx context.Context, aclPlugin *klib.Plugi
 }
 
 func (k KongClient) addRateLimitingPlugin(ctx context.Context, config map[string]interface{}, routeID, managedAppID string) error {
-	pluginName := common.RateLimitingPlugin
 	rateLimitPlugin := klib.Plugin{
-		Name:   &pluginName,
+		Name:   klib.String(common.RateLimitingPlugin),
 		Config: config,
 		Consumer: &klib.Consumer{
 			ID: &managedAppID,
@@ -312,15 +307,15 @@ func getSpecificPlugin(plugins []*klib.Plugin, serviceID, routeID, consumerID, p
 			continue
 		}
 
-		if consumerID == "" || plugin.Consumer == nil || (plugin.Consumer != nil && plugin.Consumer.ID == &consumerID) {
+		if consumerID == "" || plugin.Consumer == nil || (plugin.Consumer != nil && *plugin.Consumer.ID == consumerID) {
 			consumerMatch = true
 		}
 
-		if routeID == "" || plugin.Route == nil || (plugin.Route != nil && plugin.Route.ID == &routeID) {
+		if routeID == "" || plugin.Route == nil || (plugin.Route != nil && *plugin.Route.ID == routeID) {
 			routeMatch = true
 		}
 
-		if serviceID == "" || plugin.Service == nil || (plugin.Service != nil && plugin.Service.ID == &serviceID) {
+		if serviceID == "" || plugin.Service == nil || (plugin.Service != nil && *plugin.Service.ID == serviceID) {
 			serviceMatch = true
 		}
 
