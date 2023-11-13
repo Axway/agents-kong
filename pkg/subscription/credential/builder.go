@@ -31,10 +31,7 @@ type credentialMetaData struct {
 }
 
 func NewKongCredentialBuilder() *kongCredentialBuilder {
-	// now := int(time.Now().Unix())
-	b := &kongCredentialBuilder{
-		// createdAt: &now,
-	}
+	b := &kongCredentialBuilder{}
 	return b
 }
 
