@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kong-agents.fullname" . }}-discovery
+  labels:
+    {{- include "kong-agents.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.discovery.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kong-agents.selectorLabels" . | nindent 6 }}
+      {{- with .Values.additionalLabels }}
+      {{- range $key, $value := . }}
+      {{ default "none" $key }}: {{ default "none" $value | quote }}
+      {{- end }}
+      {{- end }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "kong-agents.selectorLabels" . | nindent 8 }}
+        {{- with .Values.additionalLabels }}
+        {{- range $key, $value := . }}
+        {{ default "none" $key }}: {{ default "none" $value | quote }}
+        {{- end }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kong-agents.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.discovery.image.repository }}:{{ .Values.discovery.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.discovery.image.pullPolicy }}
+          ports:
+          - name: probe-port
+            containerPort: {{ .Values.statusPort }}
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: probe-port
+            {{- with .Values.livenessProbe }}
+            {{- range $key, $value := . }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: probe-port
+            {{- with .Values.readinessProbe }}
+            {{- range $key, $value := . }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+            {{- end }}
+          env:
+          {{- with .Values.env }}
+          {{- range $key, $value := . }}
+          {{- if and (not (eq (toString $value) ""))
+                     (not (eq (toString $key) ""))
+                     (not (eq (toString $key) "KONG_ADMINENDPOINT"))
+                     (not (eq (toString $key) "KONG_PROXYENDPOINT"))
+                     (not (eq (toString $key) "KONG_PROXYENDPOINTPROTOCOLS_HTTP"))
+                     (not (eq (toString $key) "KONG_PROXYENDPOINTPROTOCOLS_HTTPS"))
+                     (not (eq (toString $key) "KONG_SPECDOWNLOADPATHS"))
+                     (not (eq (toString $key) "KONG_TOKEN")) }} 
+            - name: {{ $key }}
+              value: {{ $value | quote }} 
+          {{- end }}
+          {{- end }}
+          {{- end }}
+            - name: KONG_ADMINENDPOINT
+              value: "{{ .Values.kong.adminEndpoint }}"
+            {{- if eq .Values.kong.token "" }}
+            - name: KONG_TOKEN
+              value: "{{ .Values.kong.token }}"
+            {{- end }}            
+            - name: KONG_PROXYENDPOINT
+              value: "{{ .Values.kong.proxyEndpoint }}"
+            - name: KONG_PROXYENDPOINTPROTOCOLS_HTTP
+              value: "{{ .Values.kong.proxyEndpointProtocols.http }}"
+            - name: KONG_PROXYENDPOINTPROTOCOLS_HTTPS
+              value: "{{ .Values.kong.proxyEndpointProtocols.https }}"
+            - name: KONG_SPECDOWNLOADPATHS
+              value: {{ include "kong-agents.specDownloadPathsString" . }}
+          volumeMounts:
+            - name: "kong-agent-keys"
+              mountPath: "/keys"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+      - name: kong-agent-keys
+        secret:
+          secretName: {{ .Values.secrets.keys }}
+          items:
+          - key: private_key
+            path: private_key.pem
+          - key: public_key
+            path: public_key.pem
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

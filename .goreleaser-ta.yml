@@ -1,0 +1,59 @@
+# Documentation at http://goreleaser.com
+before:
+  hooks:
+    - go mod download
+    - go mod tidy
+
+builds:
+  - id: kong_traceability_agent
+    binary: kong_traceability_agent
+    main: ./cmd/traceability/main.go
+    flags:
+      - -tags=static_all
+      - -a
+    ldflags:
+      - -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildTime={{ .Date }}'
+      - -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildVersion={{ .Version }}'
+      - -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildCommitSha={{ .Commit }}'
+      - -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentName=KongTraceabilityAgent'
+      - -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentDescription=Kong Traceability Agent'
+      - -X 'github.com/Axway/agent-sdk/pkg/cmd.SDKBuildVersion={{ .Env.SDK_VERSION }}'
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    ignore:
+      - goos: windows
+        goarch: arm64
+        
+archives:
+  - id: traceability_agent_archives
+    name_template: >-
+      kong_traceability_agent_{{ .Version }}_{{ .Os }}_
+      {{- if eq .Arch "darwin" }}Darwin
+      {{- else if eq .Arch "linux" }}Linux
+      {{- else if eq .Arch "windows" }}Windows
+      {{- else if eq .Arch "386" }}i386
+      {{- else if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    wrap_in_directory: traceability_agent
+    files:
+      - README_traceability.md
+      - src: build/kong_traceability_agent.yml
+        dst: .
+        strip_parent: true
+
+checksum:
+  name_template: "traceability_checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
