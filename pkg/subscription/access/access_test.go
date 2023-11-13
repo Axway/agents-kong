@@ -19,14 +19,14 @@ type mockAccessClient struct {
 	addQuotaErr         bool
 }
 
-func (c mockAccessClient) AddManagedAppACL(ctx context.Context, managedAppID, routeID string) error {
+func (c mockAccessClient) AddRouteACL(ctx context.Context, routeID, allowedID string) error {
 	if c.addManagedAppErr {
 		return fmt.Errorf("error")
 	}
 	return nil
 }
 
-func (c mockAccessClient) RemoveManagedAppACL(ctx context.Context, routeID, managedAppID string) error {
+func (c mockAccessClient) RemoveRouteACL(ctx context.Context, routeID, revokedID string) error {
 	if c.removeManagedAppErr {
 		return fmt.Errorf("error")
 	}
