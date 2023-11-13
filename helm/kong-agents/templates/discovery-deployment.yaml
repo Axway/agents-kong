@@ -66,35 +66,51 @@ spec:
             {{- end }}
             {{- end }}
           env:
+            - name: KONG_ADMIN_URL
+              value: "{{ .Values.kong.admin.url }}"
+            - name: KONG_PROXY_HOST
+              value: "{{ .Values.kong.proxy.host }}"
+            - name: KONG_PROXY_PORTS_HTTP
+              value: "{{ .Values.kong.proxy.ports.http }}"
+            - name: KONG_PROXY_PORTS_HTTPS
+              value: "{{ .Values.kong.proxy.ports.https }}"
+            {{- if (include "kong-agents.specDownloadPathsString" .) }}
+            - name: KONG_SPEC_URL_PATHS
+              value: {{ include "kong-agents.specDownloadPathsString" . }}
+            {{- end }}
+            {{- if .Values.kong.admin.auth.apikey.value }}
+            - name: KONG_ADMIN_AUTH_APIKEY_VALUE
+              valueFrom:
+                secretKeyRef: 
+                  name: kong-admin-auth-apikey
+                  key: value
+            - name: KONG_ADMIN_AUTH_APIKEY_HEADER
+              valueFrom:
+                secretKeyRef: 
+                  name: kong-admin-auth-apikey
+                  key: header
+            {{- end }}
           {{- with .Values.env }}
           {{- range $key, $value := . }}
           {{- if and (not (eq (toString $value) ""))
                      (not (eq (toString $key) ""))
-                     (not (eq (toString $key) "KONG_ADMINENDPOINT"))
-                     (not (eq (toString $key) "KONG_PROXYENDPOINT"))
-                     (not (eq (toString $key) "KONG_PROXYENDPOINTPROTOCOLS_HTTP"))
-                     (not (eq (toString $key) "KONG_PROXYENDPOINTPROTOCOLS_HTTPS"))
-                     (not (eq (toString $key) "KONG_SPECDOWNLOADPATHS"))
-                     (not (eq (toString $key) "KONG_TOKEN")) }} 
+                     (not (has (toString $key) (list "KONG_ADMIN_URL" 
+                                                     "KONG_ADMIN_AUTH_APIKEY_HEADER" 
+                                                     "KONG_ADMIN_AUTH_APIKEY_VALUE" 
+                                                     "KONG_PROXY_HOST" 
+                                                     "KONG_PROXY_PORTS_HTTP" 
+                                                     "KONG_PROXY_PORTS_HTTPS" 
+                                                     "KONG_SPEC_URL_PATHS")))
+           }} 
             - name: {{ $key }}
               value: {{ $value | quote }} 
           {{- end }}
           {{- end }}
           {{- end }}
-            - name: KONG_ADMINENDPOINT
-              value: "{{ .Values.kong.adminEndpoint }}"
-            {{- if eq .Values.kong.token "" }}
-            - name: KONG_TOKEN
-              value: "{{ .Values.kong.token }}"
-            {{- end }}            
-            - name: KONG_PROXYENDPOINT
-              value: "{{ .Values.kong.proxyEndpoint }}"
-            - name: KONG_PROXYENDPOINTPROTOCOLS_HTTP
-              value: "{{ .Values.kong.proxyEndpointProtocols.http }}"
-            - name: KONG_PROXYENDPOINTPROTOCOLS_HTTPS
-              value: "{{ .Values.kong.proxyEndpointProtocols.https }}"
-            - name: KONG_SPECDOWNLOADPATHS
-              value: {{ include "kong-agents.specDownloadPathsString" . }}
+            - name: CENTRAL_AUTH_PRIVATEKEY
+              value: "/keys/private_key.pem"
+            - name: CENTRAL_AUTH_PUBLICKEY
+              value: "/keys/public_key.pem"
           volumeMounts:
             - name: "kong-agent-keys"
               mountPath: "/keys"
