@@ -15,6 +15,12 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Docker](#docker)
         - [Environment variables](#environment-variables)
         - [Deployment](#deployment)
+      - [Helm](#helm)
+        - [Download](#download)
+        - [Create secrets](#create-secrets)
+        - [Create overrides](#create-overrides)
+        - [Deploy local helm chart](#deploy-local-helm-chart)
+      - [Kong agent environment variables](#kong-agent-environment-variables)
 
 ## Setup
 
@@ -92,10 +98,10 @@ The Kong agents are delivered as containers, kong_discovery_agent and kong_trace
 
 Before beginning to deploy the agents following information will need to be gathered in addition to the details that were noted in setup.
 
-- The full URL to connect to the Kong admin API, `KONG_ADMINENDPOINT`
-- The host the agent will use when setting the endpoint of a discovered API, (`KONG_PROXYENDPOINT`)
-  - The HTTP `KONG_PROXYENDPOINTPROTOCOLS_HTTP` and HTTPs `KONG_PROXYENDPOINTPROTOCOLS_HTTPS` ports the agent will use with the endpoint above
-- The URL paths, hosted by the gateway service, to query for spec files, `KONG_SPECDOWNLOADPATHS`
+- The full URL to connect to the Kong admin API, `KONG_ADMIN_URL`
+- The host the agent will use when setting the endpoint of a discovered API, (`KONG_PROXY_HOST`)
+  - The HTTP `KONG_PROXY_PORTS_HTTP` and HTTPs `KONG_PROXY_PORTS_HTTPS` ports the agent will use with the endpoint above
+- The URL paths, hosted by the gateway service, to query for spec files, `KONG_SPEC_URL_PATHS`
 
 #### Docker
 
@@ -118,6 +124,8 @@ CENTRAL_ORGANIZATIONID=123456789
 CENTRAL_AUTH_CLIENTID=kong-agents_123456789-abcd-efgh-ijkl-098765432109
 CENTRAL_ENVIRONMENT=kong
 CENTRAL_GRPC_ENABLED=true
+
+AGENTFEATURES_MARKETPLACEPROVISIONING=true
 ```
 
 Traceability Agent
@@ -126,9 +134,14 @@ Traceability Agent
 KONG_ADMIN_URL=https://kong.url.com:8444
 KONG_ADMIN_AUTH_APIKEY_HEADER="apikey"
 KONG_ADMIN_AUTH_APIKEY_VALUE=123456789abcdefghijkl098765432109
-```
 
-// TODO: add full list of env vars
+CENTRAL_ORGANIZATIONID=123456789
+CENTRAL_AUTH_CLIENTID=kong-agents_123456789-abcd-efgh-ijkl-098765432109
+CENTRAL_ENVIRONMENT=kong
+CENTRAL_GRPC_ENABLED=true
+
+AGENTFEATURES_MARKETPLACEPROVISIONING=true
+```
 
 ##### Deployment
 
@@ -149,3 +162,100 @@ Kong Traceability agent
 ```shell
 docker run -d -v /home/user/keys:/keys -v /home/user/traceability/data:/data --env-file traceability-agents.env ghcr.io/axway/kong_traceability_agent:latest
 ```
+
+#### Helm
+
+##### Download
+
+At the current time the Kong agents helm chart is not hosted on a helm chart repository. To deploy using this helm chart you will first want to download the helm directory from your desired release tag.
+
+Ex:
+
+```shell
+curl -L https://github.com/Axway/agents-kong/archive/refs/tags/v0.0.0-alpha7.tar.gz --output kong-agents.tar.gz  # download release archive
+tar xvf kong-agents.tar.gz --strip-components=2 agents-kong-0.0.0-alpha7/helm/kong-agents                        # extract the helm chart in the current directory 
+rm kong-agents.tar.gz                                                                                            # remove the archive
+```
+
+##### Create secrets
+
+Platform service account key secret
+
+kong-agent-keys.yaml
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kong-agent-keys
+type: Opaque
+stringData:
+  private_key: |
+    -----BEGIN PRIVATE KEY-----
+    private
+    key
+    data
+    -----END PRIVATE KEY-----
+  public_key: |
+    -----BEGIN PUBLIC KEY-----
+    public
+    key
+    data
+    -----END PUBLIC KEY-----
+```
+
+##### Create overrides
+
+overrides.yaml
+
+```yaml
+kong:
+  admin:
+    url: https://kong.url.com:8444
+  proxy:
+    host: kong.proxy.endpoint.com
+    ports:
+      http: 8000
+      https: 8443
+  spec:
+    url_paths: 
+      - /openapi.json
+      - /swagger.json
+
+env:
+  CENTRAL_ORGANIZATIONID: 123456789
+  CENTRAL_AUTH_CLIENTID: kong-agents_123456789-abcd-efgh-ijkl-098765432109
+  CENTRAL_ENVIRONMENT: kong
+  CENTRAL_GRPC_ENABLED: true
+  AGENTFEATURES_MARKETPLACEPROVISIONING: true
+```
+
+##### Deploy local helm chart
+
+Assuming you are already in the desired kubernetes context and namespace, execute the following commands.
+
+Create the secret containing the Central key files used for authentication.
+
+```shell
+kubectl apply -f secret.yaml
+```
+
+Install the helm chart using the created overrides file.
+
+```shell
+helm install kong-agents ./helm/kong-agents -f overrides.yaml
+```
+
+#### Kong agent environment variables
+
+All Kong specific environment variables available are listed below
+
+| Name                              | Description                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| **KONG_ADMIN_URL**                | The Kong admin API URL that the agent will query against                              |
+| **KONG_ADMIN_AUTH_APIKEY_HEADER** | The API Key header name the agent will use when authenticating                        |
+| **KONG_ADMIN_AUTH_APIKEY_VALUE**  | The API Key value the agent will use when authenticating                              |
+| **KONG_PROXY_HOST**               | The proxy endpoint that the agent will use in API Services for discovered Kong routes |
+| **KONG_PROXY_PORTS_HTTP**         | The HTTP port number that the agent will set for discovered APIS                      |
+| **KONG_PROXY_PORTS_HTTPS**        | The HTTPs port number that the agent will set for discovered APIS                     |
+| **KONG_SPEC_URL_PATHS**           | The URL paths that the agent will query on the Gateway service for API definitions    |
