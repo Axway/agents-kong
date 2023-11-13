@@ -18,8 +18,8 @@ const (
 
 type accessClient interface {
 	AddManagedAppACL(ctx context.Context, managedAppID, routeID string) error
-	RemoveManagedAppACL(ctx context.Context, serviceID, routeID, managedAppID string) error
-	AddQuota(ctx context.Context, serviceID, managedAppID, quotaInterval string, quotaLimit int) error
+	RemoveManagedAppACL(ctx context.Context, routeID, managedAppID string) error
+	AddQuota(ctx context.Context, routeID, managedAppID, quotaInterval string, quotaLimit int) error
 }
 
 type accessRequest interface {
@@ -29,18 +29,16 @@ type accessRequest interface {
 }
 
 type AccessProvisioner struct {
-	ctx       context.Context
-	logger    log.FieldLogger
-	client    accessClient
-	quota     provisioning.Quota
-	routeID   string
-	serviceID string
-	appID     string
+	ctx     context.Context
+	logger  log.FieldLogger
+	client  accessClient
+	quota   provisioning.Quota
+	routeID string
+	appID   string
 }
 
 func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest) AccessProvisioner {
 	instDetails := request.GetInstanceDetails()
-	serviceID := sdkUtil.ToString(instDetails[common.AttrServiceId])
 	routeID := sdkUtil.ToString(instDetails[common.AttrRouteId])
 
 	a := AccessProvisioner{
@@ -48,16 +46,12 @@ func NewAccessProvisioner(ctx context.Context, client accessClient, request acce
 		logger: log.NewFieldLogger().
 			WithComponent("AccessProvisioner").
 			WithPackage("access"),
-		client:    client,
-		quota:     request.GetQuota(),
-		routeID:   routeID,
-		serviceID: serviceID,
-		appID:     request.GetApplicationDetailsValue(common.AttrAppID),
+		client:  client,
+		quota:   request.GetQuota(),
+		routeID: routeID,
+		appID:   request.GetApplicationDetailsValue(common.AttrAppID),
 	}
 
-	if a.serviceID != "" {
-		a.logger = a.logger.WithField(logFieldServiceID, a.serviceID)
-	}
 	if a.routeID != "" {
 		a.logger = a.logger.WithField(logFieldRouteID, a.routeID)
 	}
@@ -89,7 +83,7 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 
 	quotaInterval := a.quota.GetIntervalString()
 	quotaLimit := int(a.quota.GetLimit())
-	err = a.client.AddQuota(a.ctx, a.serviceID, a.appID, quotaInterval, quotaLimit)
+	err = a.client.AddQuota(a.ctx, a.routeID, a.appID, quotaInterval, quotaLimit)
 	if err != nil {
 		a.logger.WithError(err).Error("failed to create quota for consumer")
 		return rs.SetMessage("could not create limits for consumer in kong").Failed(), nil
@@ -108,7 +102,7 @@ func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 		return rs.SetMessage("managed application ID not found").Failed()
 	}
 
-	err := a.client.RemoveManagedAppACL(a.ctx, a.serviceID, a.routeID, a.appID)
+	err := a.client.RemoveManagedAppACL(a.ctx, a.routeID, a.appID)
 	if err != nil {
 		a.logger.WithError(err).Error("failed to remove managed app from ACL")
 		return rs.SetMessage("could not remove consumer from ACL").Failed()

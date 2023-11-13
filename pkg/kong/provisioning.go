@@ -118,8 +118,8 @@ func (k KongClient) AddManagedAppACL(ctx context.Context, managedAppID, routeID 
 	return nil
 }
 
-func (k KongClient) RemoveManagedAppACL(ctx context.Context, serviceID, routeID, managedAppID string) error {
-	log := k.logger.WithField("consumerID", managedAppID).WithField("serviceID", serviceID).WithField("routeID", routeID)
+func (k KongClient) RemoveManagedAppACL(ctx context.Context, routeID, managedAppID string) error {
+	log := k.logger.WithField("consumerID", managedAppID).WithField("routeID", routeID)
 	plugins, err := k.Plugins.ListAll(ctx)
 	if err != nil {
 		log.WithError(err).Error("failed to get plugins")
@@ -142,7 +142,7 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, serviceID, routeID,
 	}
 
 	aclCfg.AllowedGroups = append(aclCfg.AllowedGroups[:i], aclCfg.AllowedGroups[i+1:]...)
-	err = k.updateOrDeleteACL(ctx, aclPlugin, aclCfg, serviceID)
+	err = k.updateOrDeleteACL(ctx, aclPlugin, aclCfg, routeID)
 	if err != nil {
 		log.WithError(err).Error("failed to deny access")
 		return err
@@ -150,7 +150,7 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, serviceID, routeID,
 
 	// disable rate limiting plugin
 	log = log.WithField("plugin", common.RateLimitingPlugin)
-	rateLimitingPlugin, err := getSpecificPlugin(plugins, serviceID, "", managedAppID, common.RateLimitingPlugin)
+	rateLimitingPlugin, err := getSpecificPlugin(plugins, "", routeID, managedAppID, common.RateLimitingPlugin)
 	if err != nil {
 		log.WithError(err).Debug("no plugin to disable")
 		return nil
@@ -158,7 +158,7 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, serviceID, routeID,
 
 	enabled := false
 	rateLimitingPlugin.Enabled = &enabled
-	_, err = k.Plugins.UpdateForService(ctx, &serviceID, rateLimitingPlugin)
+	_, err = k.Plugins.UpdateForRoute(ctx, &routeID, rateLimitingPlugin)
 	if err != nil {
 		log.WithError(err).Error("failed to disable plugin")
 		return err
@@ -167,10 +167,9 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, serviceID, routeID,
 	return nil
 }
 
-// TODO: create rateLimitingPlugin for route-consumer pair
-func (k KongClient) AddQuota(ctx context.Context, serviceID, managedAppID, quotaInterval string, quotaLimit int) error {
-	log := k.logger.WithField("consumerID", managedAppID).WithField("serviceID", serviceID)
-	plugins, err := k.Plugins.ListAllForService(ctx, &serviceID)
+func (k KongClient) AddQuota(ctx context.Context, routeID, managedAppID, quotaInterval string, quotaLimit int) error {
+	log := k.logger.WithField("consumerID", managedAppID).WithField("routeID", routeID)
+	plugins, err := k.Plugins.ListAll(ctx)
 	if err != nil {
 		log.WithError(err).Error("failed to get plugins")
 		return err
@@ -178,7 +177,7 @@ func (k KongClient) AddQuota(ctx context.Context, serviceID, managedAppID, quota
 
 	// enable the rate limiting plugin if it already exists
 	log = log.WithField("plugin", common.RateLimitingPlugin)
-	rateLimitPlugin, err := getSpecificPlugin(plugins, "", "", managedAppID, common.RateLimitingPlugin)
+	rateLimitPlugin, err := getSpecificPlugin(plugins, "", routeID, managedAppID, common.RateLimitingPlugin)
 	if err == nil {
 		// plugin was found
 		if *rateLimitPlugin.Enabled {
@@ -187,7 +186,7 @@ func (k KongClient) AddQuota(ctx context.Context, serviceID, managedAppID, quota
 		} else {
 			enabled := true
 			rateLimitPlugin.Enabled = &enabled
-			_, err := k.Plugins.UpdateForService(ctx, &serviceID, rateLimitPlugin)
+			_, err := k.Plugins.UpdateForRoute(ctx, &routeID, rateLimitPlugin)
 			if err != nil {
 				log.WithError(err).Error("failed to update plugin")
 				return err
@@ -197,7 +196,7 @@ func (k KongClient) AddQuota(ctx context.Context, serviceID, managedAppID, quota
 
 	// create plugin
 	config := setQuota(quotaInterval, quotaLimit)
-	err = k.addRateLimitingPlugin(ctx, config, serviceID, managedAppID)
+	err = k.addRateLimitingPlugin(ctx, config, routeID, managedAppID)
 	if err != nil {
 		log.WithError(err).Error("failed to add quota")
 		return err
@@ -271,7 +270,7 @@ func (k KongClient) updateOrDeleteACL(ctx context.Context, aclPlugin *klib.Plugi
 	return nil
 }
 
-func (k KongClient) addRateLimitingPlugin(ctx context.Context, config map[string]interface{}, serviceID, managedAppID string) error {
+func (k KongClient) addRateLimitingPlugin(ctx context.Context, config map[string]interface{}, routeID, managedAppID string) error {
 	pluginName := common.RateLimitingPlugin
 	rateLimitPlugin := klib.Plugin{
 		Name:   &pluginName,
@@ -281,7 +280,7 @@ func (k KongClient) addRateLimitingPlugin(ctx context.Context, config map[string
 		},
 	}
 
-	_, err := k.Plugins.CreateForService(ctx, &serviceID, &rateLimitPlugin)
+	_, err := k.Plugins.CreateForRoute(ctx, &routeID, &rateLimitPlugin)
 	if err != nil {
 		return err
 	}
