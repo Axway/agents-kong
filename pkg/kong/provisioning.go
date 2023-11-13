@@ -167,7 +167,8 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, serviceID, routeID,
 	return nil
 }
 
-func (k KongClient) AddQuota(ctx context.Context, serviceID, managedAppID string, quota provisioning.Quota) error {
+// TODO: create rateLimitingPlugin for route-consumer pair
+func (k KongClient) AddQuota(ctx context.Context, serviceID, managedAppID, quotaInterval string, quotaLimit int) error {
 	log := k.logger.WithField("consumerID", managedAppID).WithField("serviceID", serviceID)
 	plugins, err := k.Plugins.ListAllForService(ctx, &serviceID)
 	if err != nil {
@@ -189,15 +190,17 @@ func (k KongClient) AddQuota(ctx context.Context, serviceID, managedAppID string
 			_, err := k.Plugins.UpdateForService(ctx, &serviceID, rateLimitPlugin)
 			if err != nil {
 				log.WithError(err).Error("failed to update plugin")
+				return err
 			}
 		}
 	}
 
 	// create plugin
-	config := setQuota(quota)
+	config := setQuota(quotaInterval, quotaLimit)
 	err = k.addRateLimitingPlugin(ctx, config, serviceID, managedAppID)
 	if err != nil {
-		log.WithError(err).Error("")
+		log.WithError(err).Error("failed to add quota")
+		return err
 	}
 
 	return nil
@@ -286,12 +289,11 @@ func (k KongClient) addRateLimitingPlugin(ctx context.Context, config map[string
 	return nil
 }
 
-func setQuota(quota provisioning.Quota) klib.Configuration {
+func setQuota(quotaInterval string, quotaLimit int) klib.Configuration {
 	config := klib.Configuration{
 		"policy": "local",
 	}
-	quotaInterval := quota.GetIntervalString()
-	quotaLimit := int(quota.GetLimit())
+
 	switch strings.ToLower(quotaInterval) {
 	case provisioning.Daily.String():
 		config["day"] = quotaLimit

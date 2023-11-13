@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
-	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
@@ -22,7 +21,7 @@ type KongAPIClient interface {
 	DeleteConsumer(ctx context.Context, id string) error
 	AddManagedAppACL(ctx context.Context, managedAppID, routeID string) error
 	RemoveManagedAppACL(ctx context.Context, serviceID, routeID, managedAppID string) error
-	AddQuota(ctx context.Context, serviceID, managedAppID string, quota provisioning.Quota) error
+	AddQuota(ctx context.Context, serviceID, managedAppID, quotaInterval string, quotaLimit int) error
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)

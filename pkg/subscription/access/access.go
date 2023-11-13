@@ -19,7 +19,7 @@ const (
 type accessClient interface {
 	AddManagedAppACL(ctx context.Context, managedAppID, routeID string) error
 	RemoveManagedAppACL(ctx context.Context, serviceID, routeID, managedAppID string) error
-	AddQuota(ctx context.Context, serviceID, managedAppID string, quota provisioning.Quota) error
+	AddQuota(ctx context.Context, serviceID, managedAppID, quotaInterval string, quotaLimit int) error
 }
 
 type accessRequest interface {
@@ -87,7 +87,9 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 		return rs.SetMessage("could not provide access to consumer in kong").Failed(), nil
 	}
 
-	err = a.client.AddQuota(a.ctx, a.serviceID, a.appID, a.quota)
+	quotaInterval := a.quota.GetIntervalString()
+	quotaLimit := int(a.quota.GetLimit())
+	err = a.client.AddQuota(a.ctx, a.serviceID, a.appID, quotaInterval, quotaLimit)
 	if err != nil {
 		a.logger.WithError(err).Error("failed to create quota for consumer")
 		return rs.SetMessage("could not create limits for consumer in kong").Failed(), nil
