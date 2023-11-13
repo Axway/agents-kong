@@ -73,8 +73,8 @@ func (k KongClient) DeleteConsumer(ctx context.Context, id string) error {
 	return k.Consumers.Delete(ctx, klib.String(id))
 }
 
-func (k KongClient) AddManagedAppACL(ctx context.Context, managedAppID, routeID string) error {
-	log := k.logger.WithField("consumerID", managedAppID).WithField("routeID", routeID)
+func (k KongClient) AddRouteACL(ctx context.Context, routeID, allowedID string) error {
+	log := k.logger.WithField("consumerID", allowedID).WithField("routeID", routeID)
 	plugins, err := k.Plugins.ListAll(ctx)
 	if err != nil {
 		log.WithError(err).Error("failed to get plugins")
@@ -86,7 +86,7 @@ func (k KongClient) AddManagedAppACL(ctx context.Context, managedAppID, routeID 
 	if err != nil {
 		log.WithError(err).Debug("no acl for route")
 		aclConfig := ACLConfig{
-			AllowedGroups: []string{managedAppID},
+			AllowedGroups: []string{allowedID},
 		}
 		err = k.createACL(ctx, aclConfig, routeID)
 		if err != nil {
@@ -100,14 +100,14 @@ func (k KongClient) AddManagedAppACL(ctx context.Context, managedAppID, routeID 
 
 	// verify if access is granted
 	var aclCfg ACLConfig
-	_, hasAccess := aclCfg.checkAccess(aclPlugin, managedAppID)
+	_, hasAccess := aclCfg.checkAccess(aclPlugin, allowedID)
 	if hasAccess {
 		log.Info("access is already granted")
 		return nil
 	}
 
 	// provide access to managed application
-	aclCfg.AllowedGroups = append(aclCfg.AllowedGroups, managedAppID)
+	aclCfg.AllowedGroups = append(aclCfg.AllowedGroups, allowedID)
 	err = k.updateOrDeleteACL(ctx, aclPlugin, aclCfg, routeID)
 	if err != nil {
 		log.WithError(err).Error("failed to grant access")
@@ -118,8 +118,8 @@ func (k KongClient) AddManagedAppACL(ctx context.Context, managedAppID, routeID 
 	return nil
 }
 
-func (k KongClient) RemoveManagedAppACL(ctx context.Context, routeID, managedAppID string) error {
-	log := k.logger.WithField("consumerID", managedAppID).WithField("routeID", routeID)
+func (k KongClient) RemoveRouteACL(ctx context.Context, routeID, revokedID string) error {
+	log := k.logger.WithField("consumerID", revokedID).WithField("routeID", routeID)
 	plugins, err := k.Plugins.ListAll(ctx)
 	if err != nil {
 		log.WithError(err).Error("failed to get plugins")
@@ -135,7 +135,7 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, routeID, managedApp
 
 	// verify if access is granted
 	var aclCfg ACLConfig
-	i, hasAccess := aclCfg.checkAccess(aclPlugin, managedAppID)
+	i, hasAccess := aclCfg.checkAccess(aclPlugin, revokedID)
 	if !hasAccess {
 		log.Info("access is already denied")
 		return nil
@@ -150,7 +150,7 @@ func (k KongClient) RemoveManagedAppACL(ctx context.Context, routeID, managedApp
 
 	// disable rate limiting plugin
 	log = log.WithField("plugin", common.RateLimitingPlugin)
-	rateLimitingPlugin, err := getSpecificPlugin(plugins, "", routeID, managedAppID, common.RateLimitingPlugin)
+	rateLimitingPlugin, err := getSpecificPlugin(plugins, "", routeID, revokedID, common.RateLimitingPlugin)
 	if err != nil {
 		log.WithError(err).Debug("no plugin to disable")
 		return nil

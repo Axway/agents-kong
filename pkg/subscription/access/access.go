@@ -17,9 +17,9 @@ const (
 )
 
 type accessClient interface {
-	AddManagedAppACL(ctx context.Context, managedAppID, routeID string) error
-	RemoveManagedAppACL(ctx context.Context, routeID, managedAppID string) error
-	AddQuota(ctx context.Context, routeID, managedAppID, quotaInterval string, quotaLimit int) error
+	AddRouteACL(ctx context.Context, routeID, allowedID string) error
+	RemoveRouteACL(ctx context.Context, routeID, revokedID string) error
+	AddQuota(ctx context.Context, routeID, allowedID, quotaInterval string, quotaLimit int) error
 }
 
 type accessRequest interface {
@@ -80,7 +80,7 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 		return rs.SetMessage("weekly quota is not supported by kong").Failed(), nil
 	}
 
-	err := a.client.AddManagedAppACL(a.ctx, a.appID, a.routeID)
+	err := a.client.AddRouteACL(a.ctx, a.routeID, a.appID)
 	if err != nil {
 		a.logger.WithError(err).Error("failed to provide access to managed application")
 		return rs.SetMessage("could not provide access to consumer in kong").Failed(), nil
@@ -112,7 +112,7 @@ func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 		return rs.SetMessage("route ID not found").Failed()
 	}
 
-	err := a.client.RemoveManagedAppACL(a.ctx, a.routeID, a.appID)
+	err := a.client.RemoveRouteACL(a.ctx, a.routeID, a.appID)
 	if err != nil {
 		a.logger.WithError(err).Error("failed to remove managed app from ACL")
 		return rs.SetMessage("could not remove consumer from ACL").Failed()

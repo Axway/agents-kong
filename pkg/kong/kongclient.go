@@ -21,9 +21,9 @@ type KongAPIClient interface {
 	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
 	AddConsumerACL(ctx context.Context, id string) error
 	DeleteConsumer(ctx context.Context, id string) error
-	AddManagedAppACL(ctx context.Context, managedAppID, routeID string) error
-	RemoveManagedAppACL(ctx context.Context, routeID, managedAppID string) error
-	AddQuota(ctx context.Context, routeID, managedAppID, quotaInterval string, quotaLimit int) error
+	AddRouteACL(ctx context.Context, routeID, allowedID string) error
+	RemoveRouteACL(ctx context.Context, routeID, revokedID string) error
+	AddQuota(ctx context.Context, routeID, allowedID, quotaInterval string, quotaLimit int) error
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
