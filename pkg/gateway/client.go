@@ -130,7 +130,16 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		return err
 	}
 
-	backendURL := *service.Protocol + "://" + *service.Host + *service.Path
+	// all three fields are needed to form the backend URL used in discovery process
+	if service.Protocol == nil && service.Host == nil {
+		err := fmt.Errorf("fields for backend URL are not set")
+		log.WithError(err).Error("failed to create backend URL")
+		return err
+	}
+	backendURL := *service.Protocol + "://" + *service.Host
+	if service.Path != nil {
+		backendURL = backendURL + *service.Path
+	}
 
 	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, backendURL)
 	if err != nil {
