@@ -11,6 +11,7 @@ import (
 	klib "github.com/kong/go-kong/kong"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/Axway/agents-kong/pkg/common"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 )
 
@@ -217,6 +218,56 @@ func TestDeleteConsumer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			client := createClient(tc.responses)
 			err := client.DeleteConsumer(context.TODO(), "id")
+			if tc.expectErr {
+				assert.NotNil(t, err)
+				return
+			}
+			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestAddManagedAppACL(t *testing.T) {
+	testCases := map[string]struct {
+		expectErr  bool
+		consumerID string
+		routeID    string
+		responses  map[string]response
+	}{
+		"find existing plugins": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("aclPluginID"),
+								Name: klib.String(common.AclPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+							},
+						},
+						"next": "null",
+					},
+				},
+				formatRequestKey(http.MethodPatch, "/routes/routeID/plugins/aclPluginID"): {
+					code: http.StatusOK,
+					dataIface: &klib.Plugin{
+						ID:   klib.String("aclPluginID"),
+						Name: klib.String(common.AclPlugin),
+					},
+				},
+			},
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			client := createClient(tc.responses)
+			err := client.AddManagedAppACL(context.TODO(), tc.consumerID, tc.routeID)
 			if tc.expectErr {
 				assert.NotNil(t, err)
 				return
