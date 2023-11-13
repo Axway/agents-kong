@@ -189,6 +189,7 @@ func (k KongClient) AddQuota(ctx context.Context, routeID, managedAppID, quotaIn
 				log.WithError(err).Error("failed to update plugin")
 				return err
 			}
+			return nil
 		}
 	}
 
@@ -233,7 +234,7 @@ func (k KongClient) createACL(ctx context.Context, aclConfig ACLConfig, routeID 
 		},
 	}
 
-	aclPlugin, err := k.Plugins.CreateForRoute(ctx, &routeID, aclPlugin)
+	_, err := k.Plugins.CreateForRoute(ctx, &routeID, aclPlugin)
 	if err != nil {
 		return err
 	}
@@ -248,6 +249,7 @@ func (k KongClient) updateOrDeleteACL(ctx context.Context, aclPlugin *klib.Plugi
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 
 	aclPlugin.Config = klib.Configuration{
