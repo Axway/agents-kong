@@ -115,7 +115,6 @@ func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential)
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
-			rs.AddProperty(common.AttrCredUpdater, *resp.Key)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetAPIKey(*resp.Key)
 		}
 	case provisioning.BasicAuthARD:
@@ -163,8 +162,8 @@ func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
 	credentialType := p.request.GetCredentialType()
 	credentialID := p.request.GetCredentialDetailsValue(common.AttrCredentialID)
 	key := p.request.GetCredentialDetailsValue(common.AttrCredUpdater)
-	if credentialID == "" || key == "" {
-		return rs.SetMessage("CredentialID and the key to update cannot be empty").Failed(), nil
+	if credentialID == "" {
+		return rs.SetMessage("kongCredentialId cannot be empty").Failed(), nil
 	}
 
 	switch credentialType {
@@ -173,7 +172,7 @@ func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
 			if err := p.client.DeleteAuthKey(ctx, consumerID, credentialID); err != nil {
 				return rs.SetMessage("Could not delete api-key credential").Failed(), nil
 			}
-			keyAuth := kongBuilder.WithAuthKey(key).
+			keyAuth := kongBuilder.WithAuthKey("").
 				ToKeyAuth()
 			resp, err := p.client.CreateAuthKey(ctx, consumerID, keyAuth)
 			if err != nil {
@@ -181,7 +180,6 @@ func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
 			}
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
-			rs.AddProperty(common.AttrCredUpdater, *resp.Key)
 			return rs.Success(), provisioning.NewCredentialBuilder().SetAPIKey(*resp.Key)
 		}
 	case provisioning.BasicAuthARD:
