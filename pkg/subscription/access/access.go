@@ -70,6 +70,11 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 		return rs.SetMessage("managed application ID not found").Failed(), nil
 	}
 
+	if a.routeID == "" {
+		a.logger.Error("could not find the route ID on the resource")
+		return rs.SetMessage("route ID not found").Failed(), nil
+	}
+
 	if a.quota.GetInterval().String() == provisioning.Weekly.String() {
 		a.logger.Debug("weekly quota interval is not supported")
 		return rs.SetMessage("weekly quota is not supported by kong").Failed(), nil
@@ -100,6 +105,11 @@ func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 	if a.appID == "" {
 		a.logger.Error("could not find the managed application ID on the resource")
 		return rs.SetMessage("managed application ID not found").Failed()
+	}
+
+	if a.routeID == "" {
+		a.logger.Error("could not find the route ID on the resource")
+		return rs.SetMessage("route ID not found").Failed()
 	}
 
 	err := a.client.RemoveManagedAppACL(a.ctx, a.routeID, a.appID)
