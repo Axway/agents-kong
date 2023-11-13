@@ -237,7 +237,7 @@ Assuming you are already in the desired kubernetes context and namespace, execut
 Create the secret containing the Central key files used for authentication.
 
 ```shell
-kubectl apply -f secret.yaml
+kubectl apply -f kong-agent-keys.yaml
 ```
 
 Install the helm chart using the created overrides file.
