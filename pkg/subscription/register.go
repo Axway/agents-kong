@@ -10,7 +10,6 @@ import (
 const Oauth2Name = provisioning.OAuthSecretCRD
 const HttpBasicName = provisioning.BasicAuthARD
 const ApiKeyName = provisioning.APIKeyARD
-const propertyName = "kong-api-key"
 
 func getCredTypes() []string {
 	return []string{"confidential", "public"}
@@ -67,16 +66,11 @@ func registerBasicAuth() {
 func registerKeyAuth() {
 	//"The api key. Leave empty for autogeneration"
 	corsProp := getCorsSchemaPropertyBuilder()
-	apiKeyProp := provisioning.NewSchemaPropertyBuilder().
-		SetName(ApiKeyName).
-		SetLabel(propertyName).
-		SetDescription("The api key. Leave empty for auto generation").
-		IsString()
 	_, err := agent.NewAPIKeyAccessRequestBuilder().SetName(ApiKeyName).Register()
 	if err != nil {
 		logrus.Error("Error registering API key Access Request")
 	}
-	_, err = agent.NewAPIKeyCredentialRequestBuilder(agent.WithCRDProvisionSchemaProperty(apiKeyProp), agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
+	_, err = agent.NewAPIKeyCredentialRequestBuilder(agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
 	if err != nil {
 		logrus.Error("Error registering API Credential Access Request")
 	}
