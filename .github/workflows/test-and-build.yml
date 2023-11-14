@@ -1,0 +1,41 @@
+name: Build Kong Agents
+on:
+  push:
+    branches: [main, "APIGOV-*"]
+
+jobs:
+  test:
+    env:
+      GOFLAGS: "-mod=mod"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.21
+      - name: Test
+        working-directory: .
+        run: |
+          make test
+
+  build:
+    env:
+      GOFLAGS: "-mod=mod"
+      VERSION: ${{ github.ref_name }}
+      COMMIT_ID: ${{ github.sha }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.21
+      - name: Build discovery agent
+        working-directory: .
+        run: |
+          make build-da
+      - name: Build traceability agent
+        working-directory: .
+        run: |
+          make build-ta

@@ -2,9 +2,11 @@ package kong
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -27,6 +29,10 @@ type KongAPIClient interface {
 	CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error)
 	CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error)
 	CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error)
+  // Access Request
+	AddRouteACL(ctx context.Context, routeID, allowedID string) error
+	RemoveRouteACL(ctx context.Context, routeID, revokedID string) error
+	AddQuota(ctx context.Context, routeID, allowedID, quotaInterval string, quotaLimit int) error
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
@@ -47,6 +53,7 @@ type KongClient struct {
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 	if kongConfig.Token != "" {
 		defaultTransport := http.DefaultTransport.(*http.Transport)
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		baseClient.Transport = defaultTransport
 
 		headers := make(http.Header)
@@ -88,7 +95,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, backendURL string) ([
 	}
 
 	for _, specPath := range k.specPaths {
-		endpoint := fmt.Sprintf("%s/%s", backendURL, specPath)
+		endpoint := fmt.Sprintf("%s/%s", backendURL, strings.TrimPrefix(specPath, "/"))
 
 		spec, err := k.getSpec(ctx, endpoint)
 		if err != nil {

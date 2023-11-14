@@ -26,4 +26,8 @@ const (
 	ClientTypeField = "clientType"
 	AudienceField   = "audience"
 	OauthScopes     = "oauthScopes"
+
+	// plugins
+	AclPlugin          = "acl"
+	RateLimitingPlugin = "rate-limiting"
 )

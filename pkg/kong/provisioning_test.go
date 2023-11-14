@@ -11,6 +11,8 @@ import (
 	klib "github.com/kong/go-kong/kong"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
+	"github.com/Axway/agents-kong/pkg/common"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 )
 
@@ -301,6 +303,348 @@ func TestDeleteConsumer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			client := createClient(tc.responses)
 			err := client.DeleteConsumer(context.TODO(), "id")
+			if tc.expectErr {
+				assert.NotNil(t, err)
+				return
+			}
+			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestAddRouteACL(t *testing.T) {
+	testCases := map[string]struct {
+		expectErr  bool
+		consumerID string
+		routeID    string
+		responses  map[string]response
+	}{
+		"access already granted": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("aclPluginID"),
+								Name: klib.String(common.AclPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Config: klib.Configuration{
+									"allow": []string{"consumerID"},
+								},
+							},
+						},
+						"next": "null",
+					},
+				},
+			},
+		},
+		"grant access, acl doesn't exist": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{},
+						"next": "null",
+					},
+				},
+				formatRequestKey(http.MethodPost, "/routes/routeID/plugins"): {
+					code: http.StatusOK,
+					dataIface: &klib.Plugin{
+						ID:   klib.String("aclPluginID"),
+						Name: klib.String(common.AclPlugin),
+						Route: &klib.Route{
+							ID: klib.String("routeID"),
+						},
+						Config: klib.Configuration{
+							"allow": []string{"consumerID"},
+						},
+					},
+				},
+			},
+		},
+		"grant access, acl exists": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("aclPluginID"),
+								Name: klib.String(common.AclPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Config: klib.Configuration{
+									"allow": []string{},
+								},
+							},
+						},
+						"next": "null",
+					},
+				},
+				formatRequestKey(http.MethodPatch, "/routes/routeID/plugins/aclPluginID"): {
+					code: http.StatusOK,
+					dataIface: &klib.Plugin{
+						ID:   klib.String("aclPluginID"),
+						Name: klib.String(common.AclPlugin),
+						Route: &klib.Route{
+							ID: klib.String("routeID"),
+						},
+						Config: klib.Configuration{
+							"allow": []string{"consumerID"},
+						},
+					},
+				},
+			},
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			client := createClient(tc.responses)
+			err := client.AddRouteACL(context.TODO(), tc.routeID, tc.consumerID)
+			if tc.expectErr {
+				assert.NotNil(t, err)
+				return
+			}
+			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestRemoveRouteACL(t *testing.T) {
+	testCases := map[string]struct {
+		expectErr  bool
+		consumerID string
+		routeID    string
+		responses  map[string]response
+	}{
+		"access already revoked": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("aclPluginID"),
+								Name: klib.String(common.AclPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Config: klib.Configuration{
+									"allow": []string{},
+								},
+							},
+						},
+						"next": "null",
+					},
+				},
+			},
+		},
+		"access revoked, no rate limiting plugin": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("aclPluginID"),
+								Name: klib.String(common.AclPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Config: klib.Configuration{
+									"allow": []string{"consumerID"},
+								},
+							},
+						},
+						"next": "null",
+					},
+				},
+				formatRequestKey(http.MethodDelete, "/routes/routeID/plugins/aclPluginID"): {
+					code: http.StatusNoContent,
+				},
+			},
+		},
+		"access revoked, rate limiting plugin disabled": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("aclPluginID"),
+								Name: klib.String(common.AclPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Config: klib.Configuration{
+									"allow": []string{"consumerID"},
+								},
+							},
+							{
+								ID:   klib.String("rateLimitingID"),
+								Name: klib.String(common.RateLimitingPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Enabled: klib.Bool(true),
+							},
+						},
+						"next": "null",
+					},
+				},
+				formatRequestKey(http.MethodDelete, "/routes/routeID/plugins/aclPluginID"): {
+					code: http.StatusNoContent,
+				},
+				formatRequestKey(http.MethodPatch, "/routes/routeID/plugins/rateLimitingID"): {
+					code: http.StatusOK,
+					dataIface: &klib.Plugin{
+						ID:   klib.String("rateLimitingID"),
+						Name: klib.String(common.RateLimitingPlugin),
+						Route: &klib.Route{
+							ID: klib.String("routeID"),
+						},
+						Enabled: klib.Bool(false),
+					},
+				},
+			},
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			client := createClient(tc.responses)
+			err := client.RemoveRouteACL(context.TODO(), tc.routeID, tc.consumerID)
+			if tc.expectErr {
+				assert.NotNil(t, err)
+				return
+			}
+			assert.Nil(t, err)
+		})
+	}
+}
+
+func TestAddQuota(t *testing.T) {
+	testCases := map[string]struct {
+		expectErr     bool
+		consumerID    string
+		routeID       string
+		quotaInterval string
+		quotaLimit    int
+		responses     map[string]response
+	}{
+		"rate limiting already enabled": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("rateLimitingID"),
+								Name: klib.String(common.RateLimitingPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Enabled: klib.Bool(true),
+							},
+						},
+						"next": "null",
+					},
+				},
+			},
+		},
+		"enable rate limiting": {
+			expectErr:  false,
+			consumerID: "consumerID",
+			routeID:    "routeID",
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{
+							{
+								ID:   klib.String("rateLimitingID"),
+								Name: klib.String(common.RateLimitingPlugin),
+								Route: &klib.Route{
+									ID: klib.String("routeID"),
+								},
+								Enabled: klib.Bool(false),
+							},
+						},
+						"next": "null",
+					},
+				},
+				formatRequestKey(http.MethodPatch, "/routes/routeID/plugins/rateLimitingID"): {
+					code: http.StatusOK,
+					dataIface: &klib.Plugin{
+						ID:   klib.String("rateLimitingID"),
+						Name: klib.String(common.RateLimitingPlugin),
+						Route: &klib.Route{
+							ID: klib.String("routeID"),
+						},
+						Enabled: klib.Bool(true),
+					},
+				},
+			},
+		},
+		"add rate limiting plugin": {
+			expectErr:     false,
+			consumerID:    "consumerID",
+			routeID:       "routeID",
+			quotaInterval: provisioning.Daily.String(),
+			quotaLimit:    7,
+			responses: map[string]response{
+				formatRequestKey(http.MethodGet, "/plugins"): {
+					code: http.StatusOK,
+					dataIface: map[string]interface{}{
+						"data": []*klib.Plugin{},
+						"next": "null",
+					},
+				},
+				formatRequestKey(http.MethodPost, "/routes/routeID/plugins"): {
+					code: http.StatusOK,
+					dataIface: &klib.Plugin{
+						ID:   klib.String("rateLimitingID"),
+						Name: klib.String(common.RateLimitingPlugin),
+						Route: &klib.Route{
+							ID: klib.String("routeID"),
+						},
+						Config: klib.Configuration{
+							"policy": "local",
+							"day":    7,
+						},
+					},
+				},
+			},
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			client := createClient(tc.responses)
+			err := client.AddQuota(context.TODO(), tc.routeID, tc.consumerID, tc.quotaInterval, tc.quotaLimit)
 			if tc.expectErr {
 				assert.NotNil(t, err)
 				return
