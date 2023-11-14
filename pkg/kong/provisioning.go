@@ -122,7 +122,8 @@ func (k KongClient) CreateAuthKey(ctx context.Context, consumerID string, keyAut
 		return nil, err
 	}
 	return keyAuth, nil
-  
+}
+
 func (k KongClient) AddRouteACL(ctx context.Context, routeID, allowedID string) error {
 	log := k.logger.WithField("consumerID", allowedID).WithField("routeID", routeID)
 	plugins, err := k.Plugins.ListAll(ctx)

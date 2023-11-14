@@ -2,16 +2,13 @@ package subscription
 
 import (
 	"context"
-	"fmt"
 
 	klib "github.com/kong/go-kong/kong"
-	"github.com/sirupsen/logrus"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
-	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/kong"
 	"github.com/Axway/agents-kong/pkg/subscription/access"
 	"github.com/Axway/agents-kong/pkg/subscription/application"
