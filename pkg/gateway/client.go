@@ -2,33 +2,30 @@ package gateway
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"sync"
 
-	"github.com/Axway/agents-kong/pkg/kong/specmanager"
-	"github.com/Axway/agents-kong/pkg/kong/specmanager/devportal"
-	"github.com/Axway/agents-kong/pkg/kong/specmanager/localdir"
-
-	"github.com/sirupsen/logrus"
+	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
+	"github.com/Axway/agents-kong/pkg/common"
+	"github.com/Axway/agents-kong/pkg/subscription"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
-	"github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/cache"
 
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
-	"github.com/Axway/agents-kong/pkg/subscription"
 	klib "github.com/kong/go-kong/kong"
-
-	_ "github.com/Axway/agents-kong/pkg/subscription/apikey" // needed for apikey subscription initialization
 )
 
-const kongHash = "kong-hash"
-const kongServiceID = "kong-service-id"
+const (
+	ardCtx log.ContextField = "accessRequestDefinition"
+	crdCtx log.ContextField = "credentialRequestDefinition"
+)
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	kongGatewayConfig := agentConfig.KongGatewayCfg
@@ -37,165 +34,180 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	daCache := cache.New()
+	logger := log.NewFieldLogger().WithField("component", "agent")
 
-	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
-
-	if agentConfig.KongGatewayCfg.SpecDevPortalEnabled {
-		specmanager.AddSource(devportal.NewSpecificationSource(kongClient))
-	}
-	if len(agentConfig.KongGatewayCfg.SpecHomePath) > 0 {
-		specmanager.AddSource(localdir.NewSpecificationSource(agentConfig.KongGatewayCfg.SpecHomePath))
-	}
-
-	sm, err := initSubscriptionManager(kongClient.Client)
+	plugins, err := kongClient.Plugins.ListAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
+	if err := hasACLEnabledInPlugins(plugins); err != nil {
+		return nil, err
+	}
+
+	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
+	subscription.NewProvisioner(kongClient, provisionLogger)
+
 	return &Client{
-		centralCfg:          agentConfig.CentralCfg,
-		kongGatewayCfg:      kongGatewayConfig,
-		kongClient:          kongClient,
-		apicClient:          apicClient,
-		subscriptionManager: sm,
+		logger:         logger,
+		centralCfg:     agentConfig.CentralCfg,
+		kongGatewayCfg: kongGatewayConfig,
+		kongClient:     kongClient,
+		cache:          daCache,
+		mode:           common.Marketplace,
 	}, nil
 }
 
-func (gc *Client) DiscoverAPIs() error {
-	apiServices, err := gc.apicClient.fetchCentralAPIServices(nil)
-	if err != nil {
-		log.Infof("failed to get central api services: %s", err)
+// Returns no error in case an ACL plugin which is enabled is found
+func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
+	for _, plugin := range plugins {
+		if *plugin.Name == "acl" && *plugin.Enabled {
+			return nil
+		}
 	}
-	// TODO: initCache should only run once
-	initCache(apiServices)
+	return fmt.Errorf("failed to find acl plugin is enabled and installed")
+}
+
+func (gc *Client) createRequestDefinitions(ctx context.Context) (context.Context, error) {
+	gc.logger.Debug("creating request definitions")
+	ctx = gc.createAccessRequestDefinition(ctx)
+	return gc.createCredentialRequestDefinition(ctx)
+}
+
+func (gc *Client) createAccessRequestDefinition(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ardCtx, true)
+}
+
+func (gc *Client) createCredentialRequestDefinition(ctx context.Context) (context.Context, error) {
+	ctx = context.WithValue(ctx, crdCtx, []string{})
+	allPlugins, err := gc.plugins.ListAll(context.Background())
+	if err != nil {
+		gc.logger.WithError(err).Error("failed list all available plugins")
+		return ctx, err
+	}
+
+	uniqueCrds := map[string]string{}
+	for _, plugin := range allPlugins {
+		if isValidAuthTypeAndEnabled(plugin) {
+			uniqueCrds[*plugin.Name] = *plugin.Name
+		}
+	}
+	kongToCRDMapper := map[string]string{
+		"basic-auth": provisioning.BasicAuthCRD,
+		"key-auth":   provisioning.APIKeyCRD,
+		"oauth2":     provisioning.OAuthSecretCRD,
+	}
+
+	for _, crd := range uniqueCrds {
+		if toAdd, ok := kongToCRDMapper[crd]; ok {
+			ctx = context.WithValue(ctx, crdCtx, append(ctx.Value(crdCtx).([]string), toAdd))
+		}
+	}
+	return ctx, nil
+}
+
+func (gc *Client) DiscoverAPIs() error {
+	gc.logger.Info("execute discovery process")
+
+	ctx := context.Background()
+	var err error
+
 	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 	gc.plugins = plugins
-	services, err := gc.kongClient.ListServices(context.Background())
-	if err != nil {
-		log.Errorf("failed to get services: %s", err)
+	if ctx, err = gc.createRequestDefinitions(ctx); err != nil {
 		return err
 	}
 
-	gc.removeDeletedServices(services)
-	gc.processKongServicesList(services)
+	services, err := gc.kongClient.ListServices(ctx)
+	if err != nil {
+		gc.logger.WithError(err).Error("failed to get services")
+		return err
+	}
+
+	gc.processKongServicesList(ctx, services)
 	return nil
 }
 
-func (gc *Client) removeDeletedServices(services []*klib.Service) {
-	specCache := cache.GetCache()
-	log.Info("checking for deleted kong services")
-	// TODO: add go funcs
-	for _, serviceID := range specCache.GetKeys() {
-		if !doesServiceExists(serviceID, services) {
-			item, err := specCache.Get(serviceID)
-			if err != nil {
-				log.Errorf("failed to get cached service: %s", serviceID)
-			}
-			cachedService := item.(CachedService)
-			err = gc.apicClient.deleteCentralAPIService(cachedService)
-			if err != nil {
-				log.Errorf("failed to delete service '%s': %s", cachedService.kongServiceName, err)
-				continue
-			}
-			err = specCache.Delete(serviceID)
-			if err != nil {
-				log.Errorf("failed to delete service '%s' from the cache: %s", cachedService.kongServiceName, err)
-			}
-		}
-	}
-}
-
-func (gc *Client) processKongServicesList(services []*klib.Service) {
+func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.Service) {
 	wg := new(sync.WaitGroup)
-
 	for _, service := range services {
 		wg.Add(1)
-
 		go func(service *klib.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
-
-			err := gc.processSingleKongService(context.Background(), service)
+			err := gc.processSingleKongService(ctx, service)
 			if err != nil {
 				log.Error(err)
 			}
 		}(service, wg)
 	}
-
 	wg.Wait()
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
-	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
-	httpPort := gc.kongGatewayCfg.ProxyHttpPort
-	httpsPort := gc.kongGatewayCfg.ProxyHttpsPort
+	log := gc.logger.WithField("service-name", *service.Name)
+	log.Infof("processing service")
+
+	proxyHost := gc.kongGatewayCfg.Proxy.Host
+	httpPort := gc.kongGatewayCfg.Proxy.Port.HTTP
+	httpsPort := gc.kongGatewayCfg.Proxy.Port.HTTPS
 
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
+		log.WithError(err).Errorf("failed to get routes for service")
 		return err
 	}
 	if len(routes) == 0 {
-		gc.deleteCentralService(*service.ID, *service.Name)
+		//	gc.deleteCentralService(*service.ID, *service.Name)
 		return nil
 	}
 
 	route := routes[0]
+	log = log.WithField("route-id", *route.ID)
 
-	ep, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
+	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get plugins for route %s: %w", *route.ID, err)
+		log.WithError(err).Errorf("failed to get plugins for route")
+		return err
 	}
 
-	subscriptionInfo := gc.subscriptionManager.GetSubscriptionInfo(ep)
-
-	kongServiceSpec, err := specmanager.GetSpecification(ctx, service)
+	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, service)
 	if err != nil {
-		return fmt.Errorf("failed to get spec for %s: %s", *service.Name, err)
+		log.WithError(err).Errorf("failed to get spec for service")
+		return err
+	}
+
+	// don't publish an empty spec
+	if kongServiceSpec == nil {
+		log.Debug("no spec found")
+		return nil
 	}
 
 	oasSpec := Openapi{
-		spec: kongServiceSpec.Contents,
+		spec: string(kongServiceSpec),
 	}
 
-	endpoints := gc.processKongRoute(proxyEndpoint, oasSpec.BasePath(), route, httpPort, httpsPort)
-
-	serviceBody, err := gc.processKongAPI(*route.ID, service, oasSpec, endpoints, subscriptionInfo)
+	endpoints := gc.processKongRoute(proxyHost, oasSpec.BasePath(), route, httpPort, httpsPort)
+	serviceBody, err := gc.processKongAPI(ctx, *route.ID, service, oasSpec, endpoints, apiPlugins)
 	if err != nil {
 		return err
 	}
 	if serviceBody == nil {
-		log.Debugf("not processing '%s' since no changes were detected", *service.Name)
+		log.Debugf("not processing since no changes were detected")
 		return nil
 	}
-
 	err = agent.PublishAPI(*serviceBody)
 	if err != nil {
-		return fmt.Errorf("failed to publish api: %s", err)
+		log.WithError(err).Error("failed to publish api")
+		return err
 	}
 
 	log.Infof("Published API '%s' to central", serviceBody.APIName)
-
 	return nil
 }
 
-func (gc *Client) deleteCentralService(serviceID string, serviceName string) {
-	log.Debugf("kong service '%s' has no routes.", serviceName)
-	item, _ := cache.GetCache().Get(serviceID)
-
-	if svc, ok := item.(CachedService); ok {
-		err := gc.apicClient.deleteCentralAPIService(svc)
-
-		if err != nil {
-			log.Errorf("failed to delete service '%' from central: %s", err)
-		} else {
-			log.Warnf("deleted Kong service '%s' from central", serviceName)
-		}
-
-		cache.GetCache().Delete(serviceID)
-	}
-}
-
-func (gc *Client) processKongRoute(defaultHost string, basePath string, route *klib.Route, httpPort, httpsPort int) []InstanceEndpoint {
-	var endpoints []InstanceEndpoint
+func (gc *Client) processKongRoute(defaultHost string, basePath string, route *klib.Route, httpPort, httpsPort int) []apic.EndpointDefinition {
+	var endpoints []apic.EndpointDefinition
 	if route == nil {
 		return endpoints
 	}
@@ -212,14 +224,14 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 				}
 
 				routingBasePath := *path
-				if *route.StripPath == true {
+				if *route.StripPath {
 					routingBasePath = routingBasePath + basePath
 				}
-				endpoint := InstanceEndpoint{
+				endpoint := apic.EndpointDefinition{
 					Host:     *host,
 					Port:     int32(port),
 					Protocol: *protocol,
-					Routing:  v1alpha1.ApiServiceInstanceSpecRouting{BasePath: routingBasePath},
+					BasePath: routingBasePath,
 				}
 				endpoints = append(endpoints, endpoint)
 			}
@@ -230,30 +242,41 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 }
 
 func (gc *Client) processKongAPI(
+	ctx context.Context,
 	routeID string,
 	service *klib.Service,
 	oasSpec Openapi,
-	endpoints []InstanceEndpoint,
-	subscriptionInfo subscription.Info,
+	endpoints []apic.EndpointDefinition,
+	apiPlugins map[string]*klib.Plugin,
 ) (*apic.ServiceBody, error) {
-	name := gc.centralCfg.GetEnvironmentName() + "." + *service.Name
-	kongAPI := newKongAPI(routeID, service, oasSpec, endpoints, name, subscriptionInfo)
-
-	serviceBody, err := kongAPI.buildServiceBody()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build service body: %v", serviceBody)
-	}
-
-	serviceBodyHash, _ := util.ComputeHash(serviceBody)
-	hash := fmt.Sprintf("%v", serviceBodyHash)
-	serviceBody.ServiceAttributes[kongHash] = hash
-	serviceBody.ServiceAttributes[kongServiceID] = *service.ID
-
-	isCached := setCachedService(*service.ID, *service.Name, hash, serviceBody.APIName)
-	if isCached {
+	kongAPI := newKongAPI(routeID, service, oasSpec, endpoints)
+	isAlreadyPublished, checksum := isPublished(&kongAPI, gc.cache)
+	// If true, then the api is published and there were no changes detected
+	if isAlreadyPublished {
+		gc.logger.Debug("api is already published")
 		return nil, nil
 	}
+	err := gc.cache.Set(checksum, kongAPI)
+	if err != nil {
+		gc.logger.WithError(err).Error("failed to save api to cache")
+	}
 
+	if ctx.Value(ardCtx) != nil {
+		kongAPI.ard = provisioning.APIKeyARD
+	}
+	kongAPI.crds = ctx.Value(crdCtx).([]string)
+
+	agentDetails := map[string]string{
+		common.AttrServiceId: *service.ID,
+		common.AttrRouteId:   routeID,
+		common.AttrChecksum:  checksum,
+	}
+	kongAPI.agentDetails = agentDetails
+	serviceBody, err := kongAPI.buildServiceBody()
+	if err != nil {
+		gc.logger.WithError(err).Error("failed to build service body")
+		return nil, err
+	}
 	return &serviceBody, nil
 }
 
@@ -261,88 +284,82 @@ func newKongAPI(
 	routeID string,
 	service *klib.Service,
 	oasSpec Openapi,
-	endpoints []InstanceEndpoint,
-	nameToPush string,
-	info subscription.Info,
+	endpoints []apic.EndpointDefinition,
 ) KongAPI {
 	return KongAPI{
-		id:               routeID,
-		name:             *service.Name,
-		description:      oasSpec.Description(),
-		version:          oasSpec.Version(),
-		url:              *service.Host,
-		resourceType:     oasSpec.ResourceType(),
-		documentation:    []byte("\"Sample documentation for API discovery agent\""),
-		swaggerSpec:      []byte(oasSpec.spec),
-		endpoints:        endpoints,
-		nameToPush:       nameToPush,
-		subscriptionInfo: info,
+		id:            routeID,
+		name:          *service.Name,
+		description:   oasSpec.Description(),
+		version:       oasSpec.Version(),
+		url:           *service.Host,
+		resourceType:  oasSpec.ResourceType(),
+		documentation: []byte(*service.Name),
+		swaggerSpec:   []byte(oasSpec.spec),
+		endpoints:     endpoints,
 	}
 }
 
 func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
-	serviceAttribute := make(map[string]string)
-	body := apic.NewServiceBodyBuilder().
+	tags := map[string]interface{}{}
+	if ka.tags != nil {
+		for _, tag := range ka.tags {
+			tags[tag] = true
+		}
+	}
+
+	serviceAttributes := map[string]string{
+		"GatewayType": "Kong API Gateway",
+	}
+
+	return apic.NewServiceBodyBuilder().
 		SetAPIName(ka.name).
 		SetAPISpec(ka.swaggerSpec).
+		SetAPIUpdateSeverity(ka.apiUpdateSeverity).
 		SetDescription(ka.description).
 		SetDocumentation(ka.documentation).
 		SetID(ka.id).
+		SetImage(ka.image).
+		SetImageContentType(ka.imageContentType).
 		SetResourceType(ka.resourceType).
-		SetServiceAttribute(serviceAttribute).
+		SetServiceAgentDetails(util.MapStringStringToMapStringInterface(ka.agentDetails)).
+		SetServiceAttribute(serviceAttributes).
+		SetStage(ka.stage).
+		SetState(apic.PublishedStatus).
+		SetStatus(apic.PublishedStatus).
+		SetTags(tags).
 		SetTitle(ka.name).
 		SetURL(ka.url).
 		SetVersion(ka.version).
-		SetAuthPolicy(ka.subscriptionInfo.APICPolicyName).
-		SetSubscriptionName(ka.subscriptionInfo.SchemaName)
-
-	for _, ep := range ka.endpoints {
-		body.AddServiceEndpoint(ep.Protocol, ep.Host, ep.Port, ep.Routing.BasePath)
-	}
-
-	sb, err := body.Build()
-
-	// TODO: add set method for NameToPush
-	if err == nil {
-		sb.NameToPush = ka.nameToPush
-	}
-
-	return sb, err
+		SetServiceEndpoints(ka.endpoints).
+		SetAccessRequestDefinitionName(ka.ard, false).
+		SetCredentialRequestDefinitions(ka.crds).Build()
 }
 
-func doesServiceExists(serviceId string, services []*klib.Service) bool {
-	for _, srv := range services {
-		if serviceId == *srv.ID {
+// makeChecksum generates a makeChecksum for the api for change detection
+func makeChecksum(val interface{}) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%v", val)))
+	return fmt.Sprintf("%x", sum)
+}
+
+// isPublished checks if an api is published with the latest changes. Returns true if it is, and false if it is not.
+func isPublished(api *KongAPI, c cache.Cache) (bool, string) {
+	// Change detection (asset + policies)
+	checksum := makeChecksum(api)
+	item, err := c.Get(checksum)
+	if err != nil || item == nil {
+		return false, checksum
+	}
+	return true, checksum
+}
+
+func isValidAuthTypeAndEnabled(p *klib.Plugin) bool {
+	if !*p.Enabled {
+		return false
+	}
+	for _, availableAuthName := range []string{"basic-auth", "oauth2", "key-auth"} {
+		if *p.Name == availableAuthName {
 			return true
 		}
 	}
-	log.Infof("Kong service '%s' no longer exists.", serviceId)
-
 	return false
-}
-
-func initSubscriptionManager(kc *klib.Client) (*subscription.Manager, error) {
-	sm := subscription.New(
-		logrus.StandardLogger(),
-		agent.GetCentralClient(),
-		agent.GetCentralClient(),
-		kc)
-
-	// register schemas
-	for _, schema := range sm.Schemas() {
-		if err := agent.GetCentralClient().RegisterSubscriptionSchema(schema); err != nil {
-			return nil, fmt.Errorf("failed to register subscription schema %s: %w", schema.GetSubscriptionName(), err)
-		}
-		log.Infof("Schema registered: %s", schema.GetSubscriptionName())
-	}
-
-	agent.GetCentralClient().GetSubscriptionManager().RegisterValidator(sm.ValidateSubscription)
-	// register validator and handlers
-	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionApproved, sm.ProcessSubscribe)
-	agent.GetCentralClient().GetSubscriptionManager().RegisterProcessor(apic.SubscriptionUnsubscribeInitiated, sm.ProcessUnsubscribe)
-
-	// start polling for subscriptions
-	agent.GetCentralClient().GetSubscriptionManager().Start()
-
-	return sm, nil
 }

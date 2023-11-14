@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
-	"github.com/Axway/agent-sdk/pkg/util/log"
 )
 
 // AgentConfig - represents the config for agent
@@ -13,31 +12,53 @@ type AgentConfig struct {
 	KongGatewayCfg *KongGatewayConfig    `config:"kong"`
 }
 
+type KongAdminConfig struct {
+	URL  string              `config:"url"`
+	Auth KongAdminAuthConfig `config:"auth"`
+}
+
+type KongAdminAuthConfig struct {
+	APIKey KongAdminAuthAPIKeyConfig `config:"apikey"`
+}
+
+type KongAdminAuthAPIKeyConfig struct {
+	Header string `config:"header"`
+	Value  string `config:"value"`
+}
+
+type KongProxyConfig struct {
+	Host string              `config:"host"`
+	Port KongProxyPortConfig `config:"port"`
+}
+
+type KongProxyPortConfig struct {
+	HTTP  int `config:"http"`
+	HTTPS int `config:"https"`
+}
+
+type KongSpecConfig struct {
+	URLPaths  []string `config:"urlPaths"`
+	LocalPath string   `config:"localPaths"`
+}
+
 // KongGatewayConfig - represents the config for gateway
 type KongGatewayConfig struct {
 	corecfg.IConfigValidator
-	AdminEndpoint        string `config:"adminEndpoint"`
-	Token                string `config:"token"`
-	ProxyEndpoint        string `config:"proxyEndpoint"`
-	ProxyHttpPort        int    `config:"proxyHttpPort"`
-	ProxyHttpsPort       int    `config:"proxyHttpsPort"`
-	SpecHomePath         string `config:"specHomePath"`
-	SpecDevPortalEnabled bool   `config:"specDevPortalEnabled"`
+	Admin KongAdminConfig `config:"admin"`
+	Proxy KongProxyConfig `config:"proxy"`
+	Spec  KongSpecConfig  `config:"spec"`
 }
 
 // ValidateCfg - Validates the gateway config
 func (c *KongGatewayConfig) ValidateCfg() (err error) {
-	if c.AdminEndpoint == "" {
-		return fmt.Errorf("error: adminEndpoint is required")
+	if c.Admin.URL == "" {
+		return fmt.Errorf("error: admin url is required")
 	}
-	if c.ProxyEndpoint == "" {
-		return fmt.Errorf("error: proxyEndpoint is required")
+	if c.Proxy.Host == "" {
+		return fmt.Errorf("error: proxy host is required")
 	}
-	if c.ProxyHttpPort == 0 && c.ProxyHttpsPort == 0 {
-		return fmt.Errorf("error: proxyEndpointProtocols requires at least one value of either http or https")
-	}
-	if c.Token == "" {
-		log.Warn("no token set for authenticating with the kong admin endpoint")
+	if c.Proxy.Port.HTTP == 0 && c.Proxy.Port.HTTPS == 0 {
+		return fmt.Errorf("error: at least one proxy port value of either http or https is required")
 	}
 	return
 }
