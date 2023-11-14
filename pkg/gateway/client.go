@@ -10,7 +10,6 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/subscription"
-	"github.com/sirupsen/logrus"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
@@ -21,10 +20,11 @@ import (
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	kutil "github.com/Axway/agents-kong/pkg/kong"
 	klib "github.com/kong/go-kong/kong"
+)
 
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/apikey"    // needed for apikey subscription initialization
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/basicauth" // needed for basicAuth subscription initialization
-	_ "github.com/Axway/agents-kong/pkg/subscription/auth/oauth2"    // needed for oauth2 subscription initialization
+const (
+	ardCtx = "contextArd"
+	crdCtx = "contextCrd"
 )
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
@@ -71,13 +71,56 @@ func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
 	return fmt.Errorf("failed to find acl plugin is enabled and installed")
 }
 
+func (gc *Client) createRequestDefinitions(ctx context.Context) (context.Context, error) {
+	gc.logger.Debug("creating request definitions")
+	ctx = gc.createAccessRequestDefinition(ctx)
+	return gc.createCredentialRequestDefinition(ctx)
+}
+
+func (gc *Client) createAccessRequestDefinition(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ardCtx, true)
+}
+
+func (gc *Client) createCredentialRequestDefinition(ctx context.Context) (context.Context, error) {
+	ctx = context.WithValue(ctx, crdCtx, []string{})
+	allPlugins, err := gc.plugins.ListAll(context.Background())
+	if err != nil {
+		gc.logger.WithError(err).Error("failed list all available plugins")
+		return ctx, err
+	}
+
+	uniqueCrds := map[string]string{}
+	for _, plugin := range allPlugins {
+		if isValidAuthTypeAndEnabled(plugin) {
+			uniqueCrds[*plugin.Name] = *plugin.Name
+		}
+	}
+	kongToCRDMapper := map[string]string{
+		"basic-auth": provisioning.BasicAuthCRD,
+		"key-auth":   provisioning.APIKeyCRD,
+		"oauth2":     provisioning.OAuthSecretCRD,
+	}
+
+	for _, crd := range uniqueCrds {
+		if toAdd, ok := kongToCRDMapper[crd]; ok {
+			ctx = context.WithValue(ctx, crdCtx, append(ctx.Value(crdCtx).([]string), toAdd))
+		}
+	}
+	return ctx, nil
+}
+
 func (gc *Client) DiscoverAPIs() error {
 	gc.logger.Info("execute discovery process")
 
 	ctx := context.Background()
+	var err error
 
 	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 	gc.plugins = plugins
+	if ctx, err = gc.createRequestDefinitions(ctx); err != nil {
+		return err
+	}
+
 	services, err := gc.kongClient.ListServices(ctx)
 	if err != nil {
 		gc.logger.WithError(err).Error("failed to get services")
@@ -142,7 +185,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		spec: string(kongServiceSpec),
 	}
 	endpoints := gc.processKongRoute(proxyEndpoint, oasSpec.BasePath(), route, httpPort, httpsPort)
-	serviceBody, err := gc.processKongAPI(*route.ID, service, oasSpec, endpoints, apiPlugins)
+	serviceBody, err := gc.processKongAPI(ctx, *route.ID, service, oasSpec, endpoints, apiPlugins)
 	if err != nil {
 		return err
 	}
@@ -196,6 +239,7 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 }
 
 func (gc *Client) processKongAPI(
+	ctx context.Context,
 	routeID string,
 	service *klib.Service,
 	oasSpec Openapi,
@@ -214,10 +258,11 @@ func (gc *Client) processKongAPI(
 		gc.logger.WithError(err).Error("failed to save api to cache")
 	}
 
-	ardName, crdName := getFirstAuthPluginArdAndCrd(apiPlugins)
-	logrus.Infof("API %v Access Request Definition %s Credential Request Definition %s", kongAPI.name, ardName, crdName)
-	kongAPI.accessRequestDefinition = ardName
-	kongAPI.CRDs = []string{crdName}
+	if ctx.Value(ardCtx) != nil {
+		kongAPI.ard = provisioning.APIKeyARD
+	}
+	kongAPI.crds = ctx.Value(crdCtx).([]string)
+
 	agentDetails := map[string]string{
 		common.AttrServiceId: *service.ID,
 		common.AttrRouteId:   routeID,
@@ -283,8 +328,8 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetURL(ka.url).
 		SetVersion(ka.version).
 		SetServiceEndpoints(ka.endpoints).
-		SetAccessRequestDefinitionName(ka.accessRequestDefinition, false).
-		SetCredentialRequestDefinitions(ka.CRDs).Build()
+		SetAccessRequestDefinitionName(ka.ard, false).
+		SetCredentialRequestDefinitions(ka.crds).Build()
 }
 
 // makeChecksum generates a makeChecksum for the api for change detection
@@ -319,4 +364,16 @@ func getFirstAuthPluginArdAndCrd(plugins map[string]*klib.Plugin) (string, strin
 
 	}
 	return "", ""
+}
+
+func isValidAuthTypeAndEnabled(p *klib.Plugin) bool {
+	if *p.Enabled != true {
+		return false
+	}
+	for _, availableAuthName := range []string{"basic-auth", "oauth2", "key-auth"} {
+		if *p.Name == availableAuthName {
+			return true
+		}
+	}
+	return false
 }
