@@ -6,6 +6,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
+	"github.com/google/uuid"
 	klib "github.com/kong/go-kong/kong"
 )
 
@@ -108,8 +109,10 @@ func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisio
 		}
 	case provisioning.BasicAuthARD:
 		{
-			basicAuth := kongBuilder.WithUsername("").
-				WithPassword("").
+			user := uuid.NewString()
+			pass := uuid.NewString()
+			basicAuth := kongBuilder.WithUsername(user).
+				WithPassword(pass).
 				ToBasicAuth()
 			resp, err := p.client.CreateHttpBasic(ctx, consumerID, basicAuth)
 			if err != nil {
@@ -118,7 +121,7 @@ func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisio
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.Username)
-			return rs.Success(), provisioning.NewCredentialBuilder().SetHTTPBasic(*resp.Username, *resp.Password)
+			return rs.Success(), provisioning.NewCredentialBuilder().SetHTTPBasic(user, pass)
 		}
 	case provisioning.OAuthSecretCRD:
 		{
