@@ -22,6 +22,7 @@ type KongGatewayConfig struct {
 	ProxyHttpPort     int      `config:"proxyHttpPort"`
 	ProxyHttpsPort    int      `config:"proxyHttpsPort"`
 	SpecDownloadPaths []string `config:"specDownloadPaths"`
+	SpecLocalPath     string   `config:"specLocalPath"`
 }
 
 // ValidateCfg - Validates the gateway config

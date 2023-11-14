@@ -29,3 +29,4 @@ kong:
     http: 80
     https: 443
   specDownloadPaths: [<Paths>]
+  specLocalPath: <Path>
