@@ -10,6 +10,9 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Central - environment](#central---environment)
     - [Kong setup](#kong-setup)
       - [Kong admin API secured by Kong Gateway](#kong-admin-api-secured-by-kong-gateway)
+      - [Specification discovery methods](#specification-discovery-methods)
+        - [Local specification path](#local-specification-path)
+        - [URL specification paths](#url-specification-paths)
     - [Kong agents setup](#kong-agents-setup)
       - [Additional information](#additional-information)
       - [Docker](#docker)
@@ -90,6 +93,57 @@ Once the Kong admin API is secured a gateway service for it must be added to Kon
 - API Key authentication
 - OAuth2 authentication
 
+#### Specification discovery methods
+
+In order to publish a specification file that properly represents the gateway service configured in Kong, discovery agent supports two types of specification discovery methods. The first is a local directory, to the Kong agent, that specification files are saved in. The other is a list of URL paths that the Kong agent will query to attempt to find the specification file/
+
+##### Local specification path
+
+The local specification discovery method is configured by providing a value for the `KONG_SPEC_LOCALPATH` variable. When set the Kong agent will look for a tag, on the gateway service, that is prefixed by `spec_local_`. When that tag is set the value, after stripping the prefix, is used to find the specification file in directory configured by `KONG_SPEC_LOCALPATH`. When this configuration value is set no other specification discovery methods will be used.
+
+Ex.
+
+Files on disk
+
+```shell
+> ls -l /path/to/specfiles
+petstore.json
+my-service.yaml
+```
+
+Configuration for agent
+
+```shell
+KONG_SPEC_LOCALPATH=/path/to/specfiles
+```
+
+Configuration on my-service gateway service
+
+```json
+{
+...
+"tags": [
+  "tag1",
+  "tag2",
+  "spec_local_my-service.yaml",
+  "tag3"
+]
+...
+}
+```
+
+##### URL specification paths
+
+The URL specification paths discovery method is configured by value(s) for the `KONG_SPEC_URLPATHS` variable, comma separated. When values are set here, and a local path is not set, The Kong agent will query each of these paths against the gateway service in order to find a specification file. Once a specification file is found none of the other configured URL paths will be queried as that specification file will be used in the creation of the API Service on Central.
+
+Ex.
+
+Configuration for agent
+
+```shell
+KONG_SPEC_URLPATHS=/openapi.json,/swagger.json
+```
+
 ### Kong agents setup
 
 The Kong agents are delivered as containers, kong_discovery_agent and kong_traceability_agent. These containers can be deployed directly to a container server, such as Docker, or using the provided helm chart. In this section you will lean how to deploy the agents directly as containers or within a kubernetes cluster using the helm chart.
@@ -101,7 +155,7 @@ Before beginning to deploy the agents following information will need to be gath
 - The full URL to connect to the Kong admin API, `KONG_ADMIN_URL`
 - The host the agent will use when setting the endpoint of a discovered API, (`KONG_PROXY_HOST`)
   - The HTTP `KONG_PROXY_PORTS_HTTP` and HTTPs `KONG_PROXY_PORTS_HTTPS` ports the agent will use with the endpoint above
-- The URL paths, hosted by the gateway service, to query for spec files, `KONG_SPEC_URL_PATHS`
+- The URL paths, hosted by the gateway service, to query for spec files, `KONG_SPEC_URLPATHS`
 
 #### Docker
 
@@ -118,7 +172,7 @@ KONG_ADMIN_AUTH_APIKEY_VALUE=123456789abcdefghijkl098765432109
 KONG_PROXY_HOST=kong.proxy.endpoint.com
 KONG_PROXY_PORTS_HTTP=8000
 KONG_PROXY_PORTS_HTTPS=8443
-KONG_SPEC_URL_PATHS=/openapi.json,/swagger.json
+KONG_SPEC_LOCALPATH=/path/to/specfiles
 
 CENTRAL_ORGANIZATIONID=123456789
 CENTRAL_AUTH_CLIENTID=kong-agents_123456789-abcd-efgh-ijkl-098765432109
@@ -217,7 +271,7 @@ kong:
       http: 8000
       https: 8443
   spec:
-    url_paths: 
+    urlPaths: 
       - /openapi.json
       - /swagger.json
 
@@ -257,4 +311,5 @@ All Kong specific environment variables available are listed below
 | **KONG_PROXY_HOST**               | The proxy endpoint that the agent will use in API Services for discovered Kong routes |
 | **KONG_PROXY_PORTS_HTTP**         | The HTTP port number that the agent will set for discovered APIS                      |
 | **KONG_PROXY_PORTS_HTTPS**        | The HTTPs port number that the agent will set for discovered APIS                     |
-| **KONG_SPEC_URL_PATHS**           | The URL paths that the agent will query on the Gateway service for API definitions    |
+| **KONG_SPEC_LOCALPATH**           | The local path that the agent will look in for API definitions                        |
+| **KONG_SPEC_URLPATHS**            | The URL paths that the agent will query on the gateway service for API definitions    |

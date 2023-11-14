@@ -65,5 +65,5 @@ Create the name of the service account to use
 Create the name of the service account to use
 */}}
 {{- define "kong-agents.specDownloadPathsString" -}}
-{{- join "," .Values.kong.spec.url_paths }}
+{{- join "," .Values.kong.spec.urlPaths }}
 {{- end -}}

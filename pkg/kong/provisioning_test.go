@@ -27,7 +27,6 @@ type response struct {
 }
 
 type mockCredentialRequest struct {
-	id       string
 	credType string
 	appName  string
 	details  string

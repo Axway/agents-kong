@@ -28,3 +28,4 @@ specs/
 
 secret.yaml
 overrides.yaml
+configmap.yaml

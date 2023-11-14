@@ -35,7 +35,8 @@ kong:
       http: 8000
       https: 8443
   spec:
-    url_paths: []
+    urlPaths: []
+    localPath:
 
 # Add any environment variable overrides here
 env: {}

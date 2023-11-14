@@ -91,7 +91,8 @@ spec:
                                                      "KONG_PROXY_HOST" 
                                                      "KONG_PROXY_PORTS_HTTP" 
                                                      "KONG_PROXY_PORTS_HTTPS" 
-                                                     "KONG_SPEC_URL_PATHS")))
+                                                     "KONG_SPEC_LOCALPATH"
+                                                     "KONG_SPEC_URLPATHS")))
            }}
             - name: {{ $key }}
               value: {{ $value | quote }} 

@@ -46,7 +46,6 @@ type KongAPIClient interface {
 
 type KongClient struct {
 	*klib.Client
-	ctx               context.Context
 	logger            log.FieldLogger
 	baseClient        DoRequest
 	kongAdminEndpoint string

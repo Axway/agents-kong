@@ -75,8 +75,12 @@ spec:
             - name: KONG_PROXY_PORTS_HTTPS
               value: "{{ .Values.kong.proxy.ports.https }}"
             {{- if (include "kong-agents.specDownloadPathsString" .) }}
-            - name: KONG_SPEC_URL_PATHS
+            - name: KONG_SPEC_URLPATHS
               value: {{ include "kong-agents.specDownloadPathsString" . }}
+            {{- end }}
+            {{- if .Values.kong.spec.localPath }}
+            - name: KONG_SPEC_LOCALPATH
+              value: /specs
             {{- end }}
             {{- if .Values.kong.admin.auth.apikey.value }}
             - name: KONG_ADMIN_AUTH_APIKEY_VALUE
@@ -100,7 +104,8 @@ spec:
                                                      "KONG_PROXY_HOST" 
                                                      "KONG_PROXY_PORTS_HTTP" 
                                                      "KONG_PROXY_PORTS_HTTPS" 
-                                                     "KONG_SPEC_URL_PATHS")))
+                                                     "KONG_SPEC_LOCALPATH"
+                                                     "KONG_SPEC_URLPATHS")))
            }} 
             - name: {{ $key }}
               value: {{ $value | quote }} 
@@ -114,6 +119,10 @@ spec:
           volumeMounts:
             - name: "kong-agent-keys"
               mountPath: "/keys"
+          {{- if .Values.kong.spec.localPath }}
+            - name: "kong-agent-specs"
+              mountPath: "/specs"
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
@@ -125,6 +134,12 @@ spec:
             path: private_key.pem
           - key: public_key
             path: public_key.pem
+      {{- if .Values.kong.spec.localPath }}
+      {{- with .Values.kong.spec.localPath }}
+      - name: kong-agent-specs
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
