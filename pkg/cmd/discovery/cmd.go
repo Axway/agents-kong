@@ -20,6 +20,7 @@ const (
 	cfgKongProxyEpHttp       = "kong.proxyEndpointProtocols.http"
 	cfgKongProxyEpHttps      = "kong.proxyEndpointProtocols.https"
 	cfgKongSpecDownloadPaths = "kong.specDownloadPaths"
+	cfgKongSpecLocalPaths    = "kong.specLocalPaths"
 )
 
 func init() {
@@ -40,7 +41,8 @@ func init() {
 	rootProps.AddStringProperty(cfgKongProxyEp, "", "The Kong proxy endpoint")
 	rootProps.AddIntProperty(cfgKongProxyEpHttp, 80, "The Kong proxy http port")
 	rootProps.AddIntProperty(cfgKongProxyEpHttps, 443, "The Kong proxy https port")
-	rootProps.AddStringSliceProperty(cfgKongSpecDownloadPaths, []string{}, "URL paths that the agent will look in for spec files")
+	rootProps.AddStringSliceProperty(cfgKongSpecDownloadPaths, []string{}, "URL paths where the agent will look in for spec files")
+	rootProps.AddStringSliceProperty(cfgKongSpecLocalPaths, []string{}, "Local paths where the agent will look for spec files")
 }
 
 // Callback that agent will call to process the execution
@@ -84,6 +86,7 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 		ProxyHttpPort:     rootProps.IntPropertyValue(cfgKongProxyEpHttp),
 		ProxyHttpsPort:    rootProps.IntPropertyValue(cfgKongProxyEpHttps),
 		SpecDownloadPaths: rootProps.StringSlicePropertyValue(cfgKongSpecDownloadPaths),
+		SpecLocalPaths:    rootProps.StringSlicePropertyValue(cfgKongSpecLocalPaths),
 	}
 
 	agentConfig = config.AgentConfig{

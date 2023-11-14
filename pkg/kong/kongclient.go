@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -15,6 +17,8 @@ import (
 
 	klib "github.com/kong/go-kong/kong"
 )
+
+const tagPrefix = "spec_local_"
 
 type KongAPIClient interface {
 	// Provisioning
@@ -27,7 +31,7 @@ type KongAPIClient interface {
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, backendURL string) ([]byte, error)
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
 	GetKongPlugins() *Plugins
 }
 
@@ -37,7 +41,8 @@ type KongClient struct {
 	logger            log.FieldLogger
 	baseClient        DoRequest
 	kongAdminEndpoint string
-	specPaths         []string
+	specURLPaths      []string
+	specLocalPaths    []string
 	clientTimeout     time.Duration
 }
 
@@ -65,7 +70,8 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
-		specPaths:         kongConfig.SpecDownloadPaths,
+		specURLPaths:      kongConfig.SpecDownloadPaths,
+		specLocalPaths:    kongConfig.SpecLocalPaths,
 		clientTimeout:     10 * time.Second,
 	}, nil
 }
@@ -79,13 +85,77 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, backendURL string) ([]byte, error) {
-	if len(k.specPaths) == 0 {
+func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
+	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
+
+	if len(k.specLocalPaths) > 0 {
+		return k.getSpecFromLocal(ctx, service)
+	}
+
+	// all three fields are needed to form the backend URL used in discovery process
+	if service.Protocol == nil && service.Host == nil {
+		err := fmt.Errorf("fields for backend URL are not set")
+		log.WithError(err).Error("failed to create backend URL")
+		return nil, err
+	}
+	backendURL := *service.Protocol + "://" + *service.Host
+	if service.Path != nil {
+		backendURL = backendURL + *service.Path
+	}
+
+	return k.getSpecFromBackend(ctx, backendURL)
+}
+
+func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service) ([]byte, error) {
+	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
+
+	specTag := ""
+	for _, tag := range service.Tags {
+		if strings.HasPrefix(*tag, tagPrefix) {
+			specTag = *tag
+		}
+	}
+
+	if len(specTag) > 0 {
+		filename := specTag[len(tagPrefix):]
+		for _, specPath := range k.specLocalPaths {
+			specFilePath := path.Join(specPath, filename)
+			specContent, err := k.loadSpecFile(specFilePath)
+			if err != nil {
+				log.WithError(err).Error("failed to get spec from file")
+				continue
+			}
+			return specContent, nil
+		}
+	}
+
+	log.Info("no specification tag found")
+	return []byte{}, nil
+}
+
+func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
+	log := k.logger.WithField("specFilePath", specFilePath)
+
+	if _, err := os.Stat(specFilePath); os.IsNotExist(err) {
+		log.Debug("spec file not found")
+		return []byte{}, nil
+	}
+
+	data, err := os.ReadFile(specFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (k KongClient) getSpecFromBackend(ctx context.Context, backendURL string) ([]byte, error) {
+	if len(k.specURLPaths) == 0 {
 		k.logger.Info("no spec paths configured")
 		return nil, nil
 	}
 
-	for _, specPath := range k.specPaths {
+	for _, specPath := range k.specURLPaths {
 		endpoint := fmt.Sprintf("%s/%s", backendURL, strings.TrimPrefix(specPath, "/"))
 
 		spec, err := k.getSpec(ctx, endpoint)
