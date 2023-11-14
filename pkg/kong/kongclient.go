@@ -33,7 +33,7 @@ type KongAPIClient interface {
 	CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error)
 	CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error)
 	CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error)
-  // Access Request
+	// Access Request
 	AddRouteACL(ctx context.Context, routeID, allowedID string) error
 	RemoveRouteACL(ctx context.Context, routeID, revokedID string) error
 	AddQuota(ctx context.Context, routeID, allowedID, quotaInterval string, quotaLimit int) error
@@ -51,7 +51,7 @@ type KongClient struct {
 	baseClient        DoRequest
 	kongAdminEndpoint string
 	specURLPaths      []string
-	specLocalPaths    []string
+	specLocalPath     string
 	clientTimeout     time.Duration
 }
 
@@ -80,7 +80,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		baseClient:        baseClient,
 		kongAdminEndpoint: kongConfig.AdminEndpoint,
 		specURLPaths:      kongConfig.SpecDownloadPaths,
-		specLocalPaths:    kongConfig.SpecLocalPaths,
+		specLocalPath:     kongConfig.SpecLocalPath,
 		clientTimeout:     10 * time.Second,
 	}, nil
 }
@@ -97,7 +97,7 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
 	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
 
-	if len(k.specLocalPaths) > 0 {
+	if k.specLocalPath != "" {
 		return k.getSpecFromLocal(ctx, service)
 	}
 
@@ -122,24 +122,24 @@ func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service)
 	for _, tag := range service.Tags {
 		if strings.HasPrefix(*tag, tagPrefix) {
 			specTag = *tag
+			break
 		}
 	}
 
-	if len(specTag) > 0 {
-		filename := specTag[len(tagPrefix):]
-		for _, specPath := range k.specLocalPaths {
-			specFilePath := path.Join(specPath, filename)
-			specContent, err := k.loadSpecFile(specFilePath)
-			if err != nil {
-				log.WithError(err).Error("failed to get spec from file")
-				continue
-			}
-			return specContent, nil
-		}
+	if specTag == "" {
+		log.Info("no specification tag found")
+		return nil, nil
 	}
 
-	log.Info("no specification tag found")
-	return []byte{}, nil
+	filename := specTag[len(tagPrefix):]
+	specFilePath := path.Join(k.specLocalPath, filename)
+	specContent, err := k.loadSpecFile(specFilePath)
+	if err != nil {
+		log.WithError(err).Error("failed to get spec from file")
+		return nil, err
+	}
+
+	return specContent, nil
 }
 
 func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
@@ -147,7 +147,7 @@ func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
 
 	if _, err := os.Stat(specFilePath); os.IsNotExist(err) {
 		log.Debug("spec file not found")
-		return []byte{}, nil
+		return nil, nil
 	}
 
 	data, err := os.ReadFile(specFilePath)
@@ -178,7 +178,7 @@ func (k KongClient) getSpecFromBackend(ctx context.Context, backendURL string) (
 	}
 
 	k.logger.Info("no spec found")
-	return []byte{}, nil
+	return nil, nil
 }
 
 func (k KongClient) getSpec(ctx context.Context, endpoint string) ([]byte, error) {

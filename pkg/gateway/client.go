@@ -179,7 +179,11 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		return err
 	}
 
-	// TODO: check if spec is nil
+	// don't publish an empty spec
+	if kongServiceSpec == nil {
+		log.Debug("no spec found")
+		return nil
+	}
 
 	oasSpec := Openapi{
 		spec: string(kongServiceSpec),
