@@ -1,51 +1,115 @@
-# this is a sample config file. Copy the content of this file to a new file named kong_traceability_agent.yml
 kong_traceability_agent:
+  # Settings for connecting to Kong
+  kong:
+    admin:
+      url: ${KONG_ADMIN_URL}
+      auth:
+        apikey:
+          header: ${KONG_ADMIN_AUTH_APIKEY_HEADER}
+          value: ${KONG_ADMIN_AUTH_APIKEY_VALUE}
+    http_log_plugin_config:
+      path: ${KONG_LOGS_HTTP_SERVER_PATH}
+      port: ${KONG_LOGS_HTTP_SERVER_PORT}
+  # Settings for connecting to Amplify Central
   central:
-    environment: <AMPLIFY_CENTRAL_ENVIRONMENT_NAME>
-    mode: publishToEnvironment
-    organizationID: "<AMPLIFY_ORG_ID>"
-    platformURL: https://platform.axway.com
-    pollInterval: 20s
-    team: "Default Team"
-    url: https://apicentral.axway.com
+    url: ${CENTRAL_URL:https://apicentral.axway.com}
+    organizationID: ${CENTRAL_ORGANIZATIONID:""}
+    team: ${CENTRAL_TEAM:""}
+    deployment: ${CENTRAL_DEPLOYMENT:prod}
+    environment: ${CENTRAL_ENVIRONMENT:""}
+    environmentID: ${CENTRAL_ENVIRONMENTID} # only required when CENTRAL_USAGEREPORTING_OFFLINE=true
+    agentName: ${CENTRAL_AGENTNAME:""}
+    platformURL: ${CENTRAL_PLATFORMURL:https://platform.axway.com}
+    reportActivityFrequency: ${CENTRAL_REPORTACTIVITYFREQUENCY:5m}
+    versionChecker: ${CENTRAL_VERSIONCHECKER:true}
+    usageReporting:
+      publish: ${CENTRAL_USAGEREPORTING_PUBLISH}
+      publishMetric: ${CENTRAL_USAGEREPORTING_PUBLISHMETRIC}
+      interval: ${CENTRAL_USAGEREPORTING_INTERVAL}
+      usageSchedule: ${CENTRAL_USAGEREPORTING_USAGESCHEDULE}
+      offline: ${CENTRAL_USAGEREPORTING_OFFLINE}
+      offlineSchedule: ${CENTRAL_USAGEREPORTING_OFFLINESCHEDULE}
     auth:
-      clientID: <AMPLIFY_CENTRAL_DOSA_CLIENT_ID>
-      privateKey: <AMPLIFY_CENTRAL_DOSA_PRIVATE_KEY_PATH>
-      publicKey: <AMPLIFY_CENTRAL_DOSA_PUBLIC_KEY_PATH>
-      realm: Broker
-      timeout: 20s
-      url: https://login.axway.com/auth
-
-http_log_plugin_config:
-  # Path used by Kong's HTTP Log plugin to send request logs
-  path: ${LOGS_HTTP_SERVER_PATH}
-  # Port that listens for request logs sent by Kong's HTTP Log plugin
-  port: ${LOGS_HTTP_SERVER_PORT}
+      url: ${CENTRAL_AUTH_URL:https://login.axway.com/auth}
+      realm: ${CENTRAL_AUTH_REALM:Broker}
+      clientId: ${CENTRAL_AUTH_CLIENTID:""}
+      privateKey: ${CENTRAL_AUTH_PRIVATEKEY:./private_key.pem}
+      publicKey: ${CENTRAL_AUTH_PUBLICKEY:./public_key.pem}
+      keyPassword: ${CENTRAL_AUTH_KEYPASSWORD:""}
+      timeout: 10s
+    ssl:
+      minVersion: ${CENTRAL_SSL_MINVERSION:""}
+      maxVersion: ${CENTRAL_SSL_MAXVERSION:""}
+      nextProtos: ${CENTRAL_SSL_NEXTPROTOS:[]}
+      cipherSuites: ${CENTRAL_SSL_CIPHERSUITES:[]}
+      insecureSkipVerify: ${CENTRAL_SSL_INSECURESKIPVERIFY:false}
+    grpc:
+      enabled: ${CENTRAL_GRPC_ENABLED}
+      host: ${CENTRAL_GRPC_HOST}
+      port: ${CENTRAL_GRPC_PORT}
+    proxyUrl: ${CENTRAL_PROXYURL:""}
+    clientTimeout: ${CENTRAL_CLIENTTIMEOUT:60s}
 
 # Condor Ingestion service
 output.traceability:
-  compression_level: ${TRACEABILITY_COMPRESSIONLEVEL:3}
   enabled: true
-  hosts:
-    - ${TRACEABILITY_HOST:"ingestion-lumberjack.datasearch.axway.com:453"}
+  hosts: ${TRACEABILITY_HOST:ingestion.datasearch.axway.com:5044}
   protocol: ${TRACEABILITY_PROTOCOL:"tcp"}
+  compression_level: ${TRACEABILITY_COMPRESSIONLEVEL:3}
+  bulk_max_size: ${TRACEABILITY_BULKMAXSIZE:100}
+  client_timeout: ${TRACEABILITY_CLIENTTIMEOUT:60s}
+  pipelining: ${TRACEABILITY_PIPELINING:0}
+  worker: ${TRACEABILITY_WORKER:1}
+  loadbalance: ${TRACEABILITY_LOADBALANCE:true}
+  slow_start: ${TRACEABILITY_SLOWSTART:true}
   ssl:
-    enabled: true
+    enabled: ${TRACEABILITY_ENABLE_SSL:true}
     verification_mode: none
     cipher_suites:
       - "ECDHE-ECDSA-AES-128-GCM-SHA256"
       - "ECDHE-ECDSA-AES-256-GCM-SHA384"
+      - "ECDHE-ECDSA-AES-128-CBC-SHA256"
       - "ECDHE-ECDSA-CHACHA20-POLY1305"
       - "ECDHE-RSA-AES-128-CBC-SHA256"
       - "ECDHE-RSA-AES-128-GCM-SHA256"
       - "ECDHE-RSA-AES-256-GCM-SHA384"
-      - "ECDHE-RSA-CHACHA20-POLY1205"
-  worker: 1
-  pipelining: 0
   proxy_url: ${TRACEABILITY_PROXYURL:""}
+  redaction:
+    path:
+      show: ${TRACEABILITY_REDACTION_PATH_SHOW:[]}
+    queryArgument:
+      show: ${TRACEABILITY_REDACTION_QUERYARGUMENT_SHOW:[]}
+      sanitize: ${TRACEABILITY_REDACTION_QUERYARGUMENT_SANITIZE:[]}
+    requestHeader:
+      show: ${TRACEABILITY_REDACTION_REQUESTHEADER_SHOW:[]}
+      sanitize: ${TRACEABILITY_REDACTION_REQUESTHEADER_SANITIZE:[]}
+    responseHeader:
+      show: ${TRACEABILITY_REDACTION_RESPONSEHEADER_SHOW:[]}
+      sanitize: ${TRACEABILITY_REDACTION_RESPONSEHEADER_SANITIZE:[]}
+    jmsProperties:
+      show: ${TRACEABILITY_REDACTION_JMSPROPERTIES_SHOW:[]}
+      sanitize: ${TRACEABILITY_REDACTION_JMSPROPERTIES_SANITIZE:[]}
+    maskingCharacters: ${TRACEABILITY_REDACTION_MASKING_CHARACTERS:"\u007B*\u007D"} # unicode for {*}
+  sampling:
+    percentage: ${TRACEABILITY_SAMPLING_PERCENTAGE:10}
+    per_api: ${TRACEABILITY_SAMPLING_PER_API:true}
+    per_subscription: ${TRACEABILITY_SAMPLING_PER_SUBSCRIPTION:true}
+    reportAllErrors: ${TRACEABILITY_SAMPLING_REPORTALLERRORS:true}
+  apiExceptionsList: ${TRACEABILITY_EXCEPTION_LIST:[]}
+
+queue:
+  mem:
+    events: ${QUEUE_MEM_EVENTS:2048}
+    flush:
+      min_events: ${QUEUE_MEM_FLUSH_MINEVENTS:100}
+      timeout: ${QUEUE_MEM_FLUSH_TIMEOUT:1s}
 
 logging:
   metrics:
     enabled: false
-  to_stderr: true
-  level: ${LOG_LEVEL:"info"}
+  files:
+    permissions: 0600
+    name: ${LOG_FILE_NAME:traceability_agent.log}
+    path: ${LOG_FILE_PATH:logs}
+    keepfiles: ${LOG_FILE_KEEPFILES:7}
+    rotateeverybytes: ${LOG_FILE_ROTATEEVERYBYTES:10485760}

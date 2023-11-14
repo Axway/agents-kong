@@ -9,8 +9,12 @@ import (
 
 func TestKongClient(t *testing.T) {
 	gatewayConfig := &config.KongGatewayConfig{
-		AdminEndpoint: "http://localhost",
-		ProxyEndpoint: "http://localhost",
+		Admin: config.KongAdminConfig{
+			URL: "http://localhost",
+		},
+		Proxy: config.KongProxyConfig{
+			Host: "localhost",
+		},
 	}
 	_ = config.AgentConfig{
 		CentralCfg:     corecfg.NewCentralConfig(corecfg.DiscoveryAgent),

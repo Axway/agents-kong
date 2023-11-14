@@ -14,13 +14,14 @@ var DiscoveryCmd corecmd.AgentRootCmd
 var agentConfig config.AgentConfig
 
 const (
-	cfgKongToken             = "kong.token"
-	cfgKongAdminEp           = "kong.adminEndpoint"
-	cfgKongProxyEp           = "kong.proxyEndpoint"
-	cfgKongProxyEpHttp       = "kong.proxyEndpointProtocols.http"
-	cfgKongProxyEpHttps      = "kong.proxyEndpointProtocols.https"
-	cfgKongSpecDownloadPaths = "kong.specDownloadPaths"
-	cfgKongSpecLocalPath     = "kong.specLocalPath"
+	cfgKongAdminURL          = "kong.admin.url"
+	cfgKongAdminAPIKey       = "kong.admin.auth.apikey.value"
+	cfgKongAdminAPIKeyHeader = "kong.admin.auth.apikey.header"
+	cfgKongProxyHost         = "kong.proxy.host"
+	cfgKongProxyPortHttp     = "kong.proxy.port.http"
+	cfgKongProxyPortHttps    = "kong.proxy.port.https"
+	cfgKongSpecURLPaths      = "kong.spec.urlPaths"
+	cfgKongSpecLocalPath     = "kong.spec.localPath"
 )
 
 func init() {
@@ -36,12 +37,13 @@ func init() {
 
 	// Get the root command properties and bind the config property in YAML definition
 	rootProps := DiscoveryCmd.GetProperties()
-	rootProps.AddStringProperty(cfgKongToken, "", "Token to authenticate with Kong Gateway")
-	rootProps.AddStringProperty(cfgKongAdminEp, "", "The Kong admin endpoint")
-	rootProps.AddStringProperty(cfgKongProxyEp, "", "The Kong proxy endpoint")
-	rootProps.AddIntProperty(cfgKongProxyEpHttp, 80, "The Kong proxy http port")
-	rootProps.AddIntProperty(cfgKongProxyEpHttps, 443, "The Kong proxy https port")
-	rootProps.AddStringSliceProperty(cfgKongSpecDownloadPaths, []string{}, "URL paths where the agent will look in for spec files")
+	rootProps.AddStringProperty(cfgKongAdminURL, "", "The Kong admin endpoint")
+	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
+	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
+	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
+	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
+	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
+	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
 }
 
@@ -80,13 +82,26 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 
 	// Parse the config from bound properties and setup gateway config
 	gatewayConfig := &config.KongGatewayConfig{
-		Token:             rootProps.StringPropertyValue(cfgKongToken),
-		AdminEndpoint:     rootProps.StringPropertyValue(cfgKongAdminEp),
-		ProxyEndpoint:     rootProps.StringPropertyValue(cfgKongProxyEp),
-		ProxyHttpPort:     rootProps.IntPropertyValue(cfgKongProxyEpHttp),
-		ProxyHttpsPort:    rootProps.IntPropertyValue(cfgKongProxyEpHttps),
-		SpecDownloadPaths: rootProps.StringSlicePropertyValue(cfgKongSpecDownloadPaths),
-		SpecLocalPath:     rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+		Admin: config.KongAdminConfig{
+			URL: rootProps.StringPropertyValue(cfgKongAdminURL),
+			Auth: config.KongAdminAuthConfig{
+				APIKey: config.KongAdminAuthAPIKeyConfig{
+					Value:  rootProps.StringPropertyValue(cfgKongAdminAPIKey),
+					Header: rootProps.StringPropertyValue(cfgKongAdminAPIKeyHeader),
+				},
+			},
+		},
+		Proxy: config.KongProxyConfig{
+			Host: rootProps.StringPropertyValue(cfgKongProxyHost),
+			Port: config.KongProxyPortConfig{
+				HTTP:  rootProps.IntPropertyValue(cfgKongProxyPortHttp),
+				HTTPS: rootProps.IntPropertyValue(cfgKongProxyPortHttps),
+			},
+		},
+		Spec: config.KongSpecConfig{
+			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
+			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+		},
 	}
 
 	agentConfig = config.AgentConfig{

@@ -21,13 +21,22 @@ fullnameOverride: ""
 statusPort: 8989
 
 kong:
-  adminEndpoint:
-  token: 
-  proxyEndpoint:
-  proxyEndpointProtocols:
-    http: 8000
-    https: 8443
-  specDownloadPaths: []
+  enable:
+    traceability: false
+  admin:
+    url:
+    auth:
+      apikey:
+        header:
+        value:
+  proxy:
+    host:
+    ports:
+      http: 8000
+      https: 8443
+  spec:
+    urlPaths: []
+    localPath:
 
 # Add any environment variable overrides here
 env: {}

@@ -46,7 +46,6 @@ type KongAPIClient interface {
 
 type KongClient struct {
 	*klib.Client
-	ctx               context.Context
 	logger            log.FieldLogger
 	baseClient        DoRequest
 	kongAdminEndpoint string
@@ -56,20 +55,20 @@ type KongClient struct {
 }
 
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
-	if kongConfig.Token != "" {
+	if kongConfig.Admin.Auth.APIKey.Value != "" {
 		defaultTransport := http.DefaultTransport.(*http.Transport)
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		baseClient.Transport = defaultTransport
 
 		headers := make(http.Header)
-		headers.Set("Kong-Admin-Token", kongConfig.Token)
+		headers.Set(kongConfig.Admin.Auth.APIKey.Header, kongConfig.Admin.Auth.APIKey.Value)
 		client := klib.HTTPClientWithHeaders(baseClient, headers)
 		baseClient = client
 	}
 
 	logger := log.NewFieldLogger().WithComponent("client").WithPackage("kong")
 
-	baseKongClient, err := klib.NewClient(&kongConfig.AdminEndpoint, baseClient)
+	baseKongClient, err := klib.NewClient(&kongConfig.Admin.URL, baseClient)
 	if err != nil {
 		logger.WithError(err).Error("failed to create kong client")
 		return nil, err
@@ -78,10 +77,9 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		Client:            baseKongClient,
 		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:        baseClient,
-		kongAdminEndpoint: kongConfig.AdminEndpoint,
-		specURLPaths:      kongConfig.SpecDownloadPaths,
-		specLocalPath:     kongConfig.SpecLocalPath,
-		clientTimeout:     10 * time.Second,
+		kongAdminEndpoint: kongConfig.Admin.URL,
+		specURLPaths:      kongConfig.Spec.URLPaths,
+		specLocalPath:     kongConfig.Spec.LocalPath,
 	}, nil
 }
 
