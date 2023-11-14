@@ -21,6 +21,7 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Helm](#helm)
         - [Download](#download)
         - [Create secrets](#create-secrets)
+        - [Create volume, local specification files only](#create-volume-local-specification-files-only)
         - [Create overrides](#create-overrides)
         - [Deploy local helm chart](#deploy-local-helm-chart)
       - [Kong agent environment variables](#kong-agent-environment-variables)
@@ -172,7 +173,7 @@ KONG_ADMIN_AUTH_APIKEY_VALUE=123456789abcdefghijkl098765432109
 KONG_PROXY_HOST=kong.proxy.endpoint.com
 KONG_PROXY_PORTS_HTTP=8000
 KONG_PROXY_PORTS_HTTPS=8443
-KONG_SPEC_LOCALPATH=/path/to/specfiles
+KONG_SPEC_LOCALPATH=/specs
 
 CENTRAL_ORGANIZATIONID=123456789
 CENTRAL_AUTH_CLIENTID=kong-agents_123456789-abcd-efgh-ijkl-098765432109
@@ -203,12 +204,13 @@ In the following docker commands...
 
 - `/home/user/keys` in the commands below refers to the directory where the key files were created during the last step in [Platform - service account](#platform---service-account)
 - `/home/user/discovery/data:/data` and `/home/user/traceability/data:/data` are volumes that are used to store cached information to be saved outside of the container in order to persist restarts
+- `/home/user/specs:/specs` is a volume mount for the spec files, the path in the `KONG_SPEC_LOCALPATH` variable is `/specs` and the path outside fo the container is `/home/user/specs`.
 - `discovery-agents.env` and `traceability-agents.env` are files with the various environment variable settings that are available to each agent
 
 Kong Discovery agent
 
 ```shell
-docker run -d -v /home/user/keys:/keys -v /home/user/discovery/data:/data --env-file discovery-agents.env ghcr.io/axway/kong_discovery_agent:latest
+docker run -d -v /home/user/keys:/keys -v /home/user/specs:/specs -v /home/user/discovery/data:/data --env-file discovery-agents.env ghcr.io/axway/kong_discovery_agent:latest
 ```
 
 Kong Traceability agent
@@ -257,6 +259,31 @@ stringData:
     -----END PUBLIC KEY-----
 ```
 
+##### Create volume, local specification files only
+
+A volume of with the local specification files is required, given that is the desired [specification discovery method](#specification-discovery-methods). This volume could be of any kubernetes resource type which can be mounted in the Kong agent container. Below is a sample of a ConfigMap that is used for the local specification files. See [Kubernetes Volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-spec-files
+data:
+  petstore.json: |
+  ...spec file contents...
+```
+
+Once a resource with the files is created, which ever resource type is chosen, the overrides file will need to be updated with that resource information for mounting as a volume.
+
+```yaml
+kong:
+  ...
+  spec:
+    localPath:
+      configMap:             # type of the resource, provided in the deployment as a volume.
+        name: my-spec-files  # name of the resource created
+```
+
 ##### Create overrides
 
 overrides.yaml
@@ -271,10 +298,9 @@ kong:
       http: 8000
       https: 8443
   spec:
-    urlPaths: 
-      - /openapi.json
-      - /swagger.json
-
+    localPath:
+      configMap:            
+        name: my-spec-files 
 env:
   CENTRAL_ORGANIZATIONID: 123456789
   CENTRAL_AUTH_CLIENTID: kong-agents_123456789-abcd-efgh-ijkl-098765432109
