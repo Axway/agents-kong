@@ -11,11 +11,7 @@ import (
 
 const testName log.ContextField = "testName"
 
-type mockCredentialClient struct {
-	consumer *klib.Consumer
-	err      bool
-	kongErr  bool
-}
+type mockCredentialClient struct{}
 
 func (mockCredentialClient) DeleteOauth2(ctx context.Context, consumerID, clientID string) error {
 	return nil
@@ -41,10 +37,7 @@ func (mockCredentialClient) CreateAuthKey(ctx context.Context, consumerID string
 	return &klib.KeyAuth{}, nil
 }
 
-type mockCredentialRequest struct {
-	name string
-	id   string
-}
+type mockCredentialRequest struct{}
 
 func (m *mockCredentialRequest) GetApplicationDetailsValue(key string) string {
 	return ""

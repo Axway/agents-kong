@@ -19,7 +19,6 @@ type kongCredentialBuilder struct {
 	clientSecret *string
 	clientType   *string
 	redirectURIs []*string
-	credMetadata map[string]interface{}
 }
 
 type credentialMetaData struct {
