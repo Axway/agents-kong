@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/util/log"
+
+	"github.com/Axway/agent-sdk/pkg/apic"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
 	klib "github.com/kong/go-kong/kong"
@@ -21,6 +22,14 @@ type KongAPIClient interface {
 	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
 	AddConsumerACL(ctx context.Context, id string) error
 	DeleteConsumer(ctx context.Context, id string) error
+	// Credential
+	DeleteOauth2(ctx context.Context, consumerID, clientID string) error
+	DeleteHttpBasic(ctx context.Context, consumerID, username string) error
+	DeleteAuthKey(ctx context.Context, consumerID, authKey string) error
+	CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error)
+	CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error)
+	CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error)
+  // Access Request
 	AddRouteACL(ctx context.Context, routeID, allowedID string) error
 	RemoveRouteACL(ctx context.Context, routeID, revokedID string) error
 	AddQuota(ctx context.Context, routeID, allowedID, quotaInterval string, quotaLimit int) error

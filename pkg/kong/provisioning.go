@@ -73,6 +73,57 @@ func (k KongClient) DeleteConsumer(ctx context.Context, id string) error {
 	return k.Consumers.Delete(ctx, klib.String(id))
 }
 
+func (k KongClient) DeleteOauth2(ctx context.Context, consumerID, clientID string) error {
+	if err := k.Oauth2Credentials.Delete(ctx, &consumerID, &clientID); err != nil {
+		k.logger.Errorf("failed to delete oauth2 credential with clientID: %s for consumerID: %s. Reason: %w", clientID, consumerID, err)
+		return err
+	}
+	return nil
+}
+
+func (k KongClient) DeleteHttpBasic(ctx context.Context, consumerID, username string) error {
+	if err := k.BasicAuths.Delete(ctx, &consumerID, &username); err != nil {
+		k.logger.Errorf("failed to delete http-basic credential for user: %s for consumerID %s. Reason: %w", username, consumerID, err)
+		return err
+	}
+	return nil
+}
+
+func (k KongClient) DeleteAuthKey(ctx context.Context, consumerID, authKey string) error {
+	if err := k.KeyAuths.Delete(ctx, &consumerID, &authKey); err != nil {
+		k.logger.Errorf("failed to delete API Key: %s for consumerID %s. Reason: %w", authKey, consumerID, err)
+		return err
+	}
+	return nil
+}
+
+func (k KongClient) CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error) {
+	basicAuth, err := k.BasicAuths.Create(ctx, &consumerID, basicAuth)
+	if err != nil {
+		k.logger.Errorf("failed to create http-basic credential for consumerID %s. Reason: %w", consumerID, err)
+		return nil, err
+	}
+	return basicAuth, nil
+}
+
+func (k KongClient) CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error) {
+	oauth2, err := k.Oauth2Credentials.Create(ctx, &consumerID, oauth2)
+	if err != nil {
+		k.logger.Errorf("failed to create oauth2 credential for consumerID %s. Reason: %w", consumerID, err)
+		return nil, err
+	}
+	return oauth2, nil
+}
+
+func (k KongClient) CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error) {
+	keyAuth, err := k.KeyAuths.Create(ctx, &consumerID, keyAuth)
+	if err != nil {
+		k.logger.Errorf("failed to create oauth2 credential for consumerID %s. Reason: %w", consumerID, err)
+		return nil, err
+	}
+	return keyAuth, nil
+}
+
 func (k KongClient) AddRouteACL(ctx context.Context, routeID, allowedID string) error {
 	log := k.logger.WithField("consumerID", allowedID).WithField("routeID", routeID)
 	plugins, err := k.Plugins.ListAll(ctx)
