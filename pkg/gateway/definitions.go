@@ -5,10 +5,9 @@ import (
 	"github.com/Axway/agent-sdk/pkg/cache"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
-	"github.com/Axway/agents-kong/pkg/kong"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	kutil "github.com/Axway/agents-kong/pkg/kong"
+	"github.com/Axway/agents-kong/pkg/kong"
 )
 
 type Client struct {
@@ -16,8 +15,7 @@ type Client struct {
 	centralCfg     corecfg.CentralConfig
 	kongGatewayCfg *config.KongGatewayConfig
 	kongClient     kong.KongAPIClient
-	apicClient     CentralClient
-	plugins        kutil.Plugins
+	plugins        kong.Plugins
 	cache          cache.Cache
 	mode           string
 }
@@ -36,19 +34,8 @@ type KongAPI struct {
 	imageContentType  string
 	crds              []string
 	apiUpdateSeverity string
-	serviceAttributes map[string]string
 	agentDetails      map[string]string
-	subscriptionName  string
 	tags              []string
 	stage             string
-	state             string
-	status            string
 	ard               string
-}
-
-type CachedService struct {
-	kongServiceId   string
-	kongServiceName string
-	hash            string
-	centralName     string
 }
