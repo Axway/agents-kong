@@ -115,6 +115,18 @@ whitesource:on-schedule:
     - echo "Checking out ${GIT_TAG_PREFIX}${LATEST_TAG}"
     - git checkout ${GIT_TAG_PREFIX}${LATEST_TAG}
 
+blackduck:on-schedule:
+  extends: .blackduck
+  rules:
+    - !reference [.mirror-schedule-csr-rules, rules]
+  before_script:
+    - git config --global http.sslVerify false
+    - git config --global url."ssh://git@git.ecd.axway.org".insteadOf "https://git.ecd.axway.org"''
+    - git fetch
+    - *get-latest-tag
+    - echo "Checking out ${GIT_TAG_PREFIX}${LATEST_TAG}"
+    - git checkout ${GIT_TAG_PREFIX}${LATEST_TAG}
+
 # overridden from csrjobs.yml because mirror repos like this one don't get merge events
 fortify:
   rules:
@@ -133,8 +145,6 @@ whitesource:
 blackduck:
   rules:
     - !reference [.mirror-branch-csr-rules, rules]
-  before_script:
-    - export GOWORK=off
 
 run-csr:
   rules:
