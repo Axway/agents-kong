@@ -4,27 +4,17 @@ import (
 	"context"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
-	prov "github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
-	_ "github.com/kong/go-kong/kong"
+	"github.com/google/uuid"
 	klib "github.com/kong/go-kong/kong"
 )
 
-const (
-	reqApiKey       = "apiKey"
-	reqUsername     = "username"
-	reqClientID     = "clientId"
-	reqClientSecret = "clientSecret"
-)
-
 type credentialProvisioner struct {
-	ctx            context.Context
-	client         credentialClient
-	appID          string
-	managedAppName string
-	logger         log.FieldLogger
-	request        credRequest
+	ctx     context.Context
+	client  credentialClient
+	logger  log.FieldLogger
+	request credRequest
 }
 
 type credentialClient interface {
@@ -56,7 +46,7 @@ func NewCredentialProvisioner(ctx context.Context, client credentialClient, req 
 	return a
 }
 
-func (p credentialProvisioner) Deprovision() prov.RequestStatus {
+func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
 	consumerID := p.request.GetApplicationDetailsValue(common.AttrAppID)
 	rs := provisioning.NewRequestStatusBuilder()
 	ctx := context.Background()
@@ -93,7 +83,7 @@ func (p credentialProvisioner) Deprovision() prov.RequestStatus {
 	return rs.SetMessage("Failed to identify credential type").Failed()
 }
 
-func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential) {
+func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisioning.Credential) {
 	consumerID := p.request.GetApplicationDetailsValue(common.AttrAppID)
 	agentTag := "amplify-agent"
 	consumerTags := []*string{&agentTag}
@@ -119,8 +109,10 @@ func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential)
 		}
 	case provisioning.BasicAuthARD:
 		{
-			basicAuth := kongBuilder.WithUsername("").
-				WithPassword("").
+			user := uuid.NewString()
+			pass := uuid.NewString()
+			basicAuth := kongBuilder.WithUsername(user).
+				WithPassword(pass).
 				ToBasicAuth()
 			resp, err := p.client.CreateHttpBasic(ctx, consumerID, basicAuth)
 			if err != nil {
@@ -129,7 +121,7 @@ func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.Username)
-			return rs.Success(), provisioning.NewCredentialBuilder().SetHTTPBasic(*resp.Username, *resp.Password)
+			return rs.Success(), provisioning.NewCredentialBuilder().SetHTTPBasic(user, pass)
 		}
 	case provisioning.OAuthSecretCRD:
 		{
@@ -150,7 +142,7 @@ func (p credentialProvisioner) Provision() (prov.RequestStatus, prov.Credential)
 	return rs.Failed(), nil
 }
 
-func (p credentialProvisioner) Update() (prov.RequestStatus, prov.Credential) {
+func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisioning.Credential) {
 	consumerID := p.request.GetApplicationDetailsValue(common.AttrAppID)
 	agentTag := "amplify-agent"
 	consumerTags := []*string{&agentTag}
