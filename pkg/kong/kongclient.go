@@ -80,6 +80,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		kongAdminEndpoint: kongConfig.Admin.URL,
 		specURLPaths:      kongConfig.Spec.URLPaths,
 		specLocalPath:     kongConfig.Spec.LocalPath,
+		clientTimeout:     60 * time.Second,
 	}, nil
 }
 
