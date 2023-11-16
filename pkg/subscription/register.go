@@ -18,7 +18,6 @@ func getCredTypes() []string {
 func registerOauth2() {
 	oAuthRedirects := getAuthRedirectSchemaPropertyBuilder()
 	corsProp := getCorsSchemaPropertyBuilder()
-	provisionKey := getProvisionKeyPropertyBuilder()
 	oAuthTypeProp := provisioning.NewSchemaPropertyBuilder().
 		SetName(common.ApplicationTypeField).
 		SetRequired().
@@ -28,7 +27,7 @@ func registerOauth2() {
 
 	_, err := agent.NewAccessRequestBuilder().SetName(Oauth2Name).Register()
 	if err != nil {
-		logrus.Errorf("Error registering Oauth2  Access Request %v", err)
+		logrus.Errorf("Error registering Oauth2 Access Request %v", err)
 	}
 
 	_, err = agent.NewOAuthCredentialRequestBuilder(
@@ -40,14 +39,7 @@ func registerOauth2() {
 		agent.WithCRDIsSuspendable(),
 	).Register()
 	if err != nil {
-		logrus.Errorf("Error registering Oauth2  credential Request %v", err)
-	}
-
-	_, err = agent.NewOAuthCredentialRequestBuilder(agent.WithCRDRequestSchemaProperty(corsProp),
-		agent.WithCRDProvisionSchemaProperty(provisionKey)).SetName(Oauth2Name).IsRenewable().Register()
-	if err != nil {
-		logrus.Errorf("Error registering Oauth2  credential Request %v", err)
-
+		logrus.Errorf("Error registering Oauth2 credential Request %v", err)
 	}
 }
 
@@ -96,12 +88,4 @@ func getCorsSchemaPropertyBuilder() provisioning.PropertyBuilder {
 			provisioning.NewSchemaPropertyBuilder().
 				SetName("Origins").
 				IsString())
-}
-
-func getProvisionKeyPropertyBuilder() provisioning.PropertyBuilder {
-	return provisioning.NewSchemaPropertyBuilder().
-		SetName(common.ProvisionKey).
-		SetLabel("Provision key").
-		SetRequired().
-		IsString()
 }

@@ -228,12 +228,12 @@ docker run -d -v /home/user/keys:/keys -v /home/user/traceability/data:/data --e
 
 #### Download
 
-At the current time the Kong agents helm chart is not hosted on a helm chart repository. To deploy using this helm chart you will first want to download the helm directory from your desired release tag removing the v, 0.0.1 in the sample below.
+At the current time the Kong agents helm chart is not hosted on a helm chart repository. To deploy using this helm chart you will first want to download the helm directory from your desired release tag, removing the v, 0.0.1 in the sample below.
 
 ```shell
-export tag=0.0.1                                                                                           # tag v0.0.1 but 'v' removed
+tag=0.0.1                                                                                                  # tag v0.0.1 with 'v' removed
 curl -L https://github.com/Axway/agents-kong/archive/refs/tags/v${tag}.tar.gz --output kong-agents.tar.gz  # download release archive
-tar xvf kong-agents.tar.gz --strip-components=2 agents-kong-${tag}/kong-agents                             # extract the helm chart in the current directory 
+tar xvf kong-agents.tar.gz --strip-components=2 agents-kong-${tag}/helm/kong-agents                        # extract the helm chart in the current directory 
 rm kong-agents.tar.gz                                                                                      # remove the archive
 ```
 
