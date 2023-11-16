@@ -21,7 +21,6 @@ kong_traceability_agent:
     agentName: ${CENTRAL_AGENTNAME:""}
     platformURL: ${CENTRAL_PLATFORMURL:https://platform.axway.com}
     reportActivityFrequency: ${CENTRAL_REPORTACTIVITYFREQUENCY:5m}
-    versionChecker: ${CENTRAL_VERSIONCHECKER:true}
     usageReporting:
       publish: ${CENTRAL_USAGEREPORTING_PUBLISH}
       publishMetric: ${CENTRAL_USAGEREPORTING_PUBLISHMETRIC}
@@ -49,6 +48,12 @@ kong_traceability_agent:
       port: ${CENTRAL_GRPC_PORT}
     proxyUrl: ${CENTRAL_PROXYURL:""}
     clientTimeout: ${CENTRAL_CLIENTTIMEOUT:60s}
+  agentFeatures:
+    persistCache: ${AGENTFEATURES_PERSISTCACHE}
+    marketplaceProvisioning: ${AGENTFEATURES_MARKETPLACEPROVISIONING}
+    versionChecker: ${AGENTFEATURES_VERSIONCHECKER}
+    processSystemSignals: ${AGENTFEATURES_PROCESSSYSTEMSIGNALS}
+    connectToCentral: ${AGENTFEATURES_CONNECTTOCENTRAL}
 
 # Condor Ingestion service
 output.traceability:
