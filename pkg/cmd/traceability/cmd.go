@@ -17,8 +17,9 @@ var beatCmd *libcmd.BeatsRootCmd
 func init() {
 	name := "kong_traceability_agent"
 	settings := instance.Settings{
-		Name:          name,
-		HasDashboards: true,
+		Name:            name,
+		HasDashboards:   true,
+		ConfigOverrides: corecfg.LogConfigOverrides(),
 	}
 
 	beatCmd = libcmd.GenRootCmdWithSettings(beater.New, settings)
