@@ -25,6 +25,8 @@ bin/
 /kong_traceability_agent.yml
 
 specs/
+data/
+logs/
 
 secret.yaml
 overrides.yaml
