@@ -14,14 +14,15 @@ var DiscoveryCmd corecmd.AgentRootCmd
 var agentConfig config.AgentConfig
 
 const (
-	cfgKongAdminURL          = "kong.admin.url"
-	cfgKongAdminAPIKey       = "kong.admin.auth.apikey.value"
-	cfgKongAdminAPIKeyHeader = "kong.admin.auth.apikey.header"
-	cfgKongProxyHost         = "kong.proxy.host"
-	cfgKongProxyPortHttp     = "kong.proxy.port.http"
-	cfgKongProxyPortHttps    = "kong.proxy.port.https"
-	cfgKongSpecURLPaths      = "kong.spec.urlPaths"
-	cfgKongSpecLocalPath     = "kong.spec.localPath"
+	cfgKongAdminURL             = "kong.admin.url"
+	cfgKongAdminAPIKey          = "kong.admin.auth.apikey.value"
+	cfgKongAdminAPIKeyHeader    = "kong.admin.auth.apikey.header"
+	cfgKongProxyHost            = "kong.proxy.host"
+	cfgKongProxyPortHttp        = "kong.proxy.port.http"
+	cfgKongProxyPortHttps       = "kong.proxy.port.https"
+	cfgKongSpecURLPaths         = "kong.spec.urlPaths"
+	cfgKongSpecLocalPath        = "kong.spec.localPath"
+	cfgKongSpecDevPortalEnabled = "kong.spec.devPortalEnabled"
 )
 
 func init() {
@@ -45,6 +46,7 @@ func init() {
 	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
+	rootProps.AddBoolProperty(cfgKongSpecDevPortalEnabled, false, "Dev Portal is used to download spec files")
 }
 
 // Callback that agent will call to process the execution
@@ -99,8 +101,9 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 			},
 		},
 		Spec: config.KongSpecConfig{
-			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
-			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+			URLPaths:         rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
+			LocalPath:        rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+			DevPortalEnabled: rootProps.BoolPropertyValue(cfgKongSpecDevPortalEnabled),
 		},
 	}
 
