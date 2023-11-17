@@ -1,0 +1,10 @@
+{{- if .Values.kong.admin.auth.apikey.value }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kong-admin-auth-apikey
+type: Opaque
+stringData:
+  header: "{{ .Values.kong.admin.auth.apikey.header }}"
+  value: "{{ .Values.kong.admin.auth.apikey.value }}"
+{{- end }}

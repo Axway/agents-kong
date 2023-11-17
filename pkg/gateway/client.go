@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	ardCtx = "contextArd"
-	crdCtx = "contextCrd"
+	ardCtx log.ContextField = "accessRequestDefinition"
+	crdCtx log.ContextField = "credentialRequestDefinition"
 )
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
@@ -34,7 +34,6 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	apicClient := NewCentralClient(agent.GetCentralClient(), agentConfig.CentralCfg)
 	daCache := cache.New()
 	logger := log.NewFieldLogger().WithField("component", "agent")
 
@@ -55,7 +54,6 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		centralCfg:     agentConfig.CentralCfg,
 		kongGatewayCfg: kongGatewayConfig,
 		kongClient:     kongClient,
-		apicClient:     apicClient,
 		cache:          daCache,
 		mode:           common.Marketplace,
 	}, nil
@@ -64,7 +62,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 // Returns no error in case an ACL plugin which is enabled is found
 func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
 	for _, plugin := range plugins {
-		if *plugin.Name == "acl" && *plugin.Enabled == true {
+		if *plugin.Name == "acl" && *plugin.Enabled {
 			return nil
 		}
 	}
@@ -150,9 +148,9 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	log := gc.logger.WithField("service-name", *service.Name)
 	log.Infof("processing service")
 
-	proxyEndpoint := gc.kongGatewayCfg.ProxyEndpoint
-	httpPort := gc.kongGatewayCfg.ProxyHttpPort
-	httpsPort := gc.kongGatewayCfg.ProxyHttpsPort
+	proxyHost := gc.kongGatewayCfg.Proxy.Host
+	httpPort := gc.kongGatewayCfg.Proxy.Port.HTTP
+	httpsPort := gc.kongGatewayCfg.Proxy.Port.HTTPS
 
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
@@ -188,7 +186,8 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	oasSpec := Openapi{
 		spec: string(kongServiceSpec),
 	}
-	endpoints := gc.processKongRoute(proxyEndpoint, oasSpec.BasePath(), route, httpPort, httpsPort)
+
+	endpoints := gc.processKongRoute(proxyHost, oasSpec.BasePath(), route, httpPort, httpsPort)
 	serviceBody, err := gc.processKongAPI(ctx, *route.ID, service, oasSpec, endpoints, apiPlugins)
 	if err != nil {
 		return err
@@ -225,7 +224,7 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 				}
 
 				routingBasePath := *path
-				if *route.StripPath == true {
+				if *route.StripPath {
 					routingBasePath = routingBasePath + basePath
 				}
 				endpoint := apic.EndpointDefinition{
@@ -353,25 +352,8 @@ func isPublished(api *KongAPI, c cache.Cache) (bool, string) {
 	return true, checksum
 }
 
-func getFirstAuthPluginArdAndCrd(plugins map[string]*klib.Plugin) (string, string) {
-	for key := range plugins {
-		switch key {
-		case "key-auth":
-			return provisioning.APIKeyARD, provisioning.APIKeyCRD
-		case "jwt":
-			return "jwt", "jwt"
-		case "basic-auth":
-			return provisioning.BasicAuthARD, provisioning.BasicAuthCRD
-		case "oauth2":
-			return "oauth2", "oauth2"
-		}
-
-	}
-	return "", ""
-}
-
 func isValidAuthTypeAndEnabled(p *klib.Plugin) bool {
-	if *p.Enabled != true {
+	if !*p.Enabled {
 		return false
 	}
 	for _, availableAuthName := range []string{"basic-auth", "oauth2", "key-auth"} {

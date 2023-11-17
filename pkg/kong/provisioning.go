@@ -311,7 +311,7 @@ func (k KongClient) updateOrDeleteACL(ctx context.Context, aclPlugin *klib.Plugi
 
 	// enable the plugin in case it is disabled
 	aclPlugin.Enabled = klib.Bool(true)
-	aclPlugin, err := k.Plugins.UpdateForRoute(ctx, &routeID, aclPlugin)
+	_, err := k.Plugins.UpdateForRoute(ctx, &routeID, aclPlugin)
 	if err != nil {
 		return err
 	}

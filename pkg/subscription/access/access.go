@@ -75,7 +75,7 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 		return rs.SetMessage("route ID not found").Failed(), nil
 	}
 
-	if a.quota.GetInterval().String() == provisioning.Weekly.String() {
+	if a.quota != nil && a.quota.GetInterval().String() == provisioning.Weekly.String() {
 		a.logger.Debug("weekly quota interval is not supported")
 		return rs.SetMessage("weekly quota is not supported by kong").Failed(), nil
 	}
@@ -84,6 +84,11 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 	if err != nil {
 		a.logger.WithError(err).Error("failed to provide access to managed application")
 		return rs.SetMessage("could not provide access to consumer in kong").Failed(), nil
+	}
+
+	if a.quota == nil {
+		a.logger.Info("provisioned access")
+		return rs.Success(), nil
 	}
 
 	quotaInterval := a.quota.GetIntervalString()
