@@ -68,21 +68,22 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 			defer r.Body.Close()
 
 			if err != nil {
-				b.logger.Error(fmt.Errorf("error while reading request body: %s", err))
+				b.logger.WithError(err).Error("reading request body")
 			}
 
 			w.WriteHeader(200)
 			go b.processAndDispatchEvent(ctx, logData)
-		})
+		},
+	)
 
 	/* Start a new HTTP server in a separate Go routine that will be the target
 	   for the HTTP Log plugin. It should write events it gets to eventChannel */
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port),
-			nil); err != nil {
-			b.logger.Fatalf("Unable to start the HTTP Server: %s", err)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port), nil)
+		if err != nil {
+			b.logger.WithError(err).Fatalf("unable to start the HTTP Server")
 		}
-		b.logger.Infof("Started HTTP server on port %d to receive request logs", config.GetAgentConfig().HttpLogPluginConfig.Port)
+		b.logger.WithField("port", config.GetAgentConfig().HttpLogPluginConfig.Port).WithField("path", config.GetAgentConfig().HttpLogPluginConfig.Path).Info("started HTTP server")
 	}()
 
 	<-b.done
