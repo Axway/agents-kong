@@ -31,3 +31,5 @@ logs/
 secret.yaml
 overrides.yaml
 configmap.yaml
+
+__debug_bin*
