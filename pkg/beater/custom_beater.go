@@ -19,22 +19,17 @@ import (
 )
 
 type httpLogBeater struct {
-	done           chan struct{}
-	eventProcessor *processor.EventProcessor
-	client         beat.Client
-	eventChannel   chan string
-	logger         log.FieldLogger
+	done   chan struct{}
+	client beat.Client
+	logger log.FieldLogger
 }
 
 // New creates an instance of kong_traceability_agent.
 func New(*beat.Beat, *common.Config) (beat.Beater, error) {
 	b := &httpLogBeater{
-		done:         make(chan struct{}),
-		eventChannel: make(chan string),
-		logger:       log.NewFieldLogger().WithComponent("httpLogBeater").WithPackage("beater"),
+		done:   make(chan struct{}),
+		logger: log.NewFieldLogger().WithComponent("httpLogBeater").WithPackage("beater"),
 	}
-
-	b.eventProcessor = processor.NewEventProcessor()
 
 	// Validate that all necessary services are up and running. If not, return error
 	if hc.RunChecks() != hc.OK {
@@ -63,6 +58,8 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 				return
 			}
 
+			// http://10.129.216.201.nip.io:9000/requestlogs
+
 			ctx := context.WithValue(context.Background(), processor.CtxTransactionID, uuid.NewString())
 			logData, err := io.ReadAll(r.Body)
 			defer r.Body.Close()
@@ -72,7 +69,11 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 			}
 
 			w.WriteHeader(200)
-			go b.processAndDispatchEvent(ctx, logData)
+
+			eventProcessor, err := processor.NewEventProcessor(ctx, logData)
+			if err == nil {
+				go b.process(eventProcessor)
+			}
 		},
 	)
 
@@ -91,17 +92,14 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 }
 
 // Stop stops kong_traceability_agent.
-func (bt *httpLogBeater) Stop() {
-	bt.client.Close()
-	close(bt.done)
+func (b *httpLogBeater) Stop() {
+	b.client.Close()
+	close(b.done)
 }
 
-func (bt *httpLogBeater) processAndDispatchEvent(ctx context.Context, logData []byte) {
-	log := log.UpdateLoggerWithContext(ctx, bt.logger)
-	log.WithField("data", logData).Trace("handling log data")
-	eventsToPublish := bt.eventProcessor.ProcessRaw(ctx, logData)
-	if eventsToPublish != nil {
-		log.Trace("finished handling data")
-		bt.client.PublishAll(eventsToPublish)
+func (b *httpLogBeater) process(eventProcessor *processor.EventProcessor) {
+	eventsToPublish, err := eventProcessor.Process()
+	if err == nil {
+		b.client.PublishAll(eventsToPublish)
 	}
 }

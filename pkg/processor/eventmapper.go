@@ -25,49 +25,51 @@ const (
 
 // EventMapper -
 type EventMapper struct {
+	ctx    context.Context
 	logger log.FieldLogger
 }
 
-func NewEventMapper() *EventMapper {
+func NewEventMapper(ctx context.Context) *EventMapper {
 	return &EventMapper{
-		logger: log.NewFieldLogger().WithComponent("eventMapper").WithPackage("processor"),
+		ctx:    ctx,
+		logger: log.NewLoggerFromContext(ctx).WithComponent("eventMapper").WithPackage("processor"),
 	}
 }
 
-func (m *EventMapper) processMapping(ctx context.Context, kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
-	log := log.UpdateLoggerWithContext(ctx, m.logger)
+func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) (transaction.LogEvent, []transaction.LogEvent, error) {
 	centralCfg := agent.GetCentralConfig()
 	txnID := uuid.New().String()
 
+	// leg 0
 	transactionLegEvent, err := m.createTransactionEvent(kongTrafficLogEntry, txnID)
 	if err != nil {
-		log.WithError(err).Error("building transaction leg event")
-		return nil, err
+		m.logger.WithError(err).Error("building transaction leg event")
+		return transaction.LogEvent{}, nil, err
 	}
-
 	jTransactionLegEvent, err := json.Marshal(transactionLegEvent)
 	if err != nil {
-		log.WithError(err).Error("serialize transaction leg event")
+		m.logger.WithError(err).Error("serialize transaction leg event")
+	} else {
+		m.logger.WithField("leg", string(jTransactionLegEvent)).Debug("generated transaction leg event")
 	}
 
-	log.WithField("leg", string(jTransactionLegEvent)).Debug("generated transaction leg event")
-
+	// summary
 	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID(), txnID)
 	if err != nil {
-		log.WithError(err).Error("building transaction summary event")
-		return nil, err
+		m.logger.WithError(err).Error("building transaction summary event")
+		return transaction.LogEvent{}, nil, err
 	}
-
 	jTransactionSummary, err := json.Marshal(transSummaryLogEvent)
 	if err != nil {
-		log.WithError(err).Error("serialize transaction summary event")
+		m.logger.WithError(err).Error("serialize transaction summary event")
+	} else {
+		m.logger.WithField("summary", string(jTransactionSummary)).Debug("generated transaction summary event")
 	}
-	log.WithField("summary", string(jTransactionSummary)).Debug("generated transaction summary event")
 
-	return []*transaction.LogEvent{
-		transSummaryLogEvent,
-		transactionLegEvent,
-	}, nil
+	return *transSummaryLogEvent,
+		[]transaction.LogEvent{
+			*transactionLegEvent,
+		}, nil
 }
 
 func (m *EventMapper) getTransactionEventStatus(code int) transaction.TxEventStatus {
