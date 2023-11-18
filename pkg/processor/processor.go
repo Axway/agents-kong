@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/google/uuid"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
@@ -23,63 +25,61 @@ const (
 	inbound   = "inbound"
 )
 
-// EventMapper -
-type EventMapper struct {
-	ctx    context.Context
-	logger log.FieldLogger
+// TransactionProcessor -
+type TransactionProcessor struct {
+	ctx            context.Context
+	logger         log.FieldLogger
+	eventGenerator transaction.EventGenerator
+	event          TrafficLogEntry
 }
 
-func NewEventMapper(ctx context.Context) *EventMapper {
-	return &EventMapper{
-		ctx:    ctx,
-		logger: log.NewLoggerFromContext(ctx).WithComponent("eventMapper").WithPackage("processor"),
+func NewTransactionProcessor(ctx context.Context, entry TrafficLogEntry) (*TransactionProcessor, bool) {
+	p := &TransactionProcessor{
+		ctx:            ctx,
+		logger:         log.NewLoggerFromContext(ctx).WithComponent("eventMapper").WithPackage("processor"),
+		eventGenerator: transaction.NewEventGenerator(),
+		event:          entry,
 	}
+
+	return p, true
 }
 
-func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) (transaction.LogEvent, []transaction.LogEvent, error) {
+func (m *TransactionProcessor) process() ([]beat.Event, error) {
 	centralCfg := agent.GetCentralConfig()
 	txnID := uuid.New().String()
 
 	// leg 0
-	transactionLegEvent, err := m.createTransactionEvent(kongTrafficLogEntry, txnID)
+	transactionLogEvent, err := m.createTransactionEvent(m.event, txnID)
 	if err != nil {
 		m.logger.WithError(err).Error("building transaction leg event")
-		return transaction.LogEvent{}, nil, err
-	}
-	jTransactionLegEvent, err := json.Marshal(transactionLegEvent)
-	if err != nil {
-		m.logger.WithError(err).Error("serialize transaction leg event")
-	} else {
-		m.logger.WithField("leg", string(jTransactionLegEvent)).Debug("generated transaction leg event")
+		return nil, err
 	}
 
 	// summary
-	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID(), txnID)
+	summaryLogEvent, err := m.createSummaryEvent(m.event, centralCfg.GetTeamID(), txnID)
 	if err != nil {
 		m.logger.WithError(err).Error("building transaction summary event")
-		return transaction.LogEvent{}, nil, err
-	}
-	jTransactionSummary, err := json.Marshal(transSummaryLogEvent)
-	if err != nil {
-		m.logger.WithError(err).Error("serialize transaction summary event")
-	} else {
-		m.logger.WithField("summary", string(jTransactionSummary)).Debug("generated transaction summary event")
+		return nil, err
 	}
 
-	return *transSummaryLogEvent,
-		[]transaction.LogEvent{
-			*transactionLegEvent,
-		}, nil
+	// create Central log events
+	events, err := m.eventGenerator.CreateEvents(*summaryLogEvent, []transaction.LogEvent{*transactionLogEvent}, time.Unix(m.event.StartedAt, 0), nil, nil, nil)
+	if err != nil {
+		m.logger.WithError(err).Error("building Central events")
+		return nil, err
+	}
+
+	return events, nil
 }
 
-func (m *EventMapper) getTransactionEventStatus(code int) transaction.TxEventStatus {
+func (m *TransactionProcessor) getTransactionEventStatus(code int) transaction.TxEventStatus {
 	if code >= 400 {
 		return transaction.TxEventStatusFail
 	}
 	return transaction.TxEventStatusPass
 }
 
-func (m *EventMapper) getTransactionSummaryStatus(statusCode int) transaction.TxSummaryStatus {
+func (m *TransactionProcessor) getTransactionSummaryStatus(statusCode int) transaction.TxSummaryStatus {
 	transSummaryStatus := transaction.TxSummaryStatusUnknown
 	if statusCode >= http.StatusOK && statusCode < http.StatusBadRequest {
 		transSummaryStatus = transaction.TxSummaryStatusSuccess
@@ -91,7 +91,7 @@ func (m *EventMapper) getTransactionSummaryStatus(statusCode int) transaction.Tx
 	return transSummaryStatus
 }
 
-func (m *EventMapper) buildHeaders(headers map[string]string) string {
+func (m *TransactionProcessor) buildHeaders(headers map[string]string) string {
 	jsonHeader, err := json.Marshal(headers)
 	if err != nil {
 		log.Error(err.Error())
@@ -100,7 +100,7 @@ func (m *EventMapper) buildHeaders(headers map[string]string) string {
 	return string(jsonHeader)
 }
 
-func (m *EventMapper) buildSSLInfoIfAvailable(ktle KongTrafficLogEntry) (string, string, string) {
+func (m *TransactionProcessor) buildSSLInfoIfAvailable(ktle TrafficLogEntry) (string, string, string) {
 	if ktle.Request.TLS != nil {
 		return ktle.Request.TLS.Version,
 			ktle.Request.URL,
@@ -109,7 +109,7 @@ func (m *EventMapper) buildSSLInfoIfAvailable(ktle KongTrafficLogEntry) (string,
 	return "", "", ""
 }
 
-func (m *EventMapper) processQueryArgs(args map[string]string) string {
+func (m *TransactionProcessor) processQueryArgs(args map[string]string) string {
 	b := new(bytes.Buffer)
 	for key, value := range args {
 		fmt.Fprintf(b, "%s=\"%s\",", key, value)
@@ -117,7 +117,7 @@ func (m *EventMapper) processQueryArgs(args map[string]string) string {
 	return b.String()
 }
 
-func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid string) (*transaction.LogEvent, error) {
+func (m *TransactionProcessor) createTransactionEvent(ktle TrafficLogEntry, txnid string) (*transaction.LogEvent, error) {
 
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
 		SetURI(ktle.Request.URI).
@@ -151,22 +151,16 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid str
 		Build()
 }
 
-func (m *EventMapper) createSummaryEvent(ktle KongTrafficLogEntry, teamID string, txnid string) (*transaction.LogEvent, error) {
+func (m *TransactionProcessor) createSummaryEvent(ktle TrafficLogEntry, teamID string, txnid string) (*transaction.LogEvent, error) {
 
 	builder := transaction.NewTransactionSummaryBuilder().
 		SetTimestamp(ktle.StartedAt).
 		SetTransactionID(txnid).
-		SetStatus(m.getTransactionSummaryStatus(ktle.Response.Status),
-			strconv.Itoa(ktle.Response.Status)).
+		SetStatus(m.getTransactionSummaryStatus(ktle.Response.Status), strconv.Itoa(ktle.Response.Status)).
 		SetTeam(teamID).
-		SetEntryPoint(ktle.Service.Protocol,
-			ktle.Request.Method,
-			ktle.Request.URI,
-			ktle.Request.URL).
+		SetEntryPoint(ktle.Service.Protocol, ktle.Request.Method, ktle.Request.URI, ktle.Request.URL).
 		SetDuration(ktle.Latencies.Request).
-		SetProxy(sdkUtil.FormatProxyID(ktle.Route.ID),
-			ktle.Service.Name,
-			1)
+		SetProxy(sdkUtil.FormatProxyID(ktle.Route.ID), ktle.Service.Name, 1)
 
 	if ktle.Consumer != nil {
 		builder.SetApplication(sdkUtil.FormatApplicationID(ktle.Consumer.ID), ktle.Consumer.Username)
