@@ -19,15 +19,14 @@ import (
 )
 
 type httpLogBeater struct {
-	done   chan struct{}
 	client beat.Client
 	logger log.FieldLogger
+	server http.Server
 }
 
 // New creates an instance of kong_traceability_agent.
 func New(*beat.Beat, *common.Config) (beat.Beater, error) {
 	b := &httpLogBeater{
-		done:   make(chan struct{}),
 		logger: log.NewFieldLogger().WithComponent("httpLogBeater").WithPackage("beater"),
 	}
 
@@ -50,56 +49,45 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 		return err
 	}
 
-	http.HandleFunc(config.GetAgentConfig().HttpLogPluginConfig.Path,
-		func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
-				b.logger.Trace("received a non post request")
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
+	mux := http.NewServeMux()
+	mux.HandleFunc(config.GetAgentConfig().HttpLogPluginConfig.Path, b.HandleHello)
 
-			// http://10.129.216.201.nip.io:9000/requestlogs
+	// other handlers can be assigned to separate paths
+	b.server := http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port)}
+	b.logger.Fatal(b.server.ListenAndServe())
 
-			ctx := context.WithValue(context.Background(), processor.CtxTransactionID, uuid.NewString())
-			logData, err := io.ReadAll(r.Body)
-			defer r.Body.Close()
-
-			if err != nil {
-				b.logger.WithError(err).Error("reading request body")
-			}
-
-			w.WriteHeader(200)
-
-			eventProcessor, err := processor.NewEventProcessor(ctx, logData)
-			if err == nil {
-				go b.process(eventProcessor)
-			}
-		},
-	)
-
-	/* Start a new HTTP server in a separate Go routine that will be the target
-	   for the HTTP Log plugin. It should write events it gets to eventChannel */
-	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port), nil)
-		if err != nil {
-			b.logger.WithError(err).Fatalf("unable to start the HTTP Server")
-		}
-		b.logger.WithField("port", config.GetAgentConfig().HttpLogPluginConfig.Port).WithField("path", config.GetAgentConfig().HttpLogPluginConfig.Path).Info("started HTTP server")
-	}()
-
-	<-b.done
 	return nil
+}
+
+func (b *httpLogBeater) HandleHello(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		b.logger.Trace("received a non post request")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	w.WriteHeader(200)
+
+	logData, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		b.logger.WithError(err).Error("reading request body")
+		return
+	}
+
+	go func(data []byte) {
+		ctx := context.WithValue(context.Background(), processor.CtxTransactionID, uuid.NewString())
+
+		eventProcessor, err := processor.NewEventsHandler(ctx, data)
+		if err == nil {
+			eventsToPublish, err := eventProcessor.Handle()
+			if err == nil {
+				b.client.PublishAll(eventsToPublish)
+			}
+		}
+	}(logData)
 }
 
 // Stop stops kong_traceability_agent.
 func (b *httpLogBeater) Stop() {
-	b.client.Close()
-	close(b.done)
-}
-
-func (b *httpLogBeater) process(eventProcessor *processor.EventProcessor) {
-	eventsToPublish, err := eventProcessor.Process()
-	if err == nil {
-		b.client.PublishAll(eventsToPublish)
-	}
+	b.server.Shutdown(context.Background())
 }
