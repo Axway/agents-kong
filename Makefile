@@ -57,7 +57,7 @@ ${WORKSPACE}/traceability_agent:
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.SDKBuildVersion=$(sdk_version)' \
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentName=KongTraceabilityAgent' \
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentDescription=Kong Traceability Agent'" \
-		-a -o ${WORKSPACE}/bin/traceability_agent ${WORKSPACE}/pkg/main/traceability/main.go
+		-a -o ${WORKSPACE}/bin/traceability_agent ${WORKSPACE}/pkg/traceability/main.go
 
 build-ta: dep ${WORKSPACE}/traceability_agent
 	@echo "Traceability Agent build completed"

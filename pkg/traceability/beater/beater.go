@@ -14,8 +14,8 @@ import (
 	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
-	config "github.com/Axway/agents-kong/pkg/config/traceability"
-	"github.com/Axway/agents-kong/pkg/processor"
+	"github.com/Axway/agents-kong/pkg/traceability/config"
+	"github.com/Axway/agents-kong/pkg/traceability/processor"
 )
 
 type httpLogBeater struct {
@@ -53,7 +53,7 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 	mux.HandleFunc(config.GetAgentConfig().HttpLogPluginConfig.Path, b.HandleHello)
 
 	// other handlers can be assigned to separate paths
-	b.server := http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port)}
+	b.server = http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port)}
 	b.logger.Fatal(b.server.ListenAndServe())
 
 	return nil

@@ -7,8 +7,8 @@ import (
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 
-	"github.com/Axway/agents-kong/pkg/beater"
-	config "github.com/Axway/agents-kong/pkg/config/traceability"
+	"github.com/Axway/agents-kong/pkg/traceability/beater"
+	"github.com/Axway/agents-kong/pkg/traceability/config"
 )
 
 var TraceCmd corecmd.AgentRootCmd
