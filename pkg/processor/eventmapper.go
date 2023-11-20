@@ -2,6 +2,7 @@ package processor
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,45 +16,53 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util/log"
 )
 
-// EventMapper -
-type EventMapper struct {
-}
-
 const (
-	host          = "host"
-	userAgent     = "user-agent"
-	redactedValue = "****************************"
+	host      = "host"
+	userAgent = "user-agent"
+	leg0      = "leg0"
+	inbound   = "inbound"
 )
 
-func (m *EventMapper) processMapping(kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
+// EventMapper -
+type EventMapper struct {
+	logger log.FieldLogger
+}
+
+func NewEventMapper() *EventMapper {
+	return &EventMapper{
+		logger: log.NewFieldLogger().WithComponent("eventMapper").WithPackage("processor"),
+	}
+}
+
+func (m *EventMapper) processMapping(ctx context.Context, kongTrafficLogEntry KongTrafficLogEntry) ([]*transaction.LogEvent, error) {
+	log := log.UpdateLoggerWithContext(ctx, m.logger)
 	centralCfg := agent.GetCentralConfig()
 	txnID := uuid.New().String()
 
 	transactionLegEvent, err := m.createTransactionEvent(kongTrafficLogEntry, txnID)
 	if err != nil {
-		log.Errorf("Error while building transaction leg event: %s", err)
+		log.WithError(err).Error("building transaction leg event")
 		return nil, err
 	}
 
 	jTransactionLegEvent, err := json.Marshal(transactionLegEvent)
 	if err != nil {
-		log.Errorf("Failed to serialize transaction leg event as json: %s", err)
+		log.WithError(err).Error("serialize transaction leg event")
 	}
 
-	log.Debug("Generated Transaction leg event: ", string(jTransactionLegEvent))
+	log.WithField("leg", string(jTransactionLegEvent)).Debug("generated transaction leg event")
 
 	transSummaryLogEvent, err := m.createSummaryEvent(kongTrafficLogEntry, centralCfg.GetTeamID(), txnID)
 	if err != nil {
-		log.Errorf("Error while building transaction summary event: %s", err)
+		log.WithError(err).Error("building transaction summary event")
 		return nil, err
 	}
 
 	jTransactionSummary, err := json.Marshal(transSummaryLogEvent)
 	if err != nil {
-		log.Errorf("Failed to serialize transaction summary as json: %s", err)
+		log.WithError(err).Error("serialize transaction summary event")
 	}
-
-	log.Debug("Generated Transaction summary event: ", string(jTransactionSummary))
+	log.WithField("summary", string(jTransactionSummary)).Debug("generated transaction summary event")
 
 	return []*transaction.LogEvent{
 		transSummaryLogEvent,
@@ -81,10 +90,6 @@ func (m *EventMapper) getTransactionSummaryStatus(statusCode int) transaction.Tx
 }
 
 func (m *EventMapper) buildHeaders(headers map[string]string) string {
-	if headers["apikey"] != "" {
-		headers["apikey"] = redactedValue
-	}
-
 	jsonHeader, err := json.Marshal(headers)
 	if err != nil {
 		log.Error(err.Error())
@@ -134,12 +139,11 @@ func (m *EventMapper) createTransactionEvent(ktle KongTrafficLogEntry, txnid str
 	return transaction.NewTransactionEventBuilder().
 		SetTimestamp(ktle.StartedAt).
 		SetTransactionID(txnid).
-		SetID("leg0").
-		SetParentID("").
+		SetID(leg0).
 		SetSource(ktle.ClientIP).
 		SetDestination(ktle.Request.Headers[host]).
 		SetDuration(ktle.Latencies.Request).
-		SetDirection("inbound").
+		SetDirection(inbound).
 		SetStatus(m.getTransactionEventStatus(ktle.Response.Status)).
 		SetProtocolDetail(httpProtocolDetails).
 		Build()

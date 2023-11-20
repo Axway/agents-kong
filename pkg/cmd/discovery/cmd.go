@@ -6,23 +6,13 @@ import (
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
+
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 	"github.com/Axway/agents-kong/pkg/gateway"
 )
 
 var DiscoveryCmd corecmd.AgentRootCmd
 var agentConfig config.AgentConfig
-
-const (
-	cfgKongAdminURL          = "kong.admin.url"
-	cfgKongAdminAPIKey       = "kong.admin.auth.apikey.value"
-	cfgKongAdminAPIKeyHeader = "kong.admin.auth.apikey.header"
-	cfgKongProxyHost         = "kong.proxy.host"
-	cfgKongProxyPortHttp     = "kong.proxy.port.http"
-	cfgKongProxyPortHttps    = "kong.proxy.port.https"
-	cfgKongSpecURLPaths      = "kong.spec.urlPaths"
-	cfgKongSpecLocalPath     = "kong.spec.localPath"
-)
 
 func init() {
 	// Create new root command with callbacks to initialize the agent config and command execution.
@@ -37,14 +27,7 @@ func init() {
 
 	// Get the root command properties and bind the config property in YAML definition
 	rootProps := DiscoveryCmd.GetProperties()
-	rootProps.AddStringProperty(cfgKongAdminURL, "", "The Kong admin endpoint")
-	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
-	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
-	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
-	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
-	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
-	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
-	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
+	config.AddKongProperties(rootProps)
 }
 
 // Callback that agent will call to process the execution
@@ -80,33 +63,9 @@ func run() error {
 func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := DiscoveryCmd.GetProperties()
 
-	// Parse the config from bound properties and setup gateway config
-	gatewayConfig := &config.KongGatewayConfig{
-		Admin: config.KongAdminConfig{
-			URL: rootProps.StringPropertyValue(cfgKongAdminURL),
-			Auth: config.KongAdminAuthConfig{
-				APIKey: config.KongAdminAuthAPIKeyConfig{
-					Value:  rootProps.StringPropertyValue(cfgKongAdminAPIKey),
-					Header: rootProps.StringPropertyValue(cfgKongAdminAPIKeyHeader),
-				},
-			},
-		},
-		Proxy: config.KongProxyConfig{
-			Host: rootProps.StringPropertyValue(cfgKongProxyHost),
-			Port: config.KongProxyPortConfig{
-				HTTP:  rootProps.IntPropertyValue(cfgKongProxyPortHttp),
-				HTTPS: rootProps.IntPropertyValue(cfgKongProxyPortHttps),
-			},
-		},
-		Spec: config.KongSpecConfig{
-			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
-			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
-		},
-	}
-
 	agentConfig = config.AgentConfig{
 		CentralCfg:     centralConfig,
-		KongGatewayCfg: gatewayConfig,
+		KongGatewayCfg: config.ParseProperties(rootProps),
 	}
 	return agentConfig, nil
 }

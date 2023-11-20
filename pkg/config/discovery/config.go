@@ -3,8 +3,31 @@ package config
 import (
 	"fmt"
 
+	"github.com/Axway/agent-sdk/pkg/cmd/properties"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 )
+
+const (
+	cfgKongAdminURL          = "kong.admin.url"
+	cfgKongAdminAPIKey       = "kong.admin.auth.apikey.value"
+	cfgKongAdminAPIKeyHeader = "kong.admin.auth.apikey.header"
+	cfgKongProxyHost         = "kong.proxy.host"
+	cfgKongProxyPortHttp     = "kong.proxy.port.http"
+	cfgKongProxyPortHttps    = "kong.proxy.port.https"
+	cfgKongSpecURLPaths      = "kong.spec.urlPaths"
+	cfgKongSpecLocalPath     = "kong.spec.localPath"
+)
+
+func AddKongProperties(rootProps properties.Properties) {
+	rootProps.AddStringProperty(cfgKongAdminURL, "", "The Kong admin endpoint")
+	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
+	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
+	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
+	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
+	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
+	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
+	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
+}
 
 // AgentConfig - represents the config for agent
 type AgentConfig struct {
@@ -61,4 +84,30 @@ func (c *KongGatewayConfig) ValidateCfg() (err error) {
 		return fmt.Errorf("error: at least one proxy port value of either http or https is required")
 	}
 	return
+}
+
+func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
+	// Parse the config from bound properties and setup gateway config
+	return &KongGatewayConfig{
+		Admin: KongAdminConfig{
+			URL: rootProps.StringPropertyValue(cfgKongAdminURL),
+			Auth: KongAdminAuthConfig{
+				APIKey: KongAdminAuthAPIKeyConfig{
+					Value:  rootProps.StringPropertyValue(cfgKongAdminAPIKey),
+					Header: rootProps.StringPropertyValue(cfgKongAdminAPIKeyHeader),
+				},
+			},
+		},
+		Proxy: KongProxyConfig{
+			Host: rootProps.StringPropertyValue(cfgKongProxyHost),
+			Port: KongProxyPortConfig{
+				HTTP:  rootProps.IntPropertyValue(cfgKongProxyPortHttp),
+				HTTPS: rootProps.IntPropertyValue(cfgKongProxyPortHttps),
+			},
+		},
+		Spec: KongSpecConfig{
+			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
+			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+		},
+	}
 }
