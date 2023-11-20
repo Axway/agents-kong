@@ -21,7 +21,6 @@ kong_traceability_agent:
     agentName: ${CENTRAL_AGENTNAME:""}
     platformURL: ${CENTRAL_PLATFORMURL:https://platform.axway.com}
     reportActivityFrequency: ${CENTRAL_REPORTACTIVITYFREQUENCY:5m}
-    versionChecker: ${CENTRAL_VERSIONCHECKER:true}
     usageReporting:
       publish: ${CENTRAL_USAGEREPORTING_PUBLISH}
       publishMetric: ${CENTRAL_USAGEREPORTING_PUBLISHMETRIC}
