@@ -22,10 +22,11 @@ import (
 	klib "github.com/kong/go-kong/kong"
 )
 
-const (
-	ardCtx log.ContextField = "accessRequestDefinition"
-	crdCtx log.ContextField = "credentialRequestDefinition"
-)
+var kongToCRDMapper = map[string]string{
+	"basic-auth": provisioning.BasicAuthCRD,
+	"key-auth":   provisioning.APIKeyCRD,
+	"oauth2":     provisioning.OAuthSecretCRD,
+}
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	kongGatewayConfig := agentConfig.KongGatewayCfg
@@ -69,44 +70,6 @@ func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
 	return fmt.Errorf("failed to find acl plugin is enabled and installed")
 }
 
-func (gc *Client) createRequestDefinitions(ctx context.Context) (context.Context, error) {
-	gc.logger.Debug("creating request definitions")
-	ctx = gc.createAccessRequestDefinition(ctx)
-	return gc.createCredentialRequestDefinition(ctx)
-}
-
-func (gc *Client) createAccessRequestDefinition(ctx context.Context) context.Context {
-	return context.WithValue(ctx, ardCtx, true)
-}
-
-func (gc *Client) createCredentialRequestDefinition(ctx context.Context) (context.Context, error) {
-	ctx = context.WithValue(ctx, crdCtx, []string{})
-	allPlugins, err := gc.plugins.ListAll(context.Background())
-	if err != nil {
-		gc.logger.WithError(err).Error("failed list all available plugins")
-		return ctx, err
-	}
-
-	uniqueCrds := map[string]string{}
-	for _, plugin := range allPlugins {
-		if isValidAuthTypeAndEnabled(plugin) {
-			uniqueCrds[*plugin.Name] = *plugin.Name
-		}
-	}
-	kongToCRDMapper := map[string]string{
-		"basic-auth": provisioning.BasicAuthCRD,
-		"key-auth":   provisioning.APIKeyCRD,
-		"oauth2":     provisioning.OAuthSecretCRD,
-	}
-
-	for _, crd := range uniqueCrds {
-		if toAdd, ok := kongToCRDMapper[crd]; ok {
-			ctx = context.WithValue(ctx, crdCtx, append(ctx.Value(crdCtx).([]string), toAdd))
-		}
-	}
-	return ctx, nil
-}
-
 func (gc *Client) DiscoverAPIs() error {
 	gc.logger.Info("execute discovery process")
 
@@ -115,9 +78,6 @@ func (gc *Client) DiscoverAPIs() error {
 
 	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 	gc.plugins = plugins
-	if ctx, err = gc.createRequestDefinitions(ctx); err != nil {
-		return err
-	}
 
 	services, err := gc.kongClient.ListServices(ctx)
 	if err != nil {
@@ -261,10 +221,13 @@ func (gc *Client) processKongAPI(
 		gc.logger.WithError(err).Error("failed to save api to cache")
 	}
 
-	if ctx.Value(ardCtx) != nil {
-		kongAPI.ard = provisioning.APIKeyARD
+	kongAPI.ard = provisioning.APIKeyARD
+	kongAPI.crds = []string{}
+	for k := range apiPlugins {
+		if crd, ok := kongToCRDMapper[k]; ok {
+			kongAPI.crds = append(kongAPI.crds, crd)
+		}
 	}
-	kongAPI.crds = ctx.Value(crdCtx).([]string)
 
 	agentDetails := map[string]string{
 		common.AttrServiceId: *service.ID,

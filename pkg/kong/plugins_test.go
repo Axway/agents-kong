@@ -10,14 +10,17 @@ import (
 
 type pluginsMock []*klib.Plugin
 
+var truePlugin = true
+
 func (pm pluginsMock) ListAll(_ context.Context) ([]*klib.Plugin, error) {
 	return pm, nil
 }
 
 func p(id, name string) *klib.Plugin {
 	return &klib.Plugin{
-		ID:   &id,
-		Name: &name,
+		ID:      &id,
+		Name:    &name,
+		Enabled: &truePlugin,
 	}
 }
 
@@ -28,6 +31,7 @@ func pwr(id, name, routeID string) *klib.Plugin {
 		Route: &klib.Route{
 			ID: &routeID,
 		},
+		Enabled: &truePlugin,
 	}
 }
 
@@ -38,6 +42,7 @@ func pws(id, name, serviceID string) *klib.Plugin {
 		Service: &klib.Service{
 			ID: &serviceID,
 		},
+		Enabled: &truePlugin,
 	}
 }
 
@@ -51,6 +56,7 @@ func pwrs(id, name, routeID, serviceID string) *klib.Plugin {
 		Service: &klib.Service{
 			ID: &serviceID,
 		},
+		Enabled: &truePlugin,
 	}
 }
 
