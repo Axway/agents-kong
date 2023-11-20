@@ -101,7 +101,7 @@ func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisio
 	rs := provisioning.NewRequestStatusBuilder()
 	credentialType := p.request.GetCredentialType()
 	p.logger.WithField("consumerID", consumerID)
-	p.logger.Debug("Started credential provisioning")
+	p.logger.Info("Started credential provisioning")
 
 	switch credentialType {
 	case provisioning.APIKeyARD:
