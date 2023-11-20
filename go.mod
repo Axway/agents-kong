@@ -3,7 +3,7 @@ module github.com/Axway/agents-kong
 go 1.18
 
 require (
-	github.com/Axway/agent-sdk v1.1.68-0.20231116210026-fce49f0ecc47
+	github.com/Axway/agent-sdk v1.1.68-0.20231120204404-5fa2c5b231e1
 	github.com/elastic/beats/v7 v7.17.15
 	github.com/google/uuid v1.3.1
 	github.com/kong/go-kong v0.47.0
