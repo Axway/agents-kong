@@ -62,7 +62,8 @@ func (p *Plugins) GetEffectivePlugins(routeID, serviceID string) (map[string]*kl
 
 	for _, plugin := range plugins {
 		if (plugin.Route != nil && (plugin.Route.ID == nil || *plugin.Route.ID != routeID)) ||
-			(plugin.Service != nil && (plugin.Service.ID == nil || *plugin.Service.ID != serviceID)) {
+			(plugin.Service != nil && (plugin.Service.ID == nil || *plugin.Service.ID != serviceID)) ||
+			!*plugin.Enabled {
 			continue
 		}
 

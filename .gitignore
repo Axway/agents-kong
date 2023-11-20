@@ -21,8 +21,8 @@ bin/
 .run/
 *.log
 
-/kong_discovery_agent.yml
-/kong_traceability_agent.yml
+**/kong_discovery_agent.yml
+**/kong_traceability_agent.yml
 
 specs/
 data/
@@ -32,4 +32,4 @@ secret.yaml
 overrides.yaml
 configmap.yaml
 
-__debug_bin*
+**/__debug_bin*
