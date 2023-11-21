@@ -50,7 +50,7 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(config.GetAgentConfig().HttpLogPluginConfig.Path, b.HandleHello)
+	mux.HandleFunc(config.GetAgentConfig().HttpLogPluginConfig.Path, b.HandleEvent)
 
 	// other handlers can be assigned to separate paths
 	b.server = http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port)}
@@ -59,7 +59,7 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 	return nil
 }
 
-func (b *httpLogBeater) HandleHello(w http.ResponseWriter, r *http.Request) {
+func (b *httpLogBeater) HandleEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		b.logger.Trace("received a non post request")
 		w.WriteHeader(http.StatusMethodNotAllowed)
