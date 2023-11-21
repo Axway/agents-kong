@@ -3,6 +3,7 @@ package kong
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,20 +56,23 @@ type KongClient struct {
 }
 
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
-	if kongConfig.Admin.Auth.APIKey.Value != "" {
-		defaultTransport := http.DefaultTransport.(*http.Transport)
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		baseClient.Transport = defaultTransport
+	headers := make(http.Header)
+	defaultTransport := http.DefaultTransport.(*http.Transport)
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	baseClient.Transport = defaultTransport
+	kongSecuredEndpoint := fmt.Sprintf("https://%s:%d/%s", kongConfig.Proxy.Host, kongConfig.Proxy.Port.HTTPS, strings.TrimPrefix(kongConfig.Admin.RoutePath, "/"))
 
-		headers := make(http.Header)
+	if kongConfig.Admin.Auth.APIKey.Value != "" {
 		headers.Set(kongConfig.Admin.Auth.APIKey.Header, kongConfig.Admin.Auth.APIKey.Value)
-		client := klib.HTTPClientWithHeaders(baseClient, headers)
-		baseClient = client
 	}
+	if kongConfig.Admin.Auth.BasicAuth.Username != "" {
+		headers.Set("Authorization", "Basic "+basicAuth(kongConfig.Admin.Auth.BasicAuth.Username, kongConfig.Admin.Auth.BasicAuth.Password))
+	}
+	headers.Set("Host", kongConfig.Proxy.Host)
+	baseClient = klib.HTTPClientWithHeaders(baseClient, headers)
 
 	logger := log.NewFieldLogger().WithComponent("client").WithPackage("kong")
-
-	baseKongClient, err := klib.NewClient(&kongConfig.Admin.URL, baseClient)
+	baseKongClient, err := klib.NewClient(&kongSecuredEndpoint, baseClient)
 	if err != nil {
 		logger.WithError(err).Error("failed to create kong client")
 		return nil, err
@@ -77,7 +81,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		Client:            baseKongClient,
 		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:        baseClient,
-		kongAdminEndpoint: kongConfig.Admin.URL,
+		kongAdminEndpoint: kongSecuredEndpoint,
 		specURLPaths:      kongConfig.Spec.URLPaths,
 		specLocalPath:     kongConfig.Spec.LocalPath,
 		clientTimeout:     60 * time.Second,
@@ -216,4 +220,9 @@ func (k KongClient) getSpec(ctx context.Context, endpoint string) ([]byte, error
 
 func (k KongClient) GetKongPlugins() *Plugins {
 	return &Plugins{PluginLister: k.Plugins}
+}
+
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
