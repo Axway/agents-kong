@@ -33,7 +33,7 @@ type TransactionProcessor struct {
 	event          TrafficLogEntry
 }
 
-func NewTransactionProcessor(ctx context.Context, entry TrafficLogEntry) (*TransactionProcessor, bool) {
+func NewTransactionProcessor(ctx context.Context, entry TrafficLogEntry) *TransactionProcessor {
 	p := &TransactionProcessor{
 		ctx:            ctx,
 		logger:         log.NewLoggerFromContext(ctx).WithComponent("eventMapper").WithPackage("processor"),
@@ -41,7 +41,9 @@ func NewTransactionProcessor(ctx context.Context, entry TrafficLogEntry) (*Trans
 		event:          entry,
 	}
 
-	return p, true
+	p.eventGenerator.SetUseTrafficForAggregation(false)
+
+	return p
 }
 
 func (m *TransactionProcessor) process() ([]beat.Event, error) {
@@ -54,6 +56,11 @@ func (m *TransactionProcessor) process() ([]beat.Event, error) {
 		m.logger.WithError(err).Error("building transaction leg event")
 		return nil, err
 	}
+	legEvent, err := m.eventGenerator.CreateEvent(*transactionLogEvent, time.Unix(m.event.StartedAt, 0), nil, nil, nil)
+	if err != nil {
+		m.logger.WithError(err).Error("creating transaction leg event")
+		return nil, err
+	}
 
 	// summary
 	summaryLogEvent, err := m.createSummaryEvent(m.event, centralCfg.GetTeamID(), txnID)
@@ -61,15 +68,13 @@ func (m *TransactionProcessor) process() ([]beat.Event, error) {
 		m.logger.WithError(err).Error("building transaction summary event")
 		return nil, err
 	}
-
-	// create Central log events
-	events, err := m.eventGenerator.CreateEvents(*summaryLogEvent, []transaction.LogEvent{*transactionLogEvent}, time.Unix(m.event.StartedAt, 0), nil, nil, nil)
+	summaryEvent, err := m.eventGenerator.CreateEvent(*summaryLogEvent, time.Unix(m.event.StartedAt, 0), nil, nil, nil)
 	if err != nil {
-		m.logger.WithError(err).Error("building Central events")
+		m.logger.WithError(err).Error("creating transaction summary event")
 		return nil, err
 	}
 
-	return events, nil
+	return []beat.Event{summaryEvent, legEvent}, nil
 }
 
 func (m *TransactionProcessor) getTransactionEventStatus(code int) transaction.TxEventStatus {
@@ -160,6 +165,7 @@ func (m *TransactionProcessor) createSummaryEvent(ktle TrafficLogEntry, teamID s
 		SetTeam(teamID).
 		SetEntryPoint(ktle.Service.Protocol, ktle.Request.Method, ktle.Request.URI, ktle.Request.URL).
 		SetDuration(ktle.Latencies.Request).
+		// TODO: APIGOV-26720 - service ID should be the API ID and Route should be the Stage
 		SetProxy(sdkUtil.FormatProxyID(ktle.Route.ID), ktle.Service.Name, 1)
 
 	if ktle.Consumer != nil {

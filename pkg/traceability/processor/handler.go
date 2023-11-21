@@ -12,14 +12,16 @@ import (
 type EventsHandler struct {
 	ctx        context.Context
 	logger     log.FieldLogger
+	metrics    MetricsProcessor
 	logEntries []TrafficLogEntry
 }
 
 // NewEventsHandler - return a new EventProcessor
 func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, error) {
 	p := &EventsHandler{
-		ctx:    ctx,
-		logger: log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
+		ctx:     ctx,
+		logger:  log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
+		metrics: NewMetricsProcessor(ctx),
 	}
 
 	err := json.Unmarshal(logData, &p.logEntries)
@@ -37,16 +39,31 @@ func (p *EventsHandler) Handle() ([]beat.Event, error) {
 	p.logger.WithField("numEvents", len(p.logEntries)).Info("handling events in request")
 
 	for i, entry := range p.logEntries {
-		log := p.logger.WithField(string(ctxEntryIndex), i)
-		processor, _ := NewTransactionProcessor(context.WithValue(p.ctx, ctxEntryIndex, i), entry)
+		ctx := context.WithValue(p.ctx, ctxEntryIndex, i)
 
-		// Map the log entry to log event structure expected by AMPLIFY Central Observer
-		newEvents, err := processor.process()
+		sample, err := p.metrics.process(entry)
 		if err != nil {
-			log.WithError(err).Error("creating event")
+			p.logger.WithError(err).Error("handling event for metric")
 			continue
 		}
-		events = append(events, newEvents...)
+		if !sample {
+			continue
+		}
+
+		// Map the log entry to log event structure expected by AMPLIFY Central Observer
+		events = append(events, p.handleTransaction(ctx, entry)...)
 	}
+
 	return events, nil
+}
+
+func (p *EventsHandler) handleTransaction(ctx context.Context, entry TrafficLogEntry) []beat.Event {
+	log := p.logger.WithField(string(ctxEntryIndex), ctx.Value(ctxEntryIndex))
+
+	newEvents, err := NewTransactionProcessor(ctx, entry).process()
+	if err != nil {
+		log.WithError(err).Error("creating transaction event")
+		return []beat.Event{}
+	}
+	return newEvents
 }
