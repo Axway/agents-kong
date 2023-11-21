@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -21,23 +22,27 @@ import (
 type EventProcessor struct {
 	eventGenerator transaction.EventGenerator
 	eventMapper    *EventMapper
+	logger         log.FieldLogger
 }
 
 // NewEventProcessor - return a new EventProcessor
 func NewEventProcessor() *EventProcessor {
 	ep := &EventProcessor{
 		eventGenerator: transaction.NewEventGenerator(),
-		eventMapper:    &EventMapper{},
+		eventMapper:    NewEventMapper(),
+		logger:         log.NewFieldLogger().WithComponent("eventProcessor").WithPackage("processor"),
 	}
 	return ep
 }
 
 // ProcessRaw - process the received log entry and returns the event to be published to AMPLIFY ingestion service
-func (p *EventProcessor) ProcessRaw(rawEventData []byte) []beat.Event {
+func (p *EventProcessor) ProcessRaw(ctx context.Context, rawEventData []byte) []beat.Event {
+	log := log.UpdateLoggerWithContext(ctx, p.logger)
+
 	var kongTrafficLogEntry KongTrafficLogEntry
 	err := json.Unmarshal(rawEventData, &kongTrafficLogEntry)
 	if err != nil {
-		log.Error(err.Error())
+		log.WithError(err).Error("could not read log data")
 		return nil
 	}
 
@@ -47,9 +52,9 @@ func (p *EventProcessor) ProcessRaw(rawEventData []byte) []beat.Event {
 	}
 
 	// Map the log entry to log event structure expected by AMPLIFY Central Observer
-	logEvents, err := p.eventMapper.processMapping(kongTrafficLogEntry)
+	logEvents, err := p.eventMapper.processMapping(ctx, kongTrafficLogEntry)
 	if err != nil {
-		log.Error(err.Error())
+		log.WithError(err).Error("mapping event")
 		return nil
 	}
 	events := make([]beat.Event, 0)
@@ -57,7 +62,7 @@ func (p *EventProcessor) ProcessRaw(rawEventData []byte) []beat.Event {
 		// Generates the beat.Event with attributes by AMPLIFY ingestion service
 		event, err := p.eventGenerator.CreateEvent(*logEvent, time.Now(), nil, nil, nil)
 		if err != nil {
-			log.Error(err.Error())
+			log.WithError(err).Error("creating event")
 		} else {
 			events = append(events, event)
 		}

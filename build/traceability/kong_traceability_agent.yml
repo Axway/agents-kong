@@ -7,9 +7,9 @@ kong_traceability_agent:
         apikey:
           header: ${KONG_ADMIN_AUTH_APIKEY_HEADER}
           value: ${KONG_ADMIN_AUTH_APIKEY_VALUE}
-    http_log_plugin_config:
-      path: ${KONG_LOGS_HTTP_SERVER_PATH}
-      port: ${KONG_LOGS_HTTP_SERVER_PORT}
+    httpLogPlugin:
+      path: ${KONG_HTTPLOGPLUGIN_PATH}
+      port: ${KONG_HTTPLOGPLUGIN_PORT}
   # Settings for connecting to Amplify Central
   central:
     url: ${CENTRAL_URL:https://apicentral.axway.com}
@@ -21,7 +21,6 @@ kong_traceability_agent:
     agentName: ${CENTRAL_AGENTNAME:""}
     platformURL: ${CENTRAL_PLATFORMURL:https://platform.axway.com}
     reportActivityFrequency: ${CENTRAL_REPORTACTIVITYFREQUENCY:5m}
-    versionChecker: ${CENTRAL_VERSIONCHECKER:true}
     usageReporting:
       publish: ${CENTRAL_USAGEREPORTING_PUBLISH}
       publishMetric: ${CENTRAL_USAGEREPORTING_PUBLISHMETRIC}
@@ -49,8 +48,25 @@ kong_traceability_agent:
       port: ${CENTRAL_GRPC_PORT}
     proxyUrl: ${CENTRAL_PROXYURL:""}
     clientTimeout: ${CENTRAL_CLIENTTIMEOUT:60s}
+  agentFeatures:
+    persistCache: ${AGENTFEATURES_PERSISTCACHE}
+    marketplaceProvisioning: ${AGENTFEATURES_MARKETPLACEPROVISIONING}
+    versionChecker: ${AGENTFEATURES_VERSIONCHECKER}
+    processSystemSignals: ${AGENTFEATURES_PROCESSSYSTEMSIGNALS}
+    connectToCentral: ${AGENTFEATURES_CONNECTTOCENTRAL}
+  status:
+    port: ${STATUS_PORT:8990}
+    healthCheckPeriod: ${STATUS_HEALTHCHECKPERIOD:3m}
+    healthCheckInterval: ${STATUS_HEALTHCHECKINTERVAL:30s}
+  log:
+    level: ${LOG_LEVEL:info}
+    format: ${LOG_FORMAT:json}
+    output: ${LOG_OUTPUT:stdout}
+    file:
+      name: ${LOG_FILE_NAME:traceability_agent.log}
+      path: ${LOG_FILE_PATH:logs}
 
-# Condor Ingestion service
+# Send output to Central Database
 output.traceability:
   enabled: true
   hosts: ${TRACEABILITY_HOST:ingestion.datasearch.axway.com:5044}

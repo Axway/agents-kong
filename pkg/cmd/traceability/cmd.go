@@ -1,12 +1,14 @@
 package traceability
 
 import (
-	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
-	corecfg "github.com/Axway/agent-sdk/pkg/config"
-	"github.com/Axway/agents-kong/pkg/beater"
-	config "github.com/Axway/agents-kong/pkg/config/traceability"
 	libcmd "github.com/elastic/beats/v7/libbeat/cmd"
 	"github.com/elastic/beats/v7/libbeat/cmd/instance"
+
+	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
+	corecfg "github.com/Axway/agent-sdk/pkg/config"
+
+	"github.com/Axway/agents-kong/pkg/beater"
+	config "github.com/Axway/agents-kong/pkg/config/traceability"
 )
 
 var TraceCmd corecmd.AgentRootCmd
@@ -15,8 +17,9 @@ var beatCmd *libcmd.BeatsRootCmd
 func init() {
 	name := "kong_traceability_agent"
 	settings := instance.Settings{
-		Name:          name,
-		HasDashboards: true,
+		Name:            name,
+		HasDashboards:   true,
+		ConfigOverrides: corecfg.LogConfigOverrides(),
 	}
 
 	beatCmd = libcmd.GenRootCmdWithSettings(beater.New, settings)
@@ -33,8 +36,7 @@ func init() {
 	)
 
 	rootProps := TraceCmd.GetProperties()
-	rootProps.AddStringProperty("http_log_plugin_config.path", "/requestlogs", "Path on which the HTTP Log plugin sends request logs")
-	rootProps.AddIntProperty("http_log_plugin_config.port", 9000, "Port that listens for request logs from HTTP Log plugin")
+	config.AddKongProperties(rootProps)
 }
 
 func run() error {
@@ -47,14 +49,9 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 
 	rootProps := TraceCmd.GetProperties()
 
-	httpLogPluginConfig := &config.HttpLogPluginConfig{
-		Port: rootProps.IntPropertyValue("http_log_plugin_config.port"),
-		Path: rootProps.StringPropertyValue("http_log_plugin_config.path"),
-	}
-
 	agentConfig := &config.AgentConfig{
 		CentralCfg:          centralConfig,
-		HttpLogPluginConfig: httpLogPluginConfig,
+		HttpLogPluginConfig: config.ParseProperties(rootProps),
 	}
 
 	config.SetAgentConfig(agentConfig)

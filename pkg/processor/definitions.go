@@ -1,5 +1,15 @@
 package processor
 
+import "github.com/Axway/agent-sdk/pkg/util/log"
+
+const (
+	CtxTransactionID log.ContextField = "transactionID"
+)
+
+func init() {
+	log.RegisterContextField(CtxTransactionID)
+}
+
 // KongTrafficLogEntry - Represents the structure of log entry the agent will receive from Kong's HTTP Log Plugin
 type KongTrafficLogEntry struct {
 	ClientIP    string     `json:"client_ip"`
