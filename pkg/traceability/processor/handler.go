@@ -4,24 +4,27 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/Axway/agent-sdk/pkg/transaction"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/elastic/beats/v7/libbeat/beat"
 )
 
 // EventsHandler -
 type EventsHandler struct {
-	ctx        context.Context
-	logger     log.FieldLogger
-	metrics    MetricsProcessor
-	logEntries []TrafficLogEntry
+	ctx            context.Context
+	logger         log.FieldLogger
+	metrics        MetricsProcessor
+	logEntries     []TrafficLogEntry
+	eventGenerator func() transaction.EventGenerator
 }
 
 // NewEventsHandler - return a new EventProcessor
 func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, error) {
 	p := &EventsHandler{
-		ctx:     ctx,
-		logger:  log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
-		metrics: NewMetricsProcessor(ctx),
+		ctx:            ctx,
+		logger:         log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
+		metrics:        NewMetricsProcessor(ctx),
+		eventGenerator: transaction.NewEventGenerator,
 	}
 
 	err := json.Unmarshal(logData, &p.logEntries)
@@ -34,7 +37,7 @@ func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, erro
 }
 
 // Handle - processes the batch of events from the http request
-func (p *EventsHandler) Handle() ([]beat.Event, error) {
+func (p *EventsHandler) Handle() []beat.Event {
 	events := make([]beat.Event, 0)
 	p.logger.WithField("numEvents", len(p.logEntries)).Info("handling events in request")
 
@@ -54,13 +57,13 @@ func (p *EventsHandler) Handle() ([]beat.Event, error) {
 		events = append(events, p.handleTransaction(ctx, entry)...)
 	}
 
-	return events, nil
+	return events
 }
 
 func (p *EventsHandler) handleTransaction(ctx context.Context, entry TrafficLogEntry) []beat.Event {
 	log := p.logger.WithField(string(ctxEntryIndex), ctx.Value(ctxEntryIndex))
 
-	newEvents, err := NewTransactionProcessor(ctx, entry).process()
+	newEvents, err := NewTransactionProcessor(ctx).setEventGenerator(p.eventGenerator()).setEntry(entry).process()
 	if err != nil {
 		log.WithError(err).Error("creating transaction event")
 		return []beat.Event{}

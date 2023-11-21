@@ -79,10 +79,8 @@ func (b *httpLogBeater) HandleEvent(w http.ResponseWriter, r *http.Request) {
 
 		eventProcessor, err := processor.NewEventsHandler(ctx, data)
 		if err == nil {
-			eventsToPublish, err := eventProcessor.Handle()
-			if err == nil {
-				b.client.PublishAll(eventsToPublish)
-			}
+			eventsToPublish := eventProcessor.Handle()
+			b.client.PublishAll(eventsToPublish)
 		}
 	}(logData)
 }
