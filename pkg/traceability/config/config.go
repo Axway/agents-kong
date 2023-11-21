@@ -1,4 +1,4 @@
-package traceabilityconfig
+package config
 
 import (
 	"github.com/Axway/agent-sdk/pkg/cmd/properties"

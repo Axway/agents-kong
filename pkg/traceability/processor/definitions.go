@@ -4,14 +4,15 @@ import "github.com/Axway/agent-sdk/pkg/util/log"
 
 const (
 	CtxTransactionID log.ContextField = "transactionID"
+	ctxEntryIndex    log.ContextField = "entryIndex"
 )
 
 func init() {
-	log.RegisterContextField(CtxTransactionID)
+	log.RegisterContextField(CtxTransactionID, ctxEntryIndex)
 }
 
-// KongTrafficLogEntry - Represents the structure of log entry the agent will receive from Kong's HTTP Log Plugin
-type KongTrafficLogEntry struct {
+// TrafficLogEntry - Represents the structure of log entry the agent will receive from Kong's HTTP Log Plugin
+type TrafficLogEntry struct {
 	ClientIP    string     `json:"client_ip"`
 	StartedAt   int64      `json:"started_at"`
 	UpstreamURI string     `json:"upstream_uri"`
