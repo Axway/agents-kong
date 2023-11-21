@@ -3,6 +3,7 @@ package kong
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,6 +45,14 @@ type KongAPIClient interface {
 	GetKongPlugins() *Plugins
 }
 
+type KongServiceSpec struct {
+	Contents  string `json:"contents"`
+	CreatedAt int    `json:"created_at"`
+	ID        string `json:"id"`
+	Path      string `json:"path"`
+	Checksum  string `json:"checksum"`
+}
+
 type KongClient struct {
 	*klib.Client
 	logger            log.FieldLogger
@@ -51,6 +60,7 @@ type KongClient struct {
 	kongAdminEndpoint string
 	specURLPaths      []string
 	specLocalPath     string
+	devPortalEnabled  bool
 	clientTimeout     time.Duration
 }
 
@@ -80,6 +90,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 		kongAdminEndpoint: kongConfig.Admin.URL,
 		specURLPaths:      kongConfig.Spec.URLPaths,
 		specLocalPath:     kongConfig.Spec.LocalPath,
+		devPortalEnabled:  kongConfig.Spec.DevPortalEnabled,
 		clientTimeout:     60 * time.Second,
 	}, nil
 }
@@ -100,6 +111,10 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 		return k.getSpecFromLocal(ctx, service)
 	}
 
+	if k.devPortalEnabled {
+		return k.getSpecFromDevPortal(ctx, *service.ID)
+	}
+
 	// all three fields are needed to form the backend URL used in discovery process
 	if service.Protocol == nil && service.Host == nil {
 		err := fmt.Errorf("fields for backend URL are not set")
@@ -116,6 +131,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 
 func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service) ([]byte, error) {
 	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
+	log.Info("getting spec from local storage")
 
 	specTag := ""
 	for _, tag := range service.Tags {
@@ -157,7 +173,44 @@ func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
 	return data, nil
 }
 
+func (k KongClient) getSpecFromDevPortal(ctx context.Context, serviceID string) ([]byte, error) {
+	log := k.logger.WithField("serviceID", serviceID)
+	log.Info("getting spec file from dev portal")
+
+	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceID)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		log.WithError(err).Error("failed to create request")
+		return nil, err
+	}
+	res, err := k.baseClient.Do(req)
+	if err != nil {
+		log.WithError(err).Error("failed to execute request")
+		return nil, err
+	}
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.WithError(err).Error("failed to read body")
+		return nil, err
+	}
+	documents := &DocumentObjects{}
+	err = json.Unmarshal(data, documents)
+	if err != nil {
+		log.WithError(err).Error("failed to unmarshal")
+		return nil, err
+	}
+	if len(documents.Data) < 1 {
+		log.Debug("no documents found")
+		return nil, nil
+	}
+
+	endpoint = fmt.Sprintf("%s/default/files/%s", k.kongAdminEndpoint, documents.Data[0].Path)
+	return k.getSpec(ctx, endpoint, true)
+}
+
 func (k KongClient) getSpecFromBackend(ctx context.Context, backendURL string) ([]byte, error) {
+	k.logger.Info("trying to get spec file from service backend")
+
 	if len(k.specURLPaths) == 0 {
 		k.logger.Info("no spec paths configured")
 		return nil, nil
@@ -166,7 +219,7 @@ func (k KongClient) getSpecFromBackend(ctx context.Context, backendURL string) (
 	for _, specPath := range k.specURLPaths {
 		endpoint := fmt.Sprintf("%s/%s", backendURL, strings.TrimPrefix(specPath, "/"))
 
-		spec, err := k.getSpec(ctx, endpoint)
+		spec, err := k.getSpec(ctx, endpoint, false)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +233,7 @@ func (k KongClient) getSpecFromBackend(ctx context.Context, backendURL string) (
 	return nil, nil
 }
 
-func (k KongClient) getSpec(ctx context.Context, endpoint string) ([]byte, error) {
+func (k KongClient) getSpec(ctx context.Context, endpoint string, fromDevPortal bool) ([]byte, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, k.clientTimeout)
 	defer cancel()
 
@@ -198,10 +251,23 @@ func (k KongClient) getSpec(ctx context.Context, endpoint string) ([]byte, error
 		return nil, nil
 	}
 
-	specContent, err := io.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		k.logger.WithError(err).Error("failed to read body")
 		return nil, err
+	}
+
+	var specContent []byte
+	if fromDevPortal {
+		kongServiceSpec := &KongServiceSpec{}
+		err = json.Unmarshal(data, kongServiceSpec)
+		if err != nil {
+			k.logger.WithError(err).Error("failed to unmarshal")
+			return nil, err
+		}
+		specContent = []byte(kongServiceSpec.Contents)
+	} else {
+		specContent = data
 	}
 
 	specParser := apic.NewSpecResourceParser(specContent, "")

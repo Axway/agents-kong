@@ -60,8 +60,9 @@ type KongProxyPortConfig struct {
 }
 
 type KongSpecConfig struct {
-	URLPaths  []string `config:"urlPaths"`
-	LocalPath string   `config:"localPaths"`
+	URLPaths         []string `config:"urlPaths"`
+	LocalPath        string   `config:"localPath"`
+	DevPortalEnabled bool     `config:"devPortalEnabled"`
 }
 
 // KongGatewayConfig - represents the config for gateway
