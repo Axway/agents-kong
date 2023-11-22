@@ -5,12 +5,11 @@ import (
 	"sync"
 
 	"github.com/Axway/agent-sdk/pkg/transaction/metric"
-	"github.com/Axway/agent-sdk/pkg/transaction/models"
 )
 
 var collector *CollectorMock
 
-func GetMockCollector() metric.Collector {
+func GetMockCollector() *CollectorMock {
 	return collector
 }
 
@@ -23,12 +22,8 @@ type CollectorMock struct {
 	Details []metric.Detail
 }
 
-func (c *CollectorMock) AddMetric(apiDetails models.APIDetails, statusCode string, duration, bytes int64, appName string) {
-}
 func (c *CollectorMock) AddMetricDetail(metricDetail metric.Detail) {
 	fmt.Printf("%v\n", metricDetail)
 	c.Details = append(c.Details, metricDetail)
 	c.Done()
 }
-func (c *CollectorMock) AddAPIMetric(apiMetric *metric.APIMetric) {}
-func (c *CollectorMock) Publish()                                 {}

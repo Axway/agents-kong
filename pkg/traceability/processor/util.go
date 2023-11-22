@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/Axway/agent-sdk/pkg/transaction"
+	"github.com/Axway/agent-sdk/pkg/transaction/metric"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 )
 
@@ -53,4 +54,8 @@ func processQueryArgs(args map[string]string) string {
 		fmt.Fprintf(b, "%s=\"%s\",", key, value)
 	}
 	return b.String()
+}
+
+func getMetricCollector() metricCollector {
+	return metric.GetMetricCollector()
 }

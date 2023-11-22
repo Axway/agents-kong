@@ -16,7 +16,7 @@ import (
 type MetricsProcessor struct {
 	ctx       context.Context
 	logger    log.FieldLogger
-	collector metric.Collector
+	collector metricCollector
 }
 
 func NewMetricsProcessor(ctx context.Context) MetricsProcessor {
@@ -26,7 +26,7 @@ func NewMetricsProcessor(ctx context.Context) MetricsProcessor {
 	}
 }
 
-func (m *MetricsProcessor) setCollector(collector metric.Collector) {
+func (m *MetricsProcessor) setCollector(collector metricCollector) {
 	m.collector = collector
 }
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/Axway/agent-sdk/pkg/transaction"
-	"github.com/Axway/agent-sdk/pkg/transaction/metric"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/elastic/beats/v7/libbeat/beat"
 )
@@ -17,7 +16,7 @@ type EventsHandler struct {
 	metrics         MetricsProcessor
 	logEntries      []TrafficLogEntry
 	eventGenerator  func() transaction.EventGenerator
-	collectorGetter func() metric.Collector
+	collectorGetter func() metricCollector
 }
 
 // NewEventsHandler - return a new EventProcessor
@@ -27,7 +26,7 @@ func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, erro
 		logger:          log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
 		metrics:         NewMetricsProcessor(ctx),
 		eventGenerator:  transaction.NewEventGenerator,
-		collectorGetter: metric.GetMetricCollector,
+		collectorGetter: getMetricCollector,
 	}
 
 	err := json.Unmarshal(logData, &p.logEntries)

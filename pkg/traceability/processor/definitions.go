@@ -1,6 +1,9 @@
 package processor
 
-import "github.com/Axway/agent-sdk/pkg/util/log"
+import (
+	"github.com/Axway/agent-sdk/pkg/transaction/metric"
+	"github.com/Axway/agent-sdk/pkg/util/log"
+)
 
 const (
 	CtxTransactionID log.ContextField = "transactionID"
@@ -94,4 +97,8 @@ type Consumer struct {
 	ID        string   `json:"id"`
 	Tags      []string `json:"tags"`
 	Username  string   `json:"username"`
+}
+
+type metricCollector interface {
+	AddMetricDetail(metricDetail metric.Detail)
 }
