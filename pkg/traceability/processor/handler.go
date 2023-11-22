@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/Axway/agent-sdk/pkg/transaction"
+	"github.com/Axway/agent-sdk/pkg/transaction/metric"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/elastic/beats/v7/libbeat/beat"
 )
@@ -16,6 +17,7 @@ type EventsHandler struct {
 	metrics        MetricsProcessor
 	logEntries     []TrafficLogEntry
 	eventGenerator func() transaction.EventGenerator
+	colletorGetter func() metric.Collector
 }
 
 // NewEventsHandler - return a new EventProcessor
@@ -25,6 +27,7 @@ func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, erro
 		logger:         log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
 		metrics:        NewMetricsProcessor(ctx),
 		eventGenerator: transaction.NewEventGenerator,
+		colletorGetter: metric.GetMetricCollector,
 	}
 
 	err := json.Unmarshal(logData, &p.logEntries)
@@ -41,6 +44,7 @@ func (p *EventsHandler) Handle() []beat.Event {
 	events := make([]beat.Event, 0)
 	p.logger.WithField("numEvents", len(p.logEntries)).Info("handling events in request")
 
+	p.metrics.setCollector(p.colletorGetter())
 	for i, entry := range p.logEntries {
 		ctx := context.WithValue(p.ctx, ctxEntryIndex, i)
 

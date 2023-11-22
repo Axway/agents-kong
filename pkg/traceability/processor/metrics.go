@@ -14,8 +14,9 @@ import (
 
 // MetricsProcessor -
 type MetricsProcessor struct {
-	ctx    context.Context
-	logger log.FieldLogger
+	ctx       context.Context
+	logger    log.FieldLogger
+	collector metric.Collector
 }
 
 func NewMetricsProcessor(ctx context.Context) MetricsProcessor {
@@ -23,6 +24,10 @@ func NewMetricsProcessor(ctx context.Context) MetricsProcessor {
 		ctx:    ctx,
 		logger: log.NewLoggerFromContext(ctx).WithComponent("eventMapper").WithPackage("processor"),
 	}
+}
+
+func (m *MetricsProcessor) setCollector(collector metric.Collector) {
+	m.collector = collector
 }
 
 // process - receives the log event and returns if the transaction should be sampled
@@ -65,8 +70,7 @@ func (m *MetricsProcessor) updateMetric(entry TrafficLogEntry) {
 		appDetails.ID = sdkUtil.FormatApplicationID(entry.Consumer.ID)
 	}
 
-	collector := metric.GetMetricCollector()
-	if collector != nil {
+	if m.collector != nil {
 		metricDetail := metric.Detail{
 			APIDetails: apiDetails,
 			StatusCode: fmt.Sprint(statusCode),
@@ -74,6 +78,6 @@ func (m *MetricsProcessor) updateMetric(entry TrafficLogEntry) {
 			Bytes:      int64(entry.Request.Size),
 			AppDetails: appDetails,
 		}
-		collector.AddMetricDetail(metricDetail)
+		m.collector.AddMetricDetail(metricDetail)
 	}
 }

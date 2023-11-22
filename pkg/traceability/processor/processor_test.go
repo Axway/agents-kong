@@ -42,10 +42,11 @@ var testData = []byte(`[{
 
 func TestNewHandler(t *testing.T) {
 	cases := map[string]struct {
-		data           []byte
-		constructorErr bool
-		eventsLen      int
-		setupSampling  bool
+		data                  []byte
+		constructorErr        bool
+		setupSampling         bool
+		expectedEvents        int
+		expectedMetricDetails int
 	}{
 		"expect error creating handler, when no data sent into handler": {
 			data:           []byte{},
@@ -58,9 +59,10 @@ func TestNewHandler(t *testing.T) {
 			data: testData,
 		},
 		"handle data with sampling setup": {
-			data:          testData,
-			setupSampling: true,
-			eventsLen:     4,
+			data:                  testData,
+			setupSampling:         true,
+			expectedEvents:        4,
+			expectedMetricDetails: 2,
 		},
 	}
 	for name, tc := range cases {
@@ -80,13 +82,15 @@ func TestNewHandler(t *testing.T) {
 				return
 			}
 			h.eventGenerator = mock.NewEventGeneratorMock
+			h.colletorGetter = mock.GetMockCollector
 			assert.Nil(t, err)
 			assert.NotNil(t, h)
 
 			// execute the handler
 			events := h.Handle()
 			assert.Nil(t, err)
-			assert.Len(t, events, tc.eventsLen)
+			assert.Len(t, events, tc.expectedEvents)
+			assert.Equal(t, len(mock.GetMockCollector().(*mock.CollectorMock).Details), tc.expectedMetricDetails)
 		})
 	}
 }
