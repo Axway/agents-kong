@@ -2,10 +2,8 @@ module github.com/Axway/agents-kong
 
 go 1.18
 
-replace github.com/Axway/agent-sdk => /Users/jcollins/go/src/github.com/Axway/agent-sdk
-
 require (
-	github.com/Axway/agent-sdk v1.1.69-0.20231121145536-cdbf1ce0d3ff
+	github.com/Axway/agent-sdk v1.1.69-0.20231122175923-77f72d297dff
 	github.com/elastic/beats/v7 v7.17.15
 	github.com/google/uuid v1.3.1
 	github.com/kong/go-kong v0.47.0
