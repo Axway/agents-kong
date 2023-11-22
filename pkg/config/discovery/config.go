@@ -11,8 +11,8 @@ import (
 
 const (
 	cfgKongHost              = "kong.host"
-	cfgKongAdminPortHttp     = "kong.admin.port.http"
-	cfgKongAdminPortHttps    = "kong.admin.port.https"
+	cfgKongAdminPortHttp     = "kong.admin.ports.http"
+	cfgKongAdminPortHttps    = "kong.admin.ports.https"
 	cfgKongAdminRoutePath    = "kong.admin.routePath"
 	cfgKongAdminAPIKey       = "kong.admin.auth.apiKey.value"
 	cfgKongAdminAPIKeyHeader = "kong.admin.auth.apiKey.header"
@@ -20,8 +20,8 @@ const (
 	cfgKongAdminPassword     = "kong.admin.auth.basicauth.password"
 	cfgKongAdminClientID     = "kong.admin.auth.oauth.clientID"
 	cfgKongAdminClientSecret = "kong.admin.auth.oauth.clientSecret"
-	cfgKongProxyPortHttp     = "kong.proxy.port.http"
-	cfgKongProxyPortHttps    = "kong.proxy.port.https"
+	cfgKongProxyPortHttp     = "kong.proxy.ports.http"
+	cfgKongProxyPortHttps    = "kong.proxy.ports.https"
 	cfgKongSpecURLPaths      = "kong.spec.urlPaths"
 	cfgKongSpecLocalPath     = "kong.spec.localPath"
 )
@@ -50,7 +50,7 @@ type AgentConfig struct {
 }
 
 type KongAdminConfig struct {
-	Port      KongPortConfig      `config:"port"`
+	Ports     KongPortConfig      `config:"ports"`
 	Auth      KongAdminAuthConfig `config:"auth"`
 	RoutePath string              `config:"routePath"`
 }
@@ -77,7 +77,7 @@ type KongAdminAuthAPIKeyConfig struct {
 }
 
 type KongProxyConfig struct {
-	Port KongPortConfig `config:"port"`
+	Ports KongPortConfig `config:"ports"`
 }
 
 type KongPortConfig struct {
@@ -114,13 +114,13 @@ func (c *KongGatewayConfig) ValidateCfg() (err error) {
 	if c.Host == "" {
 		return fmt.Errorf(hostErr)
 	}
-	if c.Proxy.Port.HTTP == 0 && c.Proxy.Port.HTTPS == 0 {
+	if c.Proxy.Ports.HTTP == 0 && c.Proxy.Ports.HTTPS == 0 {
 		return fmt.Errorf(proxyPortErr)
 	}
-	if c.Admin.Port.HTTP == 0 && c.Admin.RoutePath == "" {
+	if c.Admin.Ports.HTTP == 0 && c.Admin.RoutePath == "" {
 		return fmt.Errorf(routePathOrAdminHttpPortErr)
 	}
-	if c.Admin.RoutePath != "" && c.Proxy.Port.HTTPS == 0 {
+	if c.Admin.RoutePath != "" && c.Proxy.Ports.HTTPS == 0 {
 		return fmt.Errorf(routePathWithoutHttpsErr)
 	}
 	if c.Admin.RoutePath != "" && !strings.HasPrefix(c.Admin.RoutePath, "/") {
@@ -192,13 +192,13 @@ func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 					ClientSecret: rootProps.StringPropertyValue(cfgKongAdminClientSecret),
 				},
 			},
-			Port: KongPortConfig{
+			Ports: KongPortConfig{
 				HTTP:  rootProps.IntPropertyValue(cfgKongAdminPortHttp),
 				HTTPS: rootProps.IntPropertyValue(cfgKongAdminPortHttps),
 			},
 		},
 		Proxy: KongProxyConfig{
-			Port: KongPortConfig{
+			Ports: KongPortConfig{
 				HTTP:  rootProps.IntPropertyValue(cfgKongProxyPortHttp),
 				HTTPS: rootProps.IntPropertyValue(cfgKongProxyPortHttps),
 			},

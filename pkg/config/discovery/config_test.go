@@ -16,16 +16,16 @@ func TestKongGateCfg(t *testing.T) {
 	err = cfg.ValidateCfg()
 	assert.Equal(t, proxyPortErr, err.Error())
 
-	cfg.Proxy.Port.HTTP = 8000
+	cfg.Proxy.Ports.HTTP = 8000
 	err = cfg.ValidateCfg()
 	assert.Equal(t, routePathOrAdminHttpPortErr, err.Error())
 
-	cfg.Admin.Port.HTTP = 8001
+	cfg.Admin.Ports.HTTP = 8001
 	cfg.Admin.RoutePath = "sa"
 	err = cfg.ValidateCfg()
 	assert.Equal(t, routePathWithoutHttpsErr, err.Error())
 
-	cfg.Proxy.Port.HTTPS = 8443
+	cfg.Proxy.Ports.HTTPS = 8443
 	err = cfg.ValidateCfg()
 	assert.Equal(t, noLeadingSlashRoutePathErr, err.Error())
 

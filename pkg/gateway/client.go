@@ -109,8 +109,8 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	log.Infof("processing service")
 
 	Host := gc.kongGatewayCfg.Host
-	httpPort := gc.kongGatewayCfg.Proxy.Port.HTTP
-	httpsPort := gc.kongGatewayCfg.Proxy.Port.HTTPS
+	httpPort := gc.kongGatewayCfg.Proxy.Ports.HTTP
+	httpsPort := gc.kongGatewayCfg.Proxy.Ports.HTTPS
 
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
