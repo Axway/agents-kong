@@ -6,6 +6,7 @@ import (
 
 	"github.com/Axway/agent-sdk/pkg/traceability/redaction"
 	"github.com/Axway/agent-sdk/pkg/traceability/sampling"
+	"github.com/Axway/agent-sdk/pkg/transaction/metric"
 	"github.com/Axway/agents-kong/pkg/traceability/processor/mock"
 	"github.com/stretchr/testify/assert"
 )
@@ -81,16 +82,28 @@ func TestNewHandler(t *testing.T) {
 				assert.Nil(t, h)
 				return
 			}
-			h.eventGenerator = mock.NewEventGeneratorMock
-			h.colletorGetter = mock.GetMockCollector
 			assert.Nil(t, err)
 			assert.NotNil(t, h)
 
+			// setup collector
+			collector := &mock.CollectorMock{Details: make([]metric.Detail, 0)}
+			mock.SetMockCollector(collector)
+			h.collectorGetter = mock.GetMockCollector
+
+			// setup event generator
+			h.eventGenerator = mock.NewEventGeneratorMock
+
+			// if metric details are expected
+			if tc.expectedMetricDetails > 1 {
+				collector.Add(tc.expectedMetricDetails)
+			}
+
 			// execute the handler
 			events := h.Handle()
+			collector.Wait()
 			assert.Nil(t, err)
 			assert.Len(t, events, tc.expectedEvents)
-			assert.Equal(t, len(mock.GetMockCollector().(*mock.CollectorMock).Details), tc.expectedMetricDetails)
+			assert.Equal(t, tc.expectedMetricDetails, len(mock.GetMockCollector().(*mock.CollectorMock).Details))
 		})
 	}
 }

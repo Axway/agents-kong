@@ -12,22 +12,22 @@ import (
 
 // EventsHandler -
 type EventsHandler struct {
-	ctx            context.Context
-	logger         log.FieldLogger
-	metrics        MetricsProcessor
-	logEntries     []TrafficLogEntry
-	eventGenerator func() transaction.EventGenerator
-	colletorGetter func() metric.Collector
+	ctx             context.Context
+	logger          log.FieldLogger
+	metrics         MetricsProcessor
+	logEntries      []TrafficLogEntry
+	eventGenerator  func() transaction.EventGenerator
+	collectorGetter func() metric.Collector
 }
 
 // NewEventsHandler - return a new EventProcessor
 func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, error) {
 	p := &EventsHandler{
-		ctx:            ctx,
-		logger:         log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
-		metrics:        NewMetricsProcessor(ctx),
-		eventGenerator: transaction.NewEventGenerator,
-		colletorGetter: metric.GetMetricCollector,
+		ctx:             ctx,
+		logger:          log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
+		metrics:         NewMetricsProcessor(ctx),
+		eventGenerator:  transaction.NewEventGenerator,
+		collectorGetter: metric.GetMetricCollector,
 	}
 
 	err := json.Unmarshal(logData, &p.logEntries)
@@ -44,7 +44,7 @@ func (p *EventsHandler) Handle() []beat.Event {
 	events := make([]beat.Event, 0)
 	p.logger.WithField("numEvents", len(p.logEntries)).Info("handling events in request")
 
-	p.metrics.setCollector(p.colletorGetter())
+	p.metrics.setCollector(p.collectorGetter())
 	for i, entry := range p.logEntries {
 		ctx := context.WithValue(p.ctx, ctxEntryIndex, i)
 
