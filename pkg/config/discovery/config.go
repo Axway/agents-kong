@@ -150,7 +150,7 @@ func invalidCredentialConfig(c *KongGatewayConfig) bool {
 	return false
 }
 
-func ParseProperties(rootProps properties.Properties) (*KongGatewayConfig, error) {
+func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
 	return &KongGatewayConfig{
 		Admin: KongAdminConfig{
@@ -182,5 +182,5 @@ func ParseProperties(rootProps properties.Properties) (*KongGatewayConfig, error
 			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
 			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
 		},
-	}, nil
+	}
 }
