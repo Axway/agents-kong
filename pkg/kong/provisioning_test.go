@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"testing"
 
 	klib "github.com/kong/go-kong/kong"
@@ -86,10 +88,23 @@ func createClient(responses map[string]response) KongAPIClient {
 			return
 		}
 	}))
+	u, _ := url.Parse(s.URL)
+	port, _ := strconv.Atoi(u.Port())
 	cfg := &config.KongGatewayConfig{
-		Admin: config.KongAdminConfig{
-			URL: s.URL,
+		Host: u.Hostname(),
+		Proxy: config.KongProxyConfig{
+			Port: config.KongPortConfig{
+				HTTP: port,
+			},
 		},
+		Admin: config.KongAdminConfig{
+			Port: config.KongPortConfig{
+				HTTP: port,
+			},
+		},
+	}
+	if err := cfg.ValidateCfg(); err != nil {
+		panic(err)
 	}
 	client, _ := NewKongClient(&http.Client{}, cfg)
 	return client
