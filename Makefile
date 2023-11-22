@@ -19,6 +19,10 @@ all: clean
 test: dep
 	@go vet ${GO_PKG_LIST}
 	@go test -race -v -short -coverprofile=${WORKSPACE}/gocoverage.out -count=1 ${GO_PKG_LIST}
+
+test-s: dep
+	@go vet ${GO_PKG_LIST}
+	@go test -race -short -coverprofile=${WORKSPACE}/gocoverage.out -count=1 ${GO_PKG_LIST}
 	
 clean:
 	@rm -rf ./bin/
