@@ -13,6 +13,7 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Specification discovery methods](#specification-discovery-methods)
         - [Local specification path](#local-specification-path)
         - [URL specification paths](#url-specification-paths)
+        - [Kong Dev Portal](#kong-dev-portal)
   - [Kong agents deployment](#kong-agents-deployment)
     - [Additional information](#additional-information)
     - [Docker](#docker)
@@ -148,6 +149,19 @@ Configuration for agent
 
 ```shell
 KONG_SPEC_URLPATHS=/openapi.json,/swagger.json
+```
+
+##### Kong Dev Portal
+
+The Kong Dev Portal discovery method is configured by providing a value for the `KONG_SPEC_DEVPORTALENABLED`, but also the local spec discovery needs to be disabled by setting an empty value for the`KONG_SPEC_LOCALPATH`, otherwise, the local discovery process will be used.
+ 
+Ex.
+
+Configuration for agent
+
+```shell
+KONG_SPEC_LOCALPATH=""
+KONG_SPEC_DEVPORTALENABLED=true
 ```
 
 ## Kong agents deployment
