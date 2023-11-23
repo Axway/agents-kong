@@ -25,9 +25,7 @@ kong:
   enable:
     traceability: false
   admin:
-    ports:
-      http: 8001
-      https: 8444
+    url:
     routePath:
     auth:
       apiKey:
@@ -37,7 +35,6 @@ kong:
         username:
         password:
   proxy:
-    host:
     ports:
       http: 8000
       https: 8443

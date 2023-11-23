@@ -1,0 +1,10 @@
+{{- if .Values.kong.admin.auth.basicAuth.username }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kong-admin-auth-basicauth
+type: Opaque
+stringData:
+  username: "{{ Values.kong.admin.auth.basicAuth.username }}"
+  password: "{{ Values.kong.admin.auth.basicAuth.password }}"
+{{- end }}

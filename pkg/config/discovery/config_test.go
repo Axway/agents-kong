@@ -17,15 +17,8 @@ func TestKongGateCfg(t *testing.T) {
 	assert.Equal(t, proxyPortErr, err.Error())
 
 	cfg.Proxy.Ports.HTTP = 8000
-	err = cfg.ValidateCfg()
-	assert.Equal(t, routePathOrAdminHttpPortErr, err.Error())
-
-	cfg.Admin.Ports.HTTP = 8001
-	cfg.Admin.RoutePath = "sa"
-	err = cfg.ValidateCfg()
-	assert.Equal(t, routePathWithoutHttpsErr, err.Error())
-
 	cfg.Proxy.Ports.HTTPS = 8443
+	cfg.Admin.RoutePath = "sa"
 	err = cfg.ValidateCfg()
 	assert.Equal(t, noLeadingSlashRoutePathErr, err.Error())
 
@@ -42,17 +35,20 @@ func TestKongGateCfg(t *testing.T) {
 	err = cfg.ValidateCfg()
 	assert.Equal(t, credentialConfigErr, err.Error())
 
-	cfg.Admin.Auth.OAuth.ClientID = "test"
 	cfg.Admin.Auth.BasicAuth.Password = ""
+	cfg.Admin.Url = "http:/sld:"
 	err = cfg.ValidateCfg()
-	assert.Equal(t, credentialConfigErr, err.Error())
+	assert.Equal(t, invalidUrlErr, err.Error())
 
-	cfg.Admin.Auth.OAuth.ClientID = ""
-	cfg.Admin.Auth.OAuth.ClientSecret = "test"
+	cfg.Admin.Url = "sdl.com:8000"
 	err = cfg.ValidateCfg()
-	assert.Equal(t, credentialConfigErr, err.Error())
+	assert.Equal(t, invalidUrlErr, err.Error())
 
-	cfg.Admin.Auth.OAuth.ClientID = "test"
+	cfg.Admin.Url = "http://sdl.com"
+	err = cfg.ValidateCfg()
+	assert.Equal(t, invalidUrlErr, err.Error())
+
+	cfg.Admin.Url = "https://sds.com:8000"
 	err = cfg.ValidateCfg()
 	assert.Equal(t, nil, err)
 
