@@ -98,7 +98,7 @@ Once the Kong admin API is secured a gateway service for it must be added to Kon
 
 - Basic authentication
 - API Key authentication
-- OAuth2 authentication (currently, Kong returns an Internal Server Error if securing the gateway with OAuth2. It can be created in Kong, but it will not work. The Agent is also configured to (as of now) not work with OAuth2)
+- OAuth2 authentication (currently, Kong returns an Internal Server Error if securing the admin api with OAuth2. The plugin can be created in Kong, but further requests will not work when receiving the token. The Agent is also configured to (as of now) not work with OAuth2)
 
 #### Specification discovery methods
 
