@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,7 +42,7 @@ type KongAPIClient interface {
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
+	GetSpecForService(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error)
 	GetKongPlugins() *Plugins
 }
 
@@ -104,11 +105,11 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
-	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
+func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error) {
+	log := k.logger.WithField("serviceName", *service.Name).WithField("routeName", *route.Name)
 
 	if k.specLocalPath != "" {
-		return k.getSpecFromLocal(ctx, service)
+		return k.getSpecFromLocal(ctx, service, route)
 	}
 
 	if k.devPortalEnabled {
@@ -129,12 +130,11 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 	return k.getSpecFromBackend(ctx, backendURL)
 }
 
-func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service) ([]byte, error) {
-	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
-	log.Info("getting spec from local storage")
+func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error) {
+	log := k.logger.WithField("serviceName", *service.Name).WithField("routeName", *route.Name)
 
 	specTag := ""
-	for _, tag := range service.Tags {
+	for _, tag := range route.Tags {
 		if strings.HasPrefix(*tag, tagPrefix) {
 			specTag = *tag
 			break
@@ -142,8 +142,8 @@ func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service)
 	}
 
 	if specTag == "" {
-		log.Info("no specification tag found")
-		return nil, nil
+		log.Error("In order to map local specs to the desired routes, a tag with format 'spec_local_fileName.extension' must be present")
+		return nil, errors.New("No specification tag found.")
 	}
 
 	filename := specTag[len(tagPrefix):]
