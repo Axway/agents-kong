@@ -21,20 +21,20 @@ fullnameOverride: ""
 statusPort: 8989
 
 kong:
-  host: 
   enable:
     traceability: false
   admin:
     url:
     routePath:
     auth:
-      apiKey:
+      apikey:
         header:
         value:
       basicAuth:
         username:
         password:
   proxy:
+    host: ""
     ports:
       http: 8000
       https: 8443

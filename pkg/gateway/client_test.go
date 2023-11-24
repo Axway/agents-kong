@@ -8,9 +8,7 @@ import (
 )
 
 func TestKongClient(t *testing.T) {
-	gatewayConfig := &config.KongGatewayConfig{
-		Host: "",
-	}
+	gatewayConfig := &config.KongGatewayConfig{}
 	_ = config.AgentConfig{
 		CentralCfg:     corecfg.NewCentralConfig(corecfg.DiscoveryAgent),
 		KongGatewayCfg: gatewayConfig,

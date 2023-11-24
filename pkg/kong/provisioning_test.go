@@ -91,8 +91,8 @@ func createClient(responses map[string]response) KongAPIClient {
 	u, _ := url.Parse(s.URL)
 	port, _ := strconv.Atoi(u.Port())
 	cfg := &config.KongGatewayConfig{
-		Host: u.Hostname(),
 		Proxy: config.KongProxyConfig{
+			Host: u.Hostname(),
 			Ports: config.KongPortConfig{
 				HTTP:  port,
 				HTTPS: port,

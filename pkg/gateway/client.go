@@ -108,7 +108,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	log := gc.logger.WithField("service-name", *service.Name)
 	log.Infof("processing service")
 
-	Host := gc.kongGatewayCfg.Host
+	Host := gc.kongGatewayCfg.Proxy.Host
 	httpPort := gc.kongGatewayCfg.Proxy.Ports.HTTP
 	httpsPort := gc.kongGatewayCfg.Proxy.Ports.HTTPS
 

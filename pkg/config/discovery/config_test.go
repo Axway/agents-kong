@@ -12,12 +12,15 @@ func TestKongGateCfg(t *testing.T) {
 	err := cfg.ValidateCfg()
 	assert.Equal(t, hostErr, err.Error())
 
-	cfg.Host = "localhost"
+	cfg.Proxy.Host = "localhost"
 	err = cfg.ValidateCfg()
 	assert.Equal(t, proxyPortErr, err.Error())
 
 	cfg.Proxy.Ports.HTTP = 8000
 	cfg.Proxy.Ports.HTTPS = 8443
+	err = cfg.ValidateCfg()
+	assert.Equal(t, adminUrlOrRoutePath, err.Error())
+
 	cfg.Admin.RoutePath = "sa"
 	err = cfg.ValidateCfg()
 	assert.Equal(t, noLeadingSlashRoutePathErr, err.Error())

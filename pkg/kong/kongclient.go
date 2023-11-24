@@ -73,7 +73,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	baseClient.Transport = defaultTransport
 
 	if kongConfig.Admin.RoutePath != "" {
-		kongEndpoint = fmt.Sprintf("https://%s:%d%s", kongConfig.Host, kongConfig.Proxy.Ports.HTTPS, kongConfig.Admin.RoutePath)
+		kongEndpoint = fmt.Sprintf("https://%s:%d%s", kongConfig.Proxy.Host, kongConfig.Proxy.Ports.HTTPS, kongConfig.Admin.RoutePath)
 	} else {
 		kongEndpoint = kongConfig.Admin.Url
 	}
@@ -84,7 +84,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	if kongConfig.Admin.Auth.BasicAuth.Username != "" {
 		headers.Set("Authorization", "Basic "+basicAuth(kongConfig.Admin.Auth.BasicAuth.Username, kongConfig.Admin.Auth.BasicAuth.Password))
 	}
-	headers.Set("Host", kongConfig.Host)
+	headers.Set("Host", kongConfig.Proxy.Host)
 	baseClient = klib.HTTPClientWithHeaders(baseClient, headers)
 
 	logger := log.NewFieldLogger().WithComponent("client").WithPackage("kong")

@@ -66,8 +66,8 @@ spec:
             {{- end }}
             {{- end }}
           env:
-            - name: KONG_HOST
-              value: "{{ .Values.kong.host }}"
+            - name: KONG_PROXY_HOST
+              value: "{{ .Values.kong.proxy.host }}"
             - name: KONG_PROXY_PORTS_HTTP
               value: "{{ .Values.kong.proxy.ports.http }}"
             - name: KONG_PROXY_PORTS_HTTPS
@@ -84,7 +84,7 @@ spec:
             - name: KONG_SPEC_LOCALPATH
               value: /specs
             {{- end }}
-            {{- if .Values.kong.admin.auth.apiKey.value }}
+            {{- if .Values.kong.admin.auth.apikey.value }}
             - name: KONG_ADMIN_AUTH_APIKEY_VALUE
               valueFrom:
                 secretKeyRef: 
