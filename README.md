@@ -86,6 +86,13 @@ You now have the service account information needed for you Kong Agent installat
 - Finish up the wizard setting values as desired, on the last page click *Save*
 - Note the *Logical Name* for your new environment
 
+---
+**_NOTE_**
+Don't forget to update your Amplify Central Region specific variables, such as the `CENTRAL_URL` setting.
+
+All CENTRAL_* variables listed on [docs.axway.com](https://docs.axway.com/bundle/amplify-central/page/docs/connect_manage_environ/connect_api_manager/agent-variables/index.html) may be used on the Kong Agent.
+___
+
 ### Kong setup
 
 #### Kong admin API secured by Kong Gateway
@@ -291,6 +298,19 @@ data:
   petstore.json: |
   ...spec file contents...
 ```
+
+If a ConfigMap is being used the kubectl command provides a utility to create the resource file for you. The command that follows will create a ConfigMap named `specs`, in the current kubernetes context and namespace. All files found in the current directories `specs/` folder will be included in the ConfigMap resource.
+
+```bash
+kubectl create configmap specs --from-file=specs/
+```
+
+___
+**_NOTE_**
+An update to the ConfigMap will *NOT* be seen by any running pods, a pod restart would be required to see changes.
+
+It is recommended to use a volume type that is more mutable than a ConfigMap. The agent has no knowledge of the volume type being used.
+___
 
 Once a resource with the files is created, which ever resource type is chosen, the overrides file will need to be updated with that resource information for mounting as a volume.
 
