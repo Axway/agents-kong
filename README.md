@@ -300,7 +300,7 @@ data:
   ...spec file contents...
 ```
 
-If a ConfigMap is being used the kubectl command provides a utility to create the resource file for you. The command that follows will create a ConfigMap named `specs`, in the current kubernetes context and namespace. All files found in the current directories `specs/` folder will be included in the ConfigMap resource.
+If a ConfigMap is being used, the kubectl command provides a utility to create the resource file for you. The command that follows will create a ConfigMap named `specs`, in the current kubernetes context and namespace. All files found in the current directories `specs/` folder will be included in the ConfigMap resource.
 
 ```bash
 kubectl create configmap specs --from-file=specs/
