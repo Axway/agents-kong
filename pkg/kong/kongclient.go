@@ -71,12 +71,7 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	defaultTransport := http.DefaultTransport.(*http.Transport)
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	baseClient.Transport = defaultTransport
-
-	if kongConfig.Admin.RoutePath != "" {
-		kongEndpoint = fmt.Sprintf("https://%s:%d%s", kongConfig.Proxy.Host, kongConfig.Proxy.Ports.HTTPS, kongConfig.Admin.RoutePath)
-	} else {
-		kongEndpoint = kongConfig.Admin.Url
-	}
+	kongEndpoint = kongConfig.Admin.Url
 
 	if kongConfig.Admin.Auth.APIKey.Value != "" {
 		headers.Set(kongConfig.Admin.Auth.APIKey.Header, kongConfig.Admin.Auth.APIKey.Value)

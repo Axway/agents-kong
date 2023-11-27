@@ -12,7 +12,6 @@ import (
 
 const (
 	cfgKongProxyHost         = "kong.proxy.host"
-	cfgKongAdminRoutePath    = "kong.admin.routePath"
 	cfgKongAdminUrl          = "kong.admin.url"
 	cfgKongAdminAPIKey       = "kong.admin.auth.apiKey.value"
 	cfgKongAdminAPIKeyHeader = "kong.admin.auth.apiKey.header"
@@ -27,7 +26,6 @@ const (
 func AddKongProperties(rootProps properties.Properties) {
 	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong host")
 	rootProps.AddStringProperty(cfgKongAdminUrl, "", "The Admin API url")
-	rootProps.AddStringProperty(cfgKongAdminRoutePath, "", "The Kong route path for the secured admin API")
 	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminUsername, "", "Username for basic auth to authenticate with Kong Admin API")
@@ -45,9 +43,8 @@ type AgentConfig struct {
 }
 
 type KongAdminConfig struct {
-	Url       string              `config:"url"`
-	Auth      KongAdminAuthConfig `config:"auth"`
-	RoutePath string              `config:"routePath"`
+	Url  string              `config:"url"`
+	Auth KongAdminAuthConfig `config:"auth"`
 }
 
 type KongAdminAuthConfig struct {
@@ -90,11 +87,9 @@ type KongGatewayConfig struct {
 }
 
 const (
-	hostErr                    = "Kong Host must be provided."
-	proxyPortErr               = "Both proxy port values of http https are required"
-	adminUrlOrRoutePath        = "The Admin API url or the secured admin route path must be provided."
-	noLeadingSlashRoutePathErr = "Non-empty admin route path must have a leading slash. Example: '/route-name'"
-	invalidUrlErr              = "Invalid Admin API url provided. Must contain protocol + hostname + port." +
+	hostErr       = "Kong Host must be provided."
+	proxyPortErr  = "Both proxy port values of http https are required"
+	invalidUrlErr = "Invalid Admin API url provided. Must contain protocol + hostname + port." +
 		"Examples: <http://kong.com:8001>, <https://kong.com:8444>"
 	credentialConfigErr = "Invalid authorization configuration provided. " +
 		"If provided, (Username and Password) or (ClientID and ClientSecret) must be non-empty"
@@ -109,20 +104,14 @@ func (c *KongGatewayConfig) ValidateCfg() (err error) {
 	if c.Proxy.Ports.HTTP == 0 || c.Proxy.Ports.HTTPS == 0 {
 		return fmt.Errorf(proxyPortErr)
 	}
-	if c.Admin.RoutePath == "" && c.Admin.Url == "" {
-		return fmt.Errorf(adminUrlOrRoutePath)
+	if invalidAdminUrl(c.Admin.Url) {
+		return fmt.Errorf(invalidUrlErr)
 	}
-	if c.Admin.RoutePath != "" && !strings.HasPrefix(c.Admin.RoutePath, "/") {
-		return fmt.Errorf(noLeadingSlashRoutePathErr)
-	}
-	if c.Admin.RoutePath != "" && noCredentialsProvided(c) {
+	if noCredentialsProvided(c) {
 		logger.Warn("No credentials provided. Assuming Kong Admin API requires no authorization.")
 	}
 	if invalidCredentialConfig(c) {
 		return fmt.Errorf(credentialConfigErr)
-	}
-	if c.Admin.Url != "" && invalidAdminUrl(c.Admin.Url) {
-		return fmt.Errorf(invalidUrlErr)
 	}
 	return
 }
@@ -165,8 +154,7 @@ func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
 	return &KongGatewayConfig{
 		Admin: KongAdminConfig{
-			Url:       rootProps.StringPropertyValue(cfgKongAdminUrl),
-			RoutePath: rootProps.StringPropertyValue(cfgKongAdminRoutePath),
+			Url: rootProps.StringPropertyValue(cfgKongAdminUrl),
 			Auth: KongAdminAuthConfig{
 				APIKey: KongAdminAuthAPIKeyConfig{
 					Value:  rootProps.StringPropertyValue(cfgKongAdminAPIKey),
