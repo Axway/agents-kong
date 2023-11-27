@@ -16,6 +16,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agents-kong/pkg/common"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
 	klib "github.com/kong/go-kong/kong"
@@ -106,7 +107,8 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 }
 
 func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error) {
-	log := k.logger.WithField("serviceName", *service.Name).WithField("routeName", *route.Name)
+	log := k.logger.WithField(common.AttrServiceName, *service.Name).
+		WithField(common.AttrRouteName, *route.Name)
 
 	if k.specLocalPath != "" {
 		return k.getSpecFromLocal(ctx, service, route)
@@ -131,7 +133,8 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 }
 
 func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error) {
-	log := k.logger.WithField("serviceName", *service.Name).WithField("routeName", *route.Name)
+	log := k.logger.WithField(common.AttrServiceName, *service.Name).
+		WithField(common.AttrRouteName, *route.Name)
 
 	specTag := ""
 	for _, tag := range route.Tags {
@@ -174,7 +177,7 @@ func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
 }
 
 func (k KongClient) getSpecFromDevPortal(ctx context.Context, serviceID string) ([]byte, error) {
-	log := k.logger.WithField("serviceID", serviceID)
+	log := k.logger.WithField(common.AttrServiceID, serviceID)
 	log.Info("getting spec file from dev portal")
 
 	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceID)

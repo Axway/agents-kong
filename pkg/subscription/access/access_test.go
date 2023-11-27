@@ -114,7 +114,7 @@ func TestProvision(t *testing.T) {
 					common.AttrAppID: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteId: "routeID",
+					common.AttrRouteID: "routeID",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Weekly,
@@ -133,7 +133,7 @@ func TestProvision(t *testing.T) {
 					common.AttrAppID: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteId: "routeID",
+					common.AttrRouteID: "routeID",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -152,7 +152,7 @@ func TestProvision(t *testing.T) {
 					common.AttrAppID: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteId: "routeID",
+					common.AttrRouteID: "routeID",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -169,7 +169,7 @@ func TestProvision(t *testing.T) {
 					common.AttrAppID: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteId: "routeID",
+					common.AttrRouteID: "routeID",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -216,7 +216,7 @@ func TestDeprovision(t *testing.T) {
 					common.AttrAppID: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteId: "routeID",
+					common.AttrRouteID: "routeID",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -233,7 +233,7 @@ func TestDeprovision(t *testing.T) {
 					common.AttrAppID: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteId: "routeID",
+					common.AttrRouteID: "routeID",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
