@@ -65,6 +65,7 @@ func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
 	case provisioning.APIKeyARD:
 		{
 			if err := p.client.DeleteAuthKey(ctx, consumerID, credentialID); err != nil {
+				log.Info("API Key credential does not exist or it has already been deleted")
 				return rs.SetMessage("API Key credential does not exist or it has already been deleted").Success()
 			}
 			log.Info("API Key successful de-provision")
@@ -73,6 +74,7 @@ func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
 	case provisioning.BasicAuthARD:
 		{
 			if err := p.client.DeleteHttpBasic(ctx, consumerID, credentialID); err != nil {
+				log.Info("Basic auth credential does not exist or it has already been deleted")
 				return rs.SetMessage("Basic auth credential does not exist or it has already been deleted").Success()
 			}
 			log.Info("Basic Auth successful de-provision")
@@ -81,6 +83,7 @@ func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
 	case provisioning.OAuthSecretCRD:
 		{
 			if err := p.client.DeleteOauth2(ctx, consumerID, credentialID); err != nil {
+				log.Info("OAuth2 credential does not exist or it has already been deleted")
 				return rs.SetMessage("OAuth2 credential does not exist or it has already been deleted").Success()
 			}
 			log.Info("OAuth2 successful de-provision")
