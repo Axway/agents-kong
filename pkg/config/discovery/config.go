@@ -16,6 +16,7 @@ const (
 	cfgKongProxyPortHttps    = "kong.proxy.port.https"
 	cfgKongSpecURLPaths      = "kong.spec.urlPaths"
 	cfgKongSpecLocalPath     = "kong.spec.localPath"
+	cfgKongSpecFilter        = "kong.spec.filter"
 )
 
 func AddKongProperties(rootProps properties.Properties) {
@@ -27,6 +28,7 @@ func AddKongProperties(rootProps properties.Properties) {
 	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
+	rootProps.AddStringProperty(cfgKongSpecFilter, "", "Which tags the routes must have in order to discover their specs. Empty means filters are ignored.")
 }
 
 // AgentConfig - represents the config for agent
@@ -63,6 +65,7 @@ type KongSpecConfig struct {
 	URLPaths         []string `config:"urlPaths"`
 	LocalPath        string   `config:"localPath"`
 	DevPortalEnabled bool     `config:"devPortalEnabled"`
+	Filter           string   `config:"filter"`
 }
 
 // KongGatewayConfig - represents the config for gateway
@@ -109,6 +112,7 @@ func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 		Spec: KongSpecConfig{
 			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
 			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+			Filter:    rootProps.StringPropertyValue(cfgKongSpecFilter),
 		},
 	}
 }

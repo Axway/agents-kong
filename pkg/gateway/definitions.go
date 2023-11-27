@@ -4,6 +4,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/cache"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
+	"github.com/Axway/agent-sdk/pkg/filter"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
@@ -18,6 +19,7 @@ type Client struct {
 	plugins        kong.Plugins
 	cache          cache.Cache
 	mode           string
+	filter         filter.Filter
 }
 
 type KongAPI struct {

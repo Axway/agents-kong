@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
+	"github.com/Axway/agent-sdk/pkg/filter"
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/subscription"
 
@@ -43,6 +44,11 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		return nil, err
 	}
 
+	discoveryFilter, err := filter.NewFilter(agentConfig.KongGatewayCfg.Spec.Filter)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := hasACLEnabledInPlugins(plugins); err != nil {
 		return nil, err
 	}
@@ -57,6 +63,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		kongClient:     kongClient,
 		cache:          daCache,
 		mode:           common.Marketplace,
+		filter:         discoveryFilter,
 	}, nil
 }
 
