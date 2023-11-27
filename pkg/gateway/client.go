@@ -108,7 +108,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	log := gc.logger.WithField("service-name", *service.Name)
 	log.Infof("processing service")
 
-	Host := gc.kongGatewayCfg.Proxy.Host
+	host := gc.kongGatewayCfg.Proxy.Host
 	httpPort := gc.kongGatewayCfg.Proxy.Ports.HTTP
 	httpsPort := gc.kongGatewayCfg.Proxy.Ports.HTTPS
 
@@ -147,7 +147,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		spec: string(kongServiceSpec),
 	}
 
-	endpoints := gc.processKongRoute(Host, oasSpec.BasePath(), route, httpPort, httpsPort)
+	endpoints := gc.processKongRoute(host, oasSpec.BasePath(), route, httpPort, httpsPort)
 	serviceBody, err := gc.processKongAPI(ctx, *route.ID, service, oasSpec, endpoints, apiPlugins)
 	if err != nil {
 		return err
