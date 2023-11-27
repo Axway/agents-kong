@@ -128,6 +128,7 @@ func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, servic
 
 	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
+		log.Infof("Could not list plugins for serviceID: %s, with routeID: %s", *service.ID, *route.ID)
 		return
 	}
 
