@@ -37,6 +37,10 @@ kong:
   spec:
     urlPaths: []
     localPath:
+  logs:
+    http:
+      path: /requestlogs
+      port: 9000
 
 # Add any environment variable overrides here
 env: {}

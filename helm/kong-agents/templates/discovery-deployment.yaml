@@ -105,7 +105,10 @@ spec:
                                                      "KONG_PROXY_PORTS_HTTP" 
                                                      "KONG_PROXY_PORTS_HTTPS" 
                                                      "KONG_SPEC_LOCALPATH"
-                                                     "KONG_SPEC_URLPATHS")))
+                                                     "KONG_SPEC_URLPATHS"
+                                                     "KONG_LOGS_HTTP_SERVER_PATH"
+                                                     "KONG_LOGS_HTTP_SERVER_PORT"
+                                                     "STATUS_PORT")))
            }} 
             - name: {{ $key }}
               value: {{ $value | quote }} 
@@ -116,6 +119,8 @@ spec:
               value: "/keys/private_key.pem"
             - name: CENTRAL_AUTH_PUBLICKEY
               value: "/keys/public_key.pem"
+            - name: STATUS_PORT
+              value: "{{ .Values.statusPort }}"
           volumeMounts:
             - name: "kong-agent-keys"
               mountPath: "/keys"

@@ -9,7 +9,7 @@ spec:
   replicas: {{ .Values.traceability.replicaCount }}
   selector:
     matchLabels:
-      {{- include "kong-agents.selectorLabels" . | nindent 6 }}
+      {{- include "kong-agents.traceability.selectorLabels" . | nindent 6 }}
       {{- with .Values.additionalLabels }}
       {{- range $key, $value := . }}
       {{ default "none" $key }}: {{ default "none" $value | quote }}
@@ -22,7 +22,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "kong-agents.selectorLabels" . | nindent 8 }}
+        {{- include "kong-agents.traceability.selectorLabels" . | nindent 8 }}
         {{- with .Values.additionalLabels }}
         {{- range $key, $value := . }}
         {{ default "none" $key }}: {{ default "none" $value | quote }}
@@ -48,6 +48,9 @@ spec:
           - name: probe-port
             containerPort: {{ .Values.statusPort }}
             protocol: TCP
+          - name: logs
+            containerPort: {{ .Values.kong.logs.http.port }}
+            protocol: TCP
           livenessProbe:
             httpGet:
               path: /status
@@ -67,20 +70,10 @@ spec:
             {{- end }}
             {{- end }}
           env:
-            - name: KONG_ADMIN_URL
-              value: "{{ .Values.kong.admin.url }}"
-            {{- if .Values.kong.admin.auth.apikey.value }}
-            - name: KONG_ADMIN_AUTH_APIKEY_VALUE
-              valueFrom:
-                secretKeyRef: 
-                  name: kong-admin-auth-apikey
-                  key: value
-            - name: KONG_ADMIN_AUTH_APIKEY_HEADER
-              valueFrom:
-                secretKeyRef: 
-                  name: kong-admin-auth-apikey
-                  key: header
-            {{- end }}
+            - name: KONG_LOGS_HTTP_SERVER_PATH
+              value: "{{ .Values.kong.logs.http.path }}"
+            - name: KONG_LOGS_HTTP_SERVER_PORT
+              value: "{{ .Values.kong.logs.http.port }}"
           {{- with .Values.env }}
           {{- range $key, $value := . }}
           {{- if and (not (eq (toString $value) ""))
@@ -92,19 +85,36 @@ spec:
                                                      "KONG_PROXY_PORTS_HTTP" 
                                                      "KONG_PROXY_PORTS_HTTPS" 
                                                      "KONG_SPEC_LOCALPATH"
-                                                     "KONG_SPEC_URLPATHS")))
+                                                     "KONG_SPEC_URLPATHS"
+                                                     "KONG_LOGS_HTTP_SERVER_PATH"
+                                                     "KONG_LOGS_HTTP_SERVER_PORT"
+                                                     "STATUS_PORT")))
            }}
             - name: {{ $key }}
               value: {{ $value | quote }} 
           {{- end }}
           {{- end }}
           {{- end }}
+            - name: CENTRAL_AUTH_PRIVATEKEY
+              value: "/keys/private_key.pem"
+            - name: CENTRAL_AUTH_PUBLICKEY
+              value: "/keys/public_key.pem"
+            - name: STATUS_PORT
+              value: "{{ .Values.statusPort }}"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           volumeMounts:
+            - name: beat-storage
+              mountPath: /data
             - name: "kong-agent-keys"
               mountPath: "/keys"
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+      - name: beat-storage
+        emptyDir: {}
       - name: kong-agent-keys
         secret:
           secretName: {{ .Values.secrets.keys }}
