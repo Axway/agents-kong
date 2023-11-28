@@ -176,7 +176,6 @@ Before beginning to deploy the agents following information will need to be gath
 - The host the agent will use when setting the endpoint of a discovered API, (`KONG_PROXY_HOST`)
   - The HTTP `KONG_PROXY_PORTS_HTTP` and HTTPs `KONG_PROXY_PORTS_HTTPS` ports the agent will use with the endpoint above
 - The URL paths, hosted by the gateway service, to query for spec files, `KONG_SPEC_URLPATHS`
-- The Route path for the secured Admin API `KONG_ADMIN_ROUTEPATH` (if provided, admin auth credentials will most likely be required as well.)
 
 ### Docker
 
