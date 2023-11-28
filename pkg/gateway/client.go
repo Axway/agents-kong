@@ -113,14 +113,28 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		log.WithError(err).Errorf("failed to get routes for service")
 		return err
 	}
+	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, service)
+	if err != nil {
+		log.WithError(err).Errorf("failed to get spec for service")
+		return err
+	}
+
+	// don't publish an empty spec
+	if kongServiceSpec == nil {
+		log.Warn("no spec found")
+		return nil
+	}
+	oasSpec := &Openapi{
+		spec: string(kongServiceSpec),
+	}
 
 	for _, route := range routes {
-		gc.specPreparation(ctx, route, service)
+		gc.specPreparation(ctx, route, service, oasSpec)
 	}
 	return nil
 }
 
-func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service) {
+func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service, spec *Openapi) {
 	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
 		WithField(common.AttrServiceID, *service.ID)
 	proxyHost := gc.kongGatewayCfg.Proxy.Host
@@ -133,21 +147,8 @@ func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, servic
 		return
 	}
 
-	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, service, route)
-	if err != nil {
-		return
-	}
-	// don't publish an empty spec
-	if kongServiceSpec == nil {
-		log.Warn("no spec found")
-		return
-	}
-	oasSpec := Openapi{
-		spec: string(kongServiceSpec),
-	}
-
-	endpoints := gc.processKongRoute(proxyHost, oasSpec.BasePath(), route, httpPort, httpsPort)
-	serviceBody, err := gc.processKongAPI(ctx, *route.ID, service, oasSpec, endpoints, apiPlugins)
+	endpoints := gc.processKongRoute(proxyHost, route, httpPort, httpsPort)
+	serviceBody, err := gc.processKongAPI(ctx, route, service, spec, endpoints, apiPlugins)
 	if err != nil {
 		log.WithError(err).Error("failed to process kong API")
 		return
@@ -166,7 +167,7 @@ func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, servic
 	log.Info("Successfully published to central")
 }
 
-func (gc *Client) processKongRoute(defaultHost string, basePath string, route *klib.Route, httpPort, httpsPort int) []apic.EndpointDefinition {
+func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPort, httpsPort int) []apic.EndpointDefinition {
 	var endpoints []apic.EndpointDefinition
 	if route == nil {
 		return endpoints
@@ -183,15 +184,11 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 					port = httpsPort
 				}
 
-				routingBasePath := *path
-				if *route.StripPath {
-					routingBasePath = routingBasePath + basePath
-				}
 				endpoint := apic.EndpointDefinition{
 					Host:     *host,
 					Port:     int32(port),
 					Protocol: *protocol,
-					BasePath: routingBasePath,
+					BasePath: *path,
 				}
 				endpoints = append(endpoints, endpoint)
 			}
@@ -203,13 +200,13 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 
 func (gc *Client) processKongAPI(
 	ctx context.Context,
-	routeID string,
+	route *klib.Route,
 	service *klib.Service,
-	oasSpec Openapi,
+	oasSpec *Openapi,
 	endpoints []apic.EndpointDefinition,
 	apiPlugins map[string]*klib.Plugin,
 ) (*apic.ServiceBody, error) {
-	kongAPI := newKongAPI(routeID, service, oasSpec, endpoints)
+	kongAPI := newKongAPI(route, service, oasSpec, endpoints)
 	isAlreadyPublished, checksum := isPublished(&kongAPI, gc.cache)
 	// If true, then the api is published and there were no changes detected
 	if isAlreadyPublished {
@@ -231,7 +228,7 @@ func (gc *Client) processKongAPI(
 
 	agentDetails := map[string]string{
 		common.AttrServiceID: *service.ID,
-		common.AttrRouteID:   routeID,
+		common.AttrRouteID:   *route.ID,
 		common.AttrChecksum:  checksum,
 	}
 	kongAPI.agentDetails = agentDetails
@@ -244,13 +241,13 @@ func (gc *Client) processKongAPI(
 }
 
 func newKongAPI(
-	routeID string,
+	route *klib.Route,
 	service *klib.Service,
-	oasSpec Openapi,
+	oasSpec *Openapi,
 	endpoints []apic.EndpointDefinition,
 ) KongAPI {
 	return KongAPI{
-		id:            routeID,
+		id:            *route.ID,
 		name:          *service.Name,
 		description:   oasSpec.Description(),
 		version:       oasSpec.Version(),
@@ -259,6 +256,7 @@ func newKongAPI(
 		documentation: []byte(*service.Name),
 		swaggerSpec:   []byte(oasSpec.spec),
 		endpoints:     endpoints,
+		stage:         *route.Name,
 	}
 }
 

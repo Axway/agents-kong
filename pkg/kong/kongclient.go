@@ -43,7 +43,7 @@ type KongAPIClient interface {
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error)
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
 	GetKongPlugins() *Plugins
 }
 
@@ -106,12 +106,11 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error) {
-	log := k.logger.WithField(common.AttrServiceName, *service.Name).
-		WithField(common.AttrRouteName, *route.Name)
+func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
+	log := k.logger.WithField(common.AttrServiceName, *service.Name)
 
 	if k.specLocalPath != "" {
-		return k.getSpecFromLocal(ctx, service, route)
+		return k.getSpecFromLocal(ctx, service)
 	}
 
 	if k.devPortalEnabled {
@@ -132,12 +131,11 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 	return k.getSpecFromBackend(ctx, backendURL)
 }
 
-func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service, route *klib.Route) ([]byte, error) {
-	log := k.logger.WithField(common.AttrServiceName, *service.Name).
-		WithField(common.AttrRouteName, *route.Name)
+func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service) ([]byte, error) {
+	log := k.logger.WithField(common.AttrServiceName, *service.Name)
 
 	specTag := ""
-	for _, tag := range route.Tags {
+	for _, tag := range service.Tags {
 		if strings.HasPrefix(*tag, tagPrefix) {
 			specTag = *tag
 			break
@@ -145,7 +143,7 @@ func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service,
 	}
 
 	if specTag == "" {
-		log.Error("In order to map local specs to the desired routes, a tag with format 'spec_local_fileName.extension' must be present")
+		log.Error("in order to map local specs to the desired services, a tag with format 'spec_local_fileName.extension' must be present")
 		return nil, errors.New("No specification tag found.")
 	}
 
