@@ -99,6 +99,9 @@ func (gc *Client) DiscoverAPIs() error {
 func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.Service) {
 	wg := new(sync.WaitGroup)
 	for _, service := range services {
+		if !gc.filter.Evaluate(toTagsMap(service)) {
+			continue
+		}
 		wg.Add(1)
 		go func(service *klib.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
@@ -109,6 +112,14 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.
 		}(service, wg)
 	}
 	wg.Wait()
+}
+
+func toTagsMap(service *klib.Service) map[string]string {
+	filters := make(map[string]string)
+	for i, t := range service.Tags {
+		filters[fmt.Sprintf("t%d", i)] = *t
+	}
+	return filters
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
