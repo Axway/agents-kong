@@ -72,8 +72,6 @@ spec:
               value: "{{ .Values.kong.proxy.ports.http }}"
             - name: KONG_PROXY_PORTS_HTTPS
               value: "{{ .Values.kong.proxy.ports.https }}"
-            - name: KONG_ADMIN_ROUTEPATH
-              value: "{{ .Values.kong.admin.routePath }}"
             - name: KONG_ADMIN_URL
               value: "{{ .Values.kong.admin.url }}"
             {{- if (include "kong-agents.specDownloadPathsString" .) }}
