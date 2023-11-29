@@ -92,11 +92,11 @@ type TLS struct {
 }
 
 type Consumer struct {
-	CustomID  string   `json:"custom_id"`
-	CreatedAt int64    `json:"created_at"`
-	ID        string   `json:"id"`
-	Tags      []string `json:"tags"`
-	Username  string   `json:"username"`
+	CustomID  string      `json:"custom_id"`
+	CreatedAt int64       `json:"created_at"`
+	ID        string      `json:"id"`
+	Tags      interface{} `json:"tags"`
+	Username  string      `json:"username"`
 }
 
 type metricCollector interface {
