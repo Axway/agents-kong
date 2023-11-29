@@ -35,6 +35,7 @@ kong:
       http: 8000
       https: 8443
   spec:
+    filter:
     urlPaths: []
     localPath:
 

@@ -100,6 +100,7 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.
 	wg := new(sync.WaitGroup)
 	for _, service := range services {
 		if !gc.filter.Evaluate(toTagsMap(service)) {
+			gc.logger.WithField(common.AttrServiceName, *service.Name).Info("Service not passing tag filters. Skipping discovery for this service.")
 			continue
 		}
 		wg.Add(1)
@@ -115,6 +116,7 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.
 }
 
 func toTagsMap(service *klib.Service) map[string]string {
+	// The SDK currently only supports map[string]string format.
 	filters := make(map[string]string)
 	for i, t := range service.Tags {
 		filters[fmt.Sprintf("t%d", i)] = *t
