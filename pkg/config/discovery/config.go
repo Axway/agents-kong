@@ -28,7 +28,7 @@ func AddKongProperties(rootProps properties.Properties) {
 	rootProps.AddIntProperty(cfgKongProxyPortHttps, 0, "The Kong proxy https port")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
-	rootProps.AddStringProperty(cfgKongSpecFilter, "", "Which tags the routes must have in order to discover their specs. Empty means filters are ignored.")
+	rootProps.AddStringProperty(cfgKongSpecFilter, "", "SDK Filter format. Empty means filters are ignored.")
 }
 
 // AgentConfig - represents the config for agent
