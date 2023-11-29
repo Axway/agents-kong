@@ -30,8 +30,8 @@ func AddKongProperties(rootProps properties.Properties) {
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminUsername, "", "Username for basic auth to authenticate with Kong Admin API")
 	rootProps.AddStringProperty(cfgKongAdminPassword, "", "Password for basic auth to authenticate with Kong Admin API")
-	rootProps.AddIntProperty(cfgKongProxyPortHttp, 8000, "The Kong proxy http port")
-	rootProps.AddIntProperty(cfgKongProxyPortHttps, 4443, "The Kong proxy https port")
+	rootProps.AddIntProperty(cfgKongProxyPortHttp, 0, "The Kong proxy http port")
+	rootProps.AddIntProperty(cfgKongProxyPortHttps, 0, "The Kong proxy https port")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
 }
