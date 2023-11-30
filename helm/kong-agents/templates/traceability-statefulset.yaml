@@ -1,6 +1,6 @@
 {{- if .Values.kong.enable.traceability }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "kong-agents.fullname" . }}-traceability
   labels:
