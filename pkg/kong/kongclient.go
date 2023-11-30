@@ -3,7 +3,9 @@ package kong
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +17,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agents-kong/pkg/common"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
 	klib "github.com/kong/go-kong/kong"
@@ -65,29 +68,34 @@ type KongClient struct {
 }
 
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
-	if kongConfig.Admin.Auth.APIKey.Value != "" {
-		defaultTransport := http.DefaultTransport.(*http.Transport)
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		baseClient.Transport = defaultTransport
+	headers := make(http.Header)
+	var kongEndpoint string
+	defaultTransport := http.DefaultTransport.(*http.Transport)
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	baseClient.Transport = defaultTransport
+	kongEndpoint = kongConfig.Admin.Url
 
-		headers := make(http.Header)
+	if kongConfig.Admin.Auth.APIKey.Value != "" {
 		headers.Set(kongConfig.Admin.Auth.APIKey.Header, kongConfig.Admin.Auth.APIKey.Value)
-		client := klib.HTTPClientWithHeaders(baseClient, headers)
-		baseClient = client
 	}
+	if kongConfig.Admin.Auth.BasicAuth.Username != "" {
+		headers.Set("Authorization", "Basic "+basicAuth(kongConfig.Admin.Auth.BasicAuth.Username, kongConfig.Admin.Auth.BasicAuth.Password))
+	}
+	headers.Set("Host", kongConfig.Proxy.Host)
+	baseClient = klib.HTTPClientWithHeaders(baseClient, headers)
 
 	logger := log.NewFieldLogger().WithComponent("client").WithPackage("kong")
-
-	baseKongClient, err := klib.NewClient(&kongConfig.Admin.URL, baseClient)
+	baseKongClient, err := klib.NewClient(&kongEndpoint, baseClient)
 	if err != nil {
 		logger.WithError(err).Error("failed to create kong client")
 		return nil, err
 	}
+
 	return &KongClient{
 		Client:            baseKongClient,
 		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:        baseClient,
-		kongAdminEndpoint: kongConfig.Admin.URL,
+		kongAdminEndpoint: kongEndpoint,
 		specURLPaths:      kongConfig.Spec.URLPaths,
 		specLocalPath:     kongConfig.Spec.LocalPath,
 		devPortalEnabled:  kongConfig.Spec.DevPortalEnabled,
@@ -105,7 +113,7 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 }
 
 func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
-	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
+	log := k.logger.WithField(common.AttrServiceName, *service.Name)
 
 	if k.specLocalPath != "" {
 		return k.getSpecFromLocal(ctx, service)
@@ -130,8 +138,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 }
 
 func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service) ([]byte, error) {
-	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
-	log.Info("getting spec from local storage")
+	log := k.logger.WithField(common.AttrServiceName, *service.Name)
 
 	specTag := ""
 	for _, tag := range service.Tags {
@@ -142,8 +149,8 @@ func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service)
 	}
 
 	if specTag == "" {
-		log.Info("no specification tag found")
-		return nil, nil
+		log.Error("in order to map local specs to the desired services, a tag with format 'spec_local_fileName.extension' must be present")
+		return nil, errors.New("No specification tag found.")
 	}
 
 	filename := specTag[len(tagPrefix):]
@@ -174,7 +181,7 @@ func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
 }
 
 func (k KongClient) getSpecFromDevPortal(ctx context.Context, serviceID string) ([]byte, error) {
-	log := k.logger.WithField("serviceID", serviceID)
+	log := k.logger.WithField(common.AttrServiceID, serviceID)
 	log.Info("getting spec file from dev portal")
 
 	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceID)
@@ -282,4 +289,9 @@ func (k KongClient) getSpec(ctx context.Context, endpoint string, fromDevPortal 
 
 func (k KongClient) GetKongPlugins() *Plugins {
 	return &Plugins{PluginLister: k.Plugins}
+}
+
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }

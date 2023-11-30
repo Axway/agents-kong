@@ -62,14 +62,9 @@ func run() error {
 // and passed to the callback allowing the agent code to access the central config
 func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := DiscoveryCmd.GetProperties()
-
 	agentConfig = config.AgentConfig{
 		CentralCfg:     centralConfig,
 		KongGatewayCfg: config.ParseProperties(rootProps),
 	}
 	return agentConfig, nil
-}
-
-func GetAgentConfig() config.AgentConfig {
-	return agentConfig
 }

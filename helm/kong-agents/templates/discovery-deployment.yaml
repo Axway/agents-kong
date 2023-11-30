@@ -66,14 +66,14 @@ spec:
             {{- end }}
             {{- end }}
           env:
-            - name: KONG_ADMIN_URL
-              value: "{{ .Values.kong.admin.url }}"
             - name: KONG_PROXY_HOST
               value: "{{ .Values.kong.proxy.host }}"
             - name: KONG_PROXY_PORTS_HTTP
               value: "{{ .Values.kong.proxy.ports.http }}"
             - name: KONG_PROXY_PORTS_HTTPS
               value: "{{ .Values.kong.proxy.ports.https }}"
+            - name: KONG_ADMIN_URL
+              value: "{{ .Values.kong.admin.url }}"
             {{- if (include "kong-agents.specDownloadPathsString" .) }}
             - name: KONG_SPEC_URLPATHS
               value: {{ include "kong-agents.specDownloadPathsString" . }}
@@ -81,6 +81,10 @@ spec:
             {{- if .Values.kong.spec.localPath }}
             - name: KONG_SPEC_LOCALPATH
               value: /specs
+            {{- end }}
+            {{- if .Values.kong.spec.filter }}
+            - name: KONG_SPEC_FILTER
+              value: "{{ .Values.kong.spec.filter }}"
             {{- end }}
             {{- if .Values.kong.admin.auth.apikey.value }}
             - name: KONG_ADMIN_AUTH_APIKEY_VALUE
@@ -93,6 +97,18 @@ spec:
                 secretKeyRef: 
                   name: kong-admin-auth-apikey
                   key: header
+            {{- end }}
+            {{- if .Values.kong.admin.auth.basicAuth.username }}
+            - name: KONG_ADMIN_AUTH_BASICAUTH_USERNAME
+              valueFrom:
+                secretKeyRef: 
+                  name: kong-admin-auth-basicauth
+                  key: username
+            - name: KONG_ADMIN_AUTH_BASICAUTH_PASSWORD
+              valueFrom:
+                secretKeyRef: 
+                  name: kong-admin-auth-basicauth
+                  key: password
             {{- end }}
           {{- with .Values.env }}
           {{- range $key, $value := . }}
