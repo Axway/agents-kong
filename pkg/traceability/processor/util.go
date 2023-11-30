@@ -30,12 +30,16 @@ func getTransactionSummaryStatus(statusCode int) transaction.TxSummaryStatus {
 	return transSummaryStatus
 }
 
-func buildHeaders(headers map[string]string) string {
-	jsonHeader, err := json.Marshal(headers)
+func buildHeaders(headers map[string]interface{}) string {
+	newHeaders := make(map[string]string)
+	for key, val := range headers {
+		newHeaders[key] = fmt.Sprintf("%v", val)
+	}
+
+	jsonHeader, err := json.Marshal(newHeaders)
 	if err != nil {
 		log.Error(err.Error())
 	}
-
 	return string(jsonHeader)
 }
 

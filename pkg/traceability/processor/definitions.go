@@ -34,19 +34,19 @@ type Latencies struct {
 }
 
 type Request struct {
-	QueryString map[string]string `json:"querystring"`
-	Size        int               `json:"size"`
-	URI         string            `json:"uri"`
-	URL         string            `json:"url"`
-	Headers     map[string]string `json:"headers"`
-	Method      string            `json:"method"`
-	TLS         *TLS              `json:"tls"`
+	QueryString map[string]string      `json:"querystring"`
+	Size        int                    `json:"size"`
+	URI         string                 `json:"uri"`
+	URL         string                 `json:"url"`
+	Headers     map[string]interface{} `json:"headers"`
+	Method      string                 `json:"method"`
+	TLS         *TLS                   `json:"tls"`
 }
 
 type Response struct {
-	Headers map[string]string `json:"headers"`
-	Status  int               `json:"status"`
-	Size    int               `json:"size"`
+	Headers map[string]interface{} `json:"headers"`
+	Status  int                    `json:"status"`
+	Size    int                    `json:"size"`
 }
 
 type Route struct {

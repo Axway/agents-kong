@@ -83,18 +83,28 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 }
 
 func createTransactionEvent(ktle TrafficLogEntry, txnid string) (*transaction.LogEvent, error) {
+	requestHost := ""
+	if value, found := ktle.Request.Headers[host]; found {
+		requestHost = fmt.Sprintf("%v", value)
+	}
+
+	userAgentVal := ""
+	if value, found := ktle.Request.Headers[userAgent]; found {
+		userAgentVal = fmt.Sprintf("%v", value)
+	}
+
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
 		SetURI(ktle.Request.URI).
 		SetMethod(ktle.Request.Method).
 		SetArgs(processQueryArgs(ktle.Request.QueryString)).
 		SetStatus(ktle.Response.Status, http.StatusText(ktle.Response.Status)).
-		SetHost(ktle.Request.Headers[host]).
+		SetHost(requestHost).
 		SetHeaders(buildHeaders(ktle.Request.Headers), buildHeaders(ktle.Response.Headers)).
 		SetByteLength(ktle.Request.Size, ktle.Response.Size).
 		SetLocalAddress(ktle.ClientIP, 0). // Could not determine local port for now
 		SetRemoteAddress("", "", ktle.Service.Port).
 		SetSSLProperties(buildSSLInfoIfAvailable(ktle)).
-		SetUserAgent(ktle.Request.Headers[userAgent]).
+		SetUserAgent(userAgentVal).
 		Build()
 
 	if err != nil {
@@ -106,7 +116,7 @@ func createTransactionEvent(ktle TrafficLogEntry, txnid string) (*transaction.Lo
 		SetTransactionID(txnid).
 		SetID(leg0).
 		SetSource(ktle.ClientIP).
-		SetDestination(ktle.Request.Headers[host]).
+		SetDestination(requestHost).
 		SetDuration(ktle.Latencies.Request).
 		SetDirection(inbound).
 		SetStatus(getTransactionEventStatus(ktle.Response.Status)).
