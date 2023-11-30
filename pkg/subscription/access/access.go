@@ -39,7 +39,7 @@ type AccessProvisioner struct {
 
 func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest) AccessProvisioner {
 	instDetails := request.GetInstanceDetails()
-	routeID := sdkUtil.ToString(instDetails[common.AttrRouteId])
+	routeID := sdkUtil.ToString(instDetails[common.AttrRouteID])
 
 	a := AccessProvisioner{
 		ctx: context.Background(),

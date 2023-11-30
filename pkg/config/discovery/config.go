@@ -21,19 +21,21 @@ const (
 	cfgKongProxyPortHttps    = "kong.proxy.ports.https"
 	cfgKongSpecURLPaths      = "kong.spec.urlPaths"
 	cfgKongSpecLocalPath     = "kong.spec.localPath"
+	cfgKongSpecFilter        = "kong.spec.filter"
 )
 
 func AddKongProperties(rootProps properties.Properties) {
-	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong host")
 	rootProps.AddStringProperty(cfgKongAdminUrl, "", "The Admin API url")
 	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminUsername, "", "Username for basic auth to authenticate with Kong Admin API")
 	rootProps.AddStringProperty(cfgKongAdminPassword, "", "Password for basic auth to authenticate with Kong Admin API")
+	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
 	rootProps.AddIntProperty(cfgKongProxyPortHttp, 0, "The Kong proxy http port")
 	rootProps.AddIntProperty(cfgKongProxyPortHttps, 0, "The Kong proxy https port")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
+	rootProps.AddStringProperty(cfgKongSpecFilter, "", "SDK Filter format. Empty means filters are ignored.")
 }
 
 // AgentConfig - represents the config for agent
@@ -76,6 +78,7 @@ type KongSpecConfig struct {
 	URLPaths         []string `config:"urlPaths"`
 	LocalPath        string   `config:"localPath"`
 	DevPortalEnabled bool     `config:"devPortalEnabled"`
+	Filter           string   `config:"filter"`
 }
 
 // KongGatewayConfig - represents the config for gateway
@@ -176,6 +179,7 @@ func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 		Spec: KongSpecConfig{
 			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
 			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+			Filter:    rootProps.StringPropertyValue(cfgKongSpecFilter),
 		},
 	}
 }

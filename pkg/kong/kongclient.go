@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agents-kong/pkg/common"
 	config "github.com/Axway/agents-kong/pkg/config/discovery"
 
 	klib "github.com/kong/go-kong/kong"
@@ -111,7 +113,7 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 }
 
 func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
-	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
+	log := k.logger.WithField(common.AttrServiceName, *service.Name)
 
 	if k.specLocalPath != "" {
 		return k.getSpecFromLocal(ctx, service)
@@ -136,8 +138,7 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 }
 
 func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service) ([]byte, error) {
-	log := k.logger.WithField("serviceID", service.ID).WithField("serviceName", service.Name)
-	log.Info("getting spec from local storage")
+	log := k.logger.WithField(common.AttrServiceName, *service.Name)
 
 	specTag := ""
 	for _, tag := range service.Tags {
@@ -148,8 +149,8 @@ func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service)
 	}
 
 	if specTag == "" {
-		log.Info("no specification tag found")
-		return nil, nil
+		log.Error("in order to map local specs to the desired services, a tag with format 'spec_local_fileName.extension' must be present")
+		return nil, errors.New("No specification tag found.")
 	}
 
 	filename := specTag[len(tagPrefix):]
@@ -180,7 +181,7 @@ func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
 }
 
 func (k KongClient) getSpecFromDevPortal(ctx context.Context, serviceID string) ([]byte, error) {
-	log := k.logger.WithField("serviceID", serviceID)
+	log := k.logger.WithField(common.AttrServiceID, serviceID)
 	log.Info("getting spec file from dev portal")
 
 	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceID)
