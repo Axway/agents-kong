@@ -114,7 +114,7 @@ In order to publish a specification file that properly represents the gateway se
 
 ##### Local specification path
 
-The local specification discovery method is configured by providing a value for the `KONG_SPEC_LOCALPATH` variable. When set the Kong agent will look for a tag, on the gateway service, that is prefixed by `spec_local_`. When that tag is set the value, after stripping the prefix, is used to find the specification file in directory configured by `KONG_SPEC_LOCALPATH`. When this configuration value is set no other specification discovery methods will be used.
+The local specification discovery method is configured by providing a value for the `KONG_SPEC_LOCALPATH` variable. When set the Kong agent will look for a tag on each of the available gateway services that are prefixed by `spec_local_`. When that tag is set the value, after stripping the prefix, is used to find the specification file in directory configured by `KONG_SPEC_LOCALPATH`. When this configuration value is set no other specification discovery methods will be used.
 
 Ex.
 

@@ -105,32 +105,14 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
-	log := gc.logger.WithField("service-name", *service.Name)
-	log.Infof("processing service")
-
-	proxyHost := gc.kongGatewayCfg.Proxy.Host
-	httpPort := gc.kongGatewayCfg.Proxy.Port.HTTP
-	httpsPort := gc.kongGatewayCfg.Proxy.Port.HTTPS
+	log := gc.logger.WithField(common.AttrServiceName, *service.Name)
+	log.Info("processing service")
 
 	routes, err := gc.kongClient.ListRoutesForService(ctx, *service.ID)
 	if err != nil {
 		log.WithError(err).Errorf("failed to get routes for service")
 		return err
 	}
-	if len(routes) == 0 {
-		//	gc.deleteCentralService(*service.ID, *service.Name)
-		return nil
-	}
-
-	route := routes[0]
-	log = log.WithField("route-id", *route.ID)
-
-	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
-	if err != nil {
-		log.WithError(err).Errorf("failed to get plugins for route")
-		return err
-	}
-
 	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, service)
 	if err != nil {
 		log.WithError(err).Errorf("failed to get spec for service")
@@ -139,34 +121,53 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 
 	// don't publish an empty spec
 	if kongServiceSpec == nil {
-		log.Debug("no spec found")
+		log.Warn("no spec found")
 		return nil
 	}
-
-	oasSpec := Openapi{
+	oasSpec := &Openapi{
 		spec: string(kongServiceSpec),
 	}
 
-	endpoints := gc.processKongRoute(proxyHost, oasSpec.BasePath(), route, httpPort, httpsPort)
-	serviceBody, err := gc.processKongAPI(ctx, *route.ID, service, oasSpec, endpoints, apiPlugins)
-	if err != nil {
-		return err
+	for _, route := range routes {
+		gc.specPreparation(ctx, route, service, oasSpec)
 	}
-	if serviceBody == nil {
-		log.Debugf("not processing since no changes were detected")
-		return nil
-	}
-	err = agent.PublishAPI(*serviceBody)
-	if err != nil {
-		log.WithError(err).Error("failed to publish api")
-		return err
-	}
-
-	log.Infof("Published API '%s' to central", serviceBody.APIName)
 	return nil
 }
 
-func (gc *Client) processKongRoute(defaultHost string, basePath string, route *klib.Route, httpPort, httpsPort int) []apic.EndpointDefinition {
+func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service, spec *Openapi) {
+	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
+		WithField(common.AttrServiceID, *service.ID)
+	proxyHost := gc.kongGatewayCfg.Proxy.Host
+	httpPort := gc.kongGatewayCfg.Proxy.Port.HTTP
+	httpsPort := gc.kongGatewayCfg.Proxy.Port.HTTPS
+
+	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
+	if err != nil {
+		log.Warn("could not list plugins")
+		return
+	}
+
+	endpoints := gc.processKongRoute(proxyHost, route, httpPort, httpsPort)
+	serviceBody, err := gc.processKongAPI(ctx, route, service, spec, endpoints, apiPlugins)
+	if err != nil {
+		log.WithError(err).Error("failed to process kong API")
+		return
+	}
+	if serviceBody == nil {
+		log.Info("not processing since no changes were detected")
+		return
+	}
+	log = log.WithField("apiName", serviceBody.APIName)
+	err = agent.PublishAPI(*serviceBody)
+	if err != nil {
+		log.WithError(err).Error("failed to publish api")
+		return
+	}
+
+	log.Info("Successfully published to central")
+}
+
+func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPort, httpsPort int) []apic.EndpointDefinition {
 	var endpoints []apic.EndpointDefinition
 	if route == nil {
 		return endpoints
@@ -183,15 +184,11 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 					port = httpsPort
 				}
 
-				routingBasePath := *path
-				if *route.StripPath {
-					routingBasePath = routingBasePath + basePath
-				}
 				endpoint := apic.EndpointDefinition{
 					Host:     *host,
 					Port:     int32(port),
 					Protocol: *protocol,
-					BasePath: routingBasePath,
+					BasePath: *path,
 				}
 				endpoints = append(endpoints, endpoint)
 			}
@@ -203,13 +200,13 @@ func (gc *Client) processKongRoute(defaultHost string, basePath string, route *k
 
 func (gc *Client) processKongAPI(
 	ctx context.Context,
-	routeID string,
+	route *klib.Route,
 	service *klib.Service,
-	oasSpec Openapi,
+	oasSpec *Openapi,
 	endpoints []apic.EndpointDefinition,
 	apiPlugins map[string]*klib.Plugin,
 ) (*apic.ServiceBody, error) {
-	kongAPI := newKongAPI(routeID, service, oasSpec, endpoints)
+	kongAPI := newKongAPI(route, service, oasSpec, endpoints)
 	isAlreadyPublished, checksum := isPublished(&kongAPI, gc.cache)
 	// If true, then the api is published and there were no changes detected
 	if isAlreadyPublished {
@@ -230,8 +227,8 @@ func (gc *Client) processKongAPI(
 	}
 
 	agentDetails := map[string]string{
-		common.AttrServiceId: *service.ID,
-		common.AttrRouteId:   routeID,
+		common.AttrServiceID: *service.ID,
+		common.AttrRouteID:   *route.ID,
 		common.AttrChecksum:  checksum,
 	}
 	kongAPI.agentDetails = agentDetails
@@ -244,13 +241,13 @@ func (gc *Client) processKongAPI(
 }
 
 func newKongAPI(
-	routeID string,
+	route *klib.Route,
 	service *klib.Service,
-	oasSpec Openapi,
+	oasSpec *Openapi,
 	endpoints []apic.EndpointDefinition,
 ) KongAPI {
 	return KongAPI{
-		id:            routeID,
+		id:            *route.ID,
 		name:          *service.Name,
 		description:   oasSpec.Description(),
 		version:       oasSpec.Version(),
@@ -259,6 +256,7 @@ func newKongAPI(
 		documentation: []byte(*service.Name),
 		swaggerSpec:   []byte(oasSpec.spec),
 		endpoints:     endpoints,
+		stage:         *route.Name,
 	}
 }
 
