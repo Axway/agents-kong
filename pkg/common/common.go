@@ -1,8 +1,7 @@
 package common
 
 const (
-	AttrServiceId   = "serviceId"
-	AttrRouteId     = "routeId"
+	AttrServiceID   = "serviceID"
 	AttrServiceName = "serviceName"
 	AttrRouteName   = "routeName"
 	AttrRouteID     = "routeID"
@@ -10,7 +9,7 @@ const (
 	AttrChecksum    = "checksum"
 	AttrAppID       = "kongApplicationId"
 
-	AttrCredentialID = "kongCredentialId"
+	AttrCredentialID = "kongCredentialID"
 	AttrCredUpdater  = "kongCredentialUpdate"
 
 	AclGroup    = "amplify.group"
