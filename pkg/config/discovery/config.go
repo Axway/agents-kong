@@ -90,7 +90,7 @@ type KongGatewayConfig struct {
 }
 
 const (
-	hostErr       = "kong Host must be provided."
+	hostErr       = "kong host must be provided."
 	proxyPortErr  = "both proxy port values of http https are required"
 	invalidUrlErr = "invalid Admin API url provided. Must contain protocol + hostname + port." +
 		"Examples: <http://kong.com:8001>, <https://kong.com:8444>"
