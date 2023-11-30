@@ -8,14 +8,7 @@ import (
 )
 
 func TestKongClient(t *testing.T) {
-	gatewayConfig := &config.KongGatewayConfig{
-		Admin: config.KongAdminConfig{
-			URL: "http://localhost",
-		},
-		Proxy: config.KongProxyConfig{
-			Host: "localhost",
-		},
-	}
+	gatewayConfig := &config.KongGatewayConfig{}
 	_ = config.AgentConfig{
 		CentralCfg:     corecfg.NewCentralConfig(corecfg.DiscoveryAgent),
 		KongGatewayCfg: gatewayConfig,

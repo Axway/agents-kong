@@ -157,9 +157,10 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service, spec *Openapi) {
 	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
 		WithField(common.AttrServiceID, *service.ID)
+
 	proxyHost := gc.kongGatewayCfg.Proxy.Host
-	httpPort := gc.kongGatewayCfg.Proxy.Port.HTTP
-	httpsPort := gc.kongGatewayCfg.Proxy.Port.HTTPS
+	httpPort := gc.kongGatewayCfg.Proxy.Ports.HTTP
+	httpsPort := gc.kongGatewayCfg.Proxy.Ports.HTTPS
 
 	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {

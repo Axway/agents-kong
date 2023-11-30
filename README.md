@@ -106,7 +106,7 @@ Once the Kong admin API is secured a gateway service for it must be added to Kon
 
 - Basic authentication
 - API Key authentication
-- OAuth2 authentication
+- OAuth2 authentication (currently, Kong returns an Internal Server Error if securing the admin api with OAuth2. The plugin can be created in Kong, but further requests will not work when receiving the token. The Agent is also configured to (as of now) not work with OAuth2)
 
 #### Specification discovery methods
 
@@ -180,7 +180,7 @@ The Kong agents are delivered as containers, kong_discovery_agent and kong_trace
 
 Before beginning to deploy the agents following information will need to be gathered in addition to the details that were noted in setup.
 
-- The full URL to connect to the Kong admin API, `KONG_ADMIN_URL`
+- The full URL to connect to the Kong admin API, `KONG_ADMIN_URL`. Note that if secured by kong, the URL should look like: https://host:port/secured-route-from-kong
 - The host the agent will use when setting the endpoint of a discovered API, (`KONG_PROXY_HOST`)
   - The HTTP `KONG_PROXY_PORTS_HTTP` and HTTPs `KONG_PROXY_PORTS_HTTPS` ports the agent will use with the endpoint above
 - The URL paths, hosted by the gateway service, to query for spec files, `KONG_SPEC_URLPATHS`
@@ -392,13 +392,15 @@ Finally, when a Marketplace user requests a credential, within the Kong environm
 
 All Kong specific environment variables available are listed below
 
-| Name                              | Description                                                                           |
-| --------------------------------- | ------------------------------------------------------------------------------------- |
-| **KONG_ADMIN_URL**                | The Kong admin API URL that the agent will query against                              |
-| **KONG_ADMIN_AUTH_APIKEY_HEADER** | The API Key header name the agent will use when authenticating                        |
-| **KONG_ADMIN_AUTH_APIKEY_VALUE**  | The API Key value the agent will use when authenticating                              |
-| **KONG_PROXY_HOST**               | The proxy endpoint that the agent will use in API Services for discovered Kong routes |
-| **KONG_PROXY_PORTS_HTTP**         | The HTTP port number that the agent will set for discovered APIS                      |
-| **KONG_PROXY_PORTS_HTTPS**        | The HTTPs port number that the agent will set for discovered APIS                     |
-| **KONG_SPEC_LOCALPATH**           | The local path that the agent will look in for API definitions                        |
-| **KONG_SPEC_URLPATHS**            | The URL paths that the agent will query on the gateway service for API definitions    |
+| Name                                   | Description                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------- |
+| **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                              |
+| **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                        |
+| **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                              |
+| **KONG_ADMIN_AUTH_BASICAUTH_USERNAME** | The HTTP Basic username that the agent will use when authenticating                   |
+| **KONG_ADMIN_AUTH_BASICAUTH_PASSWORD** | The HTTP Basic password that the agent will use when authenticating                   |
+| **KONG_PROXY_HOST**                    | The proxy endpoint that the agent will use in API Services for discovered Kong routes |
+| **KONG_PROXY_PORTS_HTTP**              | The HTTP port number that the agent will set for discovered APIS                      |
+| **KONG_PROXY_PORTS_HTTPS**             | The HTTPs port number that the agent will set for discovered APIS                     |
+| **KONG_SPEC_LOCALPATH**                | The local path that the agent will look in for API definitions                        |
+| **KONG_SPEC_URLPATHS**                 | The URL paths that the agent will query on the gateway service for API definitions    |
