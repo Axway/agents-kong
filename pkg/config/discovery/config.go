@@ -31,8 +31,8 @@ func AddKongProperties(rootProps properties.Properties) {
 	rootProps.AddStringProperty(cfgKongAdminUsername, "", "Username for basic auth to authenticate with Kong Admin API")
 	rootProps.AddStringProperty(cfgKongAdminPassword, "", "Password for basic auth to authenticate with Kong Admin API")
 	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
-	rootProps.AddIntProperty(cfgKongProxyPortHttp, 0, "The Kong proxy http port")
-	rootProps.AddIntProperty(cfgKongProxyPortHttps, 0, "The Kong proxy https port")
+	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
+	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
 	rootProps.AddStringProperty(cfgKongSpecFilter, "", "SDK Filter format. Empty means filters are ignored.")
@@ -90,11 +90,11 @@ type KongGatewayConfig struct {
 }
 
 const (
-	hostErr       = "Kong Host must be provided."
-	proxyPortErr  = "Both proxy port values of http https are required"
-	invalidUrlErr = "Invalid Admin API url provided. Must contain protocol + hostname + port." +
+	hostErr       = "kong Host must be provided."
+	proxyPortErr  = "both proxy port values of http https are required"
+	invalidUrlErr = "invalid Admin API url provided. Must contain protocol + hostname + port." +
 		"Examples: <http://kong.com:8001>, <https://kong.com:8444>"
-	credentialConfigErr = "Invalid authorization configuration provided. " +
+	credentialConfigErr = "invalid authorization configuration provided. " +
 		"If provided, (Username and Password) or (ClientID and ClientSecret) must be non-empty"
 )
 
