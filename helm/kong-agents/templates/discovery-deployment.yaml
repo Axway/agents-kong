@@ -82,6 +82,10 @@ spec:
             - name: KONG_SPEC_LOCALPATH
               value: /specs
             {{- end }}
+            {{- if .Values.kong.spec.filter }}
+            - name: KONG_SPEC_FILTER
+              value: "{{ .Values.kong.spec.filter }}"
+            {{- end }}
             {{- if .Values.kong.admin.auth.apikey.value }}
             - name: KONG_ADMIN_AUTH_APIKEY_VALUE
               valueFrom:

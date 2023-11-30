@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
+	"github.com/Axway/agent-sdk/pkg/filter"
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/subscription"
 
@@ -43,6 +44,11 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		return nil, err
 	}
 
+	discoveryFilter, err := filter.NewFilter(agentConfig.KongGatewayCfg.Spec.Filter)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := hasACLEnabledInPlugins(plugins); err != nil {
 		return nil, err
 	}
@@ -57,6 +63,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		kongClient:     kongClient,
 		cache:          daCache,
 		mode:           common.Marketplace,
+		filter:         discoveryFilter,
 	}, nil
 }
 
@@ -92,6 +99,10 @@ func (gc *Client) DiscoverAPIs() error {
 func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.Service) {
 	wg := new(sync.WaitGroup)
 	for _, service := range services {
+		if !gc.filter.Evaluate(toTagsMap(service)) {
+			gc.logger.WithField(common.AttrServiceName, *service.Name).Info("Service not passing tag filters. Skipping discovery for this service.")
+			continue
+		}
 		wg.Add(1)
 		go func(service *klib.Service, wg *sync.WaitGroup) {
 			defer wg.Done()
@@ -102,6 +113,15 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.
 		}(service, wg)
 	}
 	wg.Wait()
+}
+
+func toTagsMap(service *klib.Service) map[string]string {
+	// The SDK currently only supports map[string]string format.
+	filters := make(map[string]string)
+	for i, t := range service.Tags {
+		filters[fmt.Sprintf("t%d", i)] = *t
+	}
+	return filters
 }
 
 func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
