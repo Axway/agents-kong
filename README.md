@@ -3,6 +3,13 @@
 The Kong agents are used to discover, provision access to, and track usages of Kong Gateway routes.
 
 - [Getting started](#getting-started)
+  - [Discovery process](#discovery-process)
+  - [Provisioning process](#provisioning-process)
+    - [Marketplace application](#marketplace-application)
+    - [Access request](#access-request)
+    - [Credential](#credential)
+  - [Traceability process](#traceability-process)
+  - [Environment variables](#environment-variables)
   - [Setup](#setup)
     - [Amplify setup](#amplify-setup)
       - [Platform - organization ID](#platform---organization-id)
@@ -14,6 +21,7 @@ The Kong agents are used to discover, provision access to, and track usages of K
         - [Local specification path](#local-specification-path)
         - [URL specification paths](#url-specification-paths)
         - [Kong Dev Portal](#kong-dev-portal)
+      - [HTTP Log plugin](#http-log-plugin)
   - [Kong agents deployment](#kong-agents-deployment)
     - [Additional information](#additional-information)
     - [Docker](#docker)
@@ -21,16 +29,62 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Deployment](#deployment)
     - [Helm](#helm)
       - [Download](#download)
+      - [Traceability agent stateful set](#traceability-agent-stateful-set)
       - [Create secrets](#create-secrets)
       - [Create volume, local specification files only](#create-volume-local-specification-files-only)
+        - [ConfigMap](#configmap)
+        - [AWS S3 Synchronization](#aws-s3-synchronization)
       - [Create overrides](#create-overrides)
       - [Deploy local helm chart](#deploy-local-helm-chart)
-  - [Discovery process](#discovery-process)
-  - [Provisioning process](#provisioning-process)
-    - [Marketplace application](#marketplace-application)
-    - [Access request](#access-request)
-    - [Credential](#credential)
-  - [Environment variables](#environment-variables)
+
+## Discovery process
+
+On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, as the ACL plugin is required for handling Amplify Central provisioning events. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
+
+After that initial startup process the discovery agent begins running its main discovery loop. In this loop the agent first gets a list of all Gateway Services. With each service the agent looks for all configured routes. The agent then looks to gather the specification file, see [Specification discovery methods](#specification-discovery-methods), if found the process continues. Using the route the agent checks for plugins to determine the types of credentials to associate with it. After gathering all of this information the agent creates a new API service with the specification file and linking the appropriate credentials. The endpoints associated to the API service are constructed using the **KONG_PROXY_HOST**, **KONG_PROXY_PORTS_HTTP**, and **KONG_PROXY_PORTS_HTTPS** settings.
+
+## Provisioning process
+
+As described in the [Discovery process](#discovery-process) section the Kong agent creates all supported credential types on Central at startup. Once API services are published they can be made into Assets and Products via Central itself. The Products can then be published to the Marketplace for consumption. In order to receive access to the service a user must first request access to it and the Kong agent provisioning process will execute based off of that request.
+
+### Marketplace application
+
+A Marketplace application is created by a Marketplace user. When a resource within the Kong environment is added to that application Central will create a ManagedApplication resource that the agent will execute off of. This ManagedApplication resource event is captured by the Kong agent and the agent creates a Kong consumer. In addition to the creation of the Consumer the agent adds an ACL Group ID to the Consumer, to be used by the Access Request.
+
+### Access request
+
+When a Marketplace user requests access to a resource, within the Kong environment, Central will create an AccessRequest resource in the same Kong environment. The agent receives this event and makes several changes within Kong. First the agent will add, or update, an ACL configuration on the Route being requested. This ACL will allow the Group ID created during the handling of the [Marketplace application](#marketplace-application) access to the route. Additionally, if a quota for this route has been set in Central in the product being handled the agent will add a Rate limiting plugin to reflect the quota that was set in Central for that product. Note: Quotas in Central can have a Weekly amount, this is not supported by Kong and the agent will reject the Access Request.
+
+### Credential
+
+Finally, when a Marketplace user requests a credential, within the Kong environment, Central will create a Credential resource in the same Kong environment. The agent receives this event and creates the proper credential type for the Consumer that the [Marketplace application](#marketplace-application) handling created. After successfully creating this credential the necessary details are returned back to the Central to be viewed and used by the Marketplace user.
+
+## Traceability process
+
+On startup the Kong traceability agent first validates that it is able to connect to all required services. Once validation is complete the agent begins listening for log events to be sent to it. The agent receives these events and iterates through them to determine if any of the events should be sampled. If it is to be sampled the agent creates a transaction summary and leg sending that the Amplify Central. Regardless of the event being set for sampling the agent will update the proper API Metric and Usage details to be sent to Amplify Central on the interval configured. See [Usage](https://docs.axway.com/bundle/amplify-central/page/docs/connect_manage_environ/connected_agent_common_reference/traceability_usage/index.html).
+
+## Environment variables
+
+All Kong specific environment variables available are listed below
+
+| Name                                   | Description                                                                                   |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Discovery Agent Variables              |                                                                                               |
+| **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                                      |
+| **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                                |
+| **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                                      |
+| **KONG_ADMIN_AUTH_BASICAUTH_USERNAME** | The HTTP Basic username that the agent will use when authenticating                           |
+| **KONG_ADMIN_AUTH_BASICAUTH_PASSWORD** | The HTTP Basic password that the agent will use when authenticating                           |
+| **KONG_PROXY_HOST**                    | The proxy endpoint that the agent will use in API Services for discovered Kong routes         |
+| **KONG_PROXY_PORTS_HTTP**              | The HTTP port number that the agent will set for discovered APIS                              |
+| **KONG_PROXY_PORTS_HTTPS**             | The HTTPs port number that the agent will set for discovered APIS                             |
+| **KONG_SPEC_LOCALPATH**                | The local path that the agent will look in for API definitions                                |
+| **KONG_SPEC_URLPATHS**                 | The URL paths that the agent will query on the gateway service for API definitions            |
+| **KONG_SPEC_DEVPORTALENABLED**         | Set to true if hte agent should look for spec files in the Kong Dev Portal (default: `false`) |
+|                                        |                                                                                               |
+| Traceability Agent Variables           |                                                                                               |
+| **KONG_LOGS_HTTP_PATH**                | The path endpoint that the Traceability agent will listen on (default: `/requestlogs`)        |
+| **KONG_LOGS_HTTP_PORT**                | The port that the Traceability agent HTTP server will listen on (default: `9000`)             |
 
 ## Setup
 
@@ -87,14 +141,22 @@ You now have the service account information needed for you Kong Agent installat
 - Note the *Logical Name* for your new environment
 
 ---
-**_NOTE:_**
+**NOTE:**
 
 Don't forget to update your Amplify Central Region specific variables, such as the `CENTRAL_URL` setting.
 
 All CENTRAL_* variables listed on [docs.axway.com](https://docs.axway.com/bundle/amplify-central/page/docs/connect_manage_environ/connect_api_manager/agent-variables/index.html) may be used on the Kong Agent.
-___
+
+---
 
 ### Kong setup
+
+---
+**NOTE:**
+
+The Discovery agent expects that the Kong Gateway utilizes the [ACL](https://docs.konghq.com/hub/kong-inc/acl/) plugin to control access to the various routes provided in the Kong Gateway. On startup the agent checks that this plugin is in use prior to performing any discovery. The agent then uses this plugin while provisioning access to routes in Kong. [Provisioning Process](#provisioning-process).
+
+---
 
 #### Kong admin API secured by Kong Gateway
 
@@ -162,7 +224,7 @@ KONG_SPEC_URLPATHS=/openapi.json,/swagger.json
 ##### Kong Dev Portal
 
 The Kong Dev Portal discovery method is configured by providing a value for the `KONG_SPEC_DEVPORTALENABLED`, but also the local spec discovery needs to be disabled by setting an empty value for the`KONG_SPEC_LOCALPATH`, otherwise, the local discovery process will be used.
- 
+
 Ex.
 
 Configuration for agent
@@ -172,6 +234,38 @@ KONG_SPEC_LOCALPATH=""
 KONG_SPEC_DEVPORTALENABLED=true
 ```
 
+#### HTTP Log plugin
+
+The Traceability agent utilizes Kong's HTTP log plugin to track transactions. In order to set this up the plugin will have to be added, globally, and configured to send to the endpoint that the Traceability agent will listen on
+
+- Navigate to the Plugins page
+- Click *+ New Plugin*
+- In the list of plugins find *HTTP Log* and click *enable*
+- Ensure *Global* is selected so the agent receives events for all traffic
+- Enter the following, all can be customized as necessary for your infrastructure, [HTTP Log](https://docs.konghq.com/hub/kong-inc/http-log/configuration/)
+  - An Instance Name (optional)
+  - Tags (optional)
+  - content_type - `applicaiton/json`
+  - custom_fields_by_lua - empty
+  - flush_timeout - empty
+  - headers - empty
+  - http_endpoint - the endpoint the agent will listen on (ie. `http://traceability.host:9000/requestlogs`)
+  - keepalive - `60000`
+  - method - `POST`
+  - queue.initial_retry_delay - `0.01`
+  - queue.max_batch_size - `1000`
+  - queue.max_bytes - empty
+  - queue.max_coalescing_delay - `10`
+  - queue.max_entries - `100000`
+  - queue.max_retry_delay - `60`
+  - queue.max_retry_time - `60`
+  - queue_size - empty
+  - retry_count - empty
+  - timeout - `10000`
+- Click *Install*
+
+Kong is now setup to send transactions to the traceability agent.
+
 ## Kong agents deployment
 
 The Kong agents are delivered as containers, kong_discovery_agent and kong_traceability_agent. These containers can be deployed directly to a container server, such as Docker, or using the provided helm chart. In this section you will lean how to deploy the agents directly as containers or within a kubernetes cluster using the helm chart.
@@ -180,7 +274,7 @@ The Kong agents are delivered as containers, kong_discovery_agent and kong_trace
 
 Before beginning to deploy the agents following information will need to be gathered in addition to the details that were noted in setup.
 
-- The full URL to connect to the Kong admin API, `KONG_ADMIN_URL`. Note that if secured by kong, the URL should look like: https://host:port/secured-route-from-kong
+- The full URL to connect to the Kong admin API, `KONG_ADMIN_URL`. Note that if secured by kong, the URL should look like: [https://host:port/secured-route-from-kong]
 - The host the agent will use when setting the endpoint of a discovered API, (`KONG_PROXY_HOST`)
   - The HTTP `KONG_PROXY_PORTS_HTTP` and HTTPs `KONG_PROXY_PORTS_HTTPS` ports the agent will use with the endpoint above
 - The URL paths, hosted by the gateway service, to query for spec files, `KONG_SPEC_URLPATHS`
@@ -189,7 +283,7 @@ Before beginning to deploy the agents following information will need to be gath
 
 #### Environment variable files
 
-In this section we will use the information gathered within the setup and additional information sections above and create two environment variable files for each agent to use. This is the minimum configuration assuming defaults for all other available settings. Note the setting below expect the use of the API Key authentication method for the [Kong admin api](#kong-admin-api-secured-by-kong-gateway).
+In this section we will use the information gathered within the setup and additional information sections above and create two environment variable files for each agent to use. This is the minimum configuration assuming defaults for all other available settings. Note the settings below expect the use of the API Key authentication method for the [Kong admin api](#kong-admin-api-secured-by-kong-gateway).
 
 Discovery Agent
 
@@ -213,10 +307,6 @@ AGENTFEATURES_MARKETPLACEPROVISIONING=true
 Traceability Agent
 
 ```shell
-KONG_ADMIN_URL=https://kong.url.com:8444
-KONG_ADMIN_AUTH_APIKEY_HEADER="apikey"
-KONG_ADMIN_AUTH_APIKEY_VALUE=123456789abcdefghijkl098765432109
-
 CENTRAL_ORGANIZATIONID=123456789
 CENTRAL_AUTH_CLIENTID=kong-agents_123456789-abcd-efgh-ijkl-098765432109
 CENTRAL_ENVIRONMENT=kong
@@ -243,7 +333,7 @@ docker run -d -v /home/user/keys:/keys -v /home/user/specs:/specs -v /home/user/
 Kong Traceability agent
 
 ```shell
-docker run -d -v /home/user/keys:/keys -v /home/user/traceability/data:/data --env-file traceability-agents.env ghcr.io/axway/kong_traceability_agent:latest
+docker run -d -v /home/user/keys:/keys -v /home/user/traceability/data:/data --env-file traceability-agents.env -p 9000:9000 ghcr.io/axway/kong_traceability_agent:latest
 ```
 
 ### Helm
@@ -258,6 +348,10 @@ curl -L https://github.com/Axway/agents-kong/archive/refs/tags/v${tag}.tar.gz --
 tar xvf kong-agents.tar.gz --strip-components=2 agents-kong-${tag}/helm/kong-agents                        # extract the helm chart in the current directory 
 rm kong-agents.tar.gz                                                                                      # remove the archive
 ```
+
+#### Traceability agent stateful set
+
+The helm deployment of the Traceability agent uses a resource type of Stateful set along with a service to distribute the events to the agent pods. This is to allow scaling of the traceability agent in order to properly handle the load of events being sent through Kong. The agent is expected to be ran in the same kubernetes cluster as the Gateway and the [HTTP Log plugin](#http-log-plugin) should set its endpoint configuration to the [Service](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#services) that is created (ie.`http://kong-traceability-agent.kong-agents.svc.cluster.local:9000` where `kong-traceability-agent` is the service name and `kong-agents` is the namespace for the service)
 
 #### Create secrets
 
@@ -288,7 +382,13 @@ stringData:
 
 #### Create volume, local specification files only
 
-A volume of with the local specification files is required, given that is the desired [specification discovery method](#specification-discovery-methods). This volume could be of any kubernetes resource type which can be mounted in the Kong agent container. Below is a sample of a ConfigMap that is used for the local specification files. See [Kubernetes Volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
+A volume of with the local specification files is required, given that is the desired [specification discovery method](#specification-discovery-methods). This volume could be of any kubernetes resource type which can be mounted in the Kong agent container. See [Kubernetes Volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
+
+Below are a couple of examples on adding specifications to a volume, of any type, to the agent pod for discovery purposes.
+
+##### ConfigMap
+
+Here is a sample of a ConfigMap that is used for the local specification files.
 
 ```yaml
 apiVersion: v1
@@ -306,13 +406,14 @@ If a ConfigMap is being used, the kubectl command provides a utility to create t
 kubectl create configmap specs --from-file=specs/
 ```
 
-___
-**_NOTE:_**
+---
+**NOTE:**
 
 An update to the ConfigMap will *NOT* be seen by any running pods, a pod restart would be required to see changes.
 
 It is recommended to use a volume type that is more mutable than a ConfigMap. The agent has no knowledge of the volume type being used.
-___
+
+---
 
 Once a resource with the files is created, which ever resource type is chosen, the overrides file will need to be updated with that resource information for mounting as a volume.
 
@@ -325,19 +426,124 @@ kong:
         name: my-spec-files  # name of the resource created
 ```
 
+##### AWS S3 Synchronization
+
+A kubernetes PersistentVolume resource with a CronJob volume can be set up to regularly synchronize spec files from an S3 bucket to the volume for the agent to utilize. Below you will find the three kubernetes resources that would need to be created as well as the update to the agnet helm chart override file.
+
+- Create a PersistentVolume - this will store the specification files in the cluster
+  - In this example a storage class of manual is used with a host path in the kubernetes cluster, however any class type may be used
+    - [K8S Persistent Volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+    - [EKS Persistent Volumes](https://aws.amazon.com/blogs/storage/persistent-storage-for-kubernetes/)
+
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: spec-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data"
+```
+
+- Create a PersistentVolumeClaim - this allows pods to mount this volume, needed for the job and the agent
+
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spec-volume-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+- Create a CronJob - this will run on the specified interval synchronizing the S3 bucket to the volume
+  - The keys are embedded in this definition, but this can be replaced by a kubernetes secret or service account with the proper role in EKS
+  - The schedule is to sync the spec files every 15 minutes
+  - The bucket name is within the command, `specs-bucket`
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: s3-sync
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: s3-sync
+            image: public.ecr.aws/aws-cli/aws-cli
+            env:
+            - name: AWS_ACCESS_KEY_ID
+              value: XXXXXXXXXXXXXXXXXXX
+            - name: AWS_SECRET_ACCESS_KEY
+              value: XXXXXXXXXXXXXXXXXXX
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - aws s3 sync s3://specs-bucket/ /specs/
+            volumeMounts:
+            - name: specs-mount
+              mountPath: /specs
+          volumes:
+          - name: specs-mount
+            persistentVolumeClaim:
+              claimName: spec-volume-claim
+          restartPolicy: Never
+```
+
+- Override the agent helm chart accordingly
+  
+```yaml
+kong:
+  ...
+  spec:
+    localPath:
+      persistentVolumeClaim:           # type of the resource, provided in the deployment as a volume.
+        claimName: spec-volume-claim   # name of the resource created
+```
+
 #### Create overrides
 
 overrides.yaml
 
 ```yaml
+discovery:
+  image:
+    tag: v0.0.1 # update accordingly
+
+traceability:
+  image:
+    tag: v0.0.1 # update accordingly
+
 kong:
+  enable:
+    traceability: true # set this to true to deploy the traceability agent stateful set
   admin:
-    url: https://kong.url.com:8444
+    url: http://kong-gateway-kong-admin.kong.svc.cluster.local:8001
   proxy:
     host: kong.proxy.endpoint.com
     ports:
-      http: 8000
-      https: 8443
+      http: 80
+      https: 443
   spec:
     localPath:
       configMap:            
@@ -365,42 +571,3 @@ Install the helm chart using the created overrides file.
 ```shell
 helm install kong-agents ./kong-agents -f overrides.yaml
 ```
-
-## Discovery process
-
-On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, as the ACL plugin is required for handling Amplify Central provisioning events. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
-
-After that initial startup process the discovery agent begins running its main discovery loop. In this loop the agent first gets a list of all Gateway Services. With each service the agent looks for all configured routes. The agent then looks to gather the specification file, see [Specification discovery methods](#specification-discovery-methods), if found the process continues. Using the route the agent checks for plugins to determine the types of credentials to associate with it. After gathering all of this information the agent creates a new API service with the specification file and linking the appropriate credentials. The endpoints associated to the API service are constructed using the **KONG_PROXY_HOST**, **KONG_PROXY_PORTS_HTTP**, and **KONG_PROXY_PORTS_HTTPS** settings.
-
-## Provisioning process
-
-As described in the [Discovery process](#discovery-process) section the Kong agent creates all supported credential types on Central at startup. Once API services are published they can be made into Assets and Products via Central itself. The Products can then be published to the Marketplace for consumption. In order to receive access to the service a user must first request access to it and the Kong agent provisioning process will execute based off of that request.
-
-### Marketplace application
-
-A Marketplace application is created by a Marketplace user. When a resource within the Kong environment is added to that application Central will create a ManagedApplication resource that the agent will execute off of. This ManagedApplication resource event is captured by the Kong agent and the agent creates a Kong consumer. In addition to the creation of the Consumer the agent adds an ACL Group ID to the Consumer, to be used by the Access Request.
-
-### Access request
-
-When a Marketplace user requests access to a resource, within the Kong environment, Central will create an AccessRequest resource in the same Kong environment. The agent receives this event and makes several changes within Kong. First the agent will add, or update, an ACL configuration on the Route being requested. This ACL will allow the Group ID created during the handling of the [Marketplace application](#marketplace-application) access to the route. Additionally, if a quota for this route has been set in Central in the product being handled the agent will add a Rate limiting plugin to reflect the quota that was set in Central for that product. Note: Quotas in Central can have a Weekly amount, this is not supported by Kong and the agent will reject the Access Request.
-
-### Credential
-
-Finally, when a Marketplace user requests a credential, within the Kong environment, Central will create a Credential resource in the same Kong environment. The agent receives this event and creates the proper credential type for the Consumer that the [Marketplace application](#marketplace-application) handling created. After successfully creating this credential the necessary details are returned back to the Central to be viewed and used by the Marketplace user.
-
-## Environment variables
-
-All Kong specific environment variables available are listed below
-
-| Name                                   | Description                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------- |
-| **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                              |
-| **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                        |
-| **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                              |
-| **KONG_ADMIN_AUTH_BASICAUTH_USERNAME** | The HTTP Basic username that the agent will use when authenticating                   |
-| **KONG_ADMIN_AUTH_BASICAUTH_PASSWORD** | The HTTP Basic password that the agent will use when authenticating                   |
-| **KONG_PROXY_HOST**                    | The proxy endpoint that the agent will use in API Services for discovered Kong routes |
-| **KONG_PROXY_PORTS_HTTP**              | The HTTP port number that the agent will set for discovered APIS                      |
-| **KONG_PROXY_PORTS_HTTPS**             | The HTTPs port number that the agent will set for discovered APIS                     |
-| **KONG_SPEC_LOCALPATH**                | The local path that the agent will look in for API definitions                        |
-| **KONG_SPEC_URLPATHS**                 | The URL paths that the agent will query on the gateway service for API definitions    |

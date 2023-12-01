@@ -360,15 +360,15 @@ func getSpecificPlugin(plugins []*klib.Plugin, serviceID, routeID, consumerID, p
 			continue
 		}
 
-		if consumerID == "" || plugin.Consumer == nil || (plugin.Consumer != nil && *plugin.Consumer.ID == consumerID) {
+		if (consumerID == "" && plugin.Consumer == nil) || (consumerID != "" && plugin.Consumer != nil && *plugin.Consumer.ID == consumerID) {
 			consumerMatch = true
 		}
 
-		if routeID == "" || plugin.Route == nil || (plugin.Route != nil && *plugin.Route.ID == routeID) {
+		if (routeID == "" && plugin.Route == nil) || (routeID != "" && plugin.Route != nil && *plugin.Route.ID == routeID) {
 			routeMatch = true
 		}
 
-		if serviceID == "" || plugin.Service == nil || (plugin.Service != nil && *plugin.Service.ID == serviceID) {
+		if (serviceID == "" && plugin.Service == nil) || (serviceID != "" && plugin.Service != nil && *plugin.Service.ID == serviceID) {
 			serviceMatch = true
 		}
 

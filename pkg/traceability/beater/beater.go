@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"sync"
 
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/common"
 	"github.com/google/uuid"
 
+	"github.com/Axway/agent-sdk/pkg/agent"
+	"github.com/Axway/agent-sdk/pkg/transaction/metric"
 	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
 	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -19,15 +23,19 @@ import (
 )
 
 type httpLogBeater struct {
-	client beat.Client
-	logger log.FieldLogger
-	server http.Server
+	client       beat.Client
+	logger       log.FieldLogger
+	server       http.Server
+	processing   sync.WaitGroup
+	shutdownDone sync.WaitGroup
 }
 
 // New creates an instance of kong_traceability_agent.
 func New(*beat.Beat, *common.Config) (beat.Beater, error) {
 	b := &httpLogBeater{
-		logger: log.NewFieldLogger().WithComponent("httpLogBeater").WithPackage("beater"),
+		logger:       log.NewFieldLogger().WithComponent("httpLogBeater").WithPackage("beater"),
+		processing:   sync.WaitGroup{},
+		shutdownDone: sync.WaitGroup{},
 	}
 
 	// Validate that all necessary services are up and running. If not, return error
@@ -48,18 +56,23 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 	if err != nil {
 		return err
 	}
+	agent.RegisterShutdownHandler(b.shutdownHandler)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(config.GetAgentConfig().HttpLogPluginConfig.Path, b.HandleHello)
+	mux.HandleFunc(config.GetAgentConfig().KongGatewayCfg.Logs.HTTP.Path, b.HandleEvent)
 
 	// other handlers can be assigned to separate paths
-	b.server = http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port)}
-	b.logger.Fatal(b.server.ListenAndServe())
+	b.server = http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().KongGatewayCfg.Logs.HTTP.Port)}
+	b.server.ListenAndServe()
+
+	// wait for the shutdown process to finish prior to exit
+	b.shutdownDone.Add(1)
+	b.shutdownDone.Wait()
 
 	return nil
 }
 
-func (b *httpLogBeater) HandleHello(w http.ResponseWriter, r *http.Request) {
+func (b *httpLogBeater) HandleEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		b.logger.Trace("received a non post request")
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -74,17 +87,35 @@ func (b *httpLogBeater) HandleHello(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	b.processing.Add(1)
 	go func(data []byte) {
+		defer b.processing.Done()
 		ctx := context.WithValue(context.Background(), processor.CtxTransactionID, uuid.NewString())
 
 		eventProcessor, err := processor.NewEventsHandler(ctx, data)
 		if err == nil {
-			eventsToPublish, err := eventProcessor.Handle()
-			if err == nil {
-				b.client.PublishAll(eventsToPublish)
-			}
+			eventsToPublish := eventProcessor.Handle()
+			b.client.PublishAll(eventsToPublish)
 		}
 	}(logData)
+}
+
+func (b *httpLogBeater) shutdownHandler() {
+	b.logger.Info("waiting for current processing to finish")
+	defer b.shutdownDone.Done()
+
+	// wait for all processing to finish
+	b.processing.Wait()
+
+	// publish the metrics and usage
+	b.logger.Info("publishing cached metrics and usage")
+	metric.GetMetricCollector().ShutdownPublish()
+
+	// remove the agent resource in k8s clusters
+	pod_name := os.Getenv("POD_NAME")
+	if pod_name != "" {
+		agent.GetCentralClient().DeleteResourceInstance(agent.GetAgentResource())
+	}
 }
 
 // Stop stops kong_traceability_agent.

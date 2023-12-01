@@ -1,6 +1,9 @@
 package processor
 
-import "github.com/Axway/agent-sdk/pkg/util/log"
+import (
+	"github.com/Axway/agent-sdk/pkg/transaction/metric"
+	"github.com/Axway/agent-sdk/pkg/util/log"
+)
 
 const (
 	CtxTransactionID log.ContextField = "transactionID"
@@ -31,19 +34,19 @@ type Latencies struct {
 }
 
 type Request struct {
-	QueryString map[string]string `json:"querystring"`
-	Size        int               `json:"size"`
-	URI         string            `json:"uri"`
-	URL         string            `json:"url"`
-	Headers     map[string]string `json:"headers"`
-	Method      string            `json:"method"`
-	TLS         *TLS              `json:"tls"`
+	QueryString map[string]string      `json:"querystring"`
+	Size        int                    `json:"size"`
+	URI         string                 `json:"uri"`
+	URL         string                 `json:"url"`
+	Headers     map[string]interface{} `json:"headers"`
+	Method      string                 `json:"method"`
+	TLS         *TLS                   `json:"tls"`
 }
 
 type Response struct {
-	Headers map[string]string `json:"headers"`
-	Status  int               `json:"status"`
-	Size    int               `json:"size"`
+	Headers map[string]interface{} `json:"headers"`
+	Status  int                    `json:"status"`
+	Size    int                    `json:"size"`
 }
 
 type Route struct {
@@ -89,9 +92,13 @@ type TLS struct {
 }
 
 type Consumer struct {
-	CustomID  string   `json:"custom_id"`
-	CreatedAt int64    `json:"created_at"`
-	ID        string   `json:"id"`
-	Tags      []string `json:"tags"`
-	Username  string   `json:"username"`
+	CustomID  string      `json:"custom_id"`
+	CreatedAt int64       `json:"created_at"`
+	ID        string      `json:"id"`
+	Tags      interface{} `json:"tags"`
+	Username  string      `json:"username"`
+}
+
+type metricCollector interface {
+	AddMetricDetail(metricDetail metric.Detail)
 }

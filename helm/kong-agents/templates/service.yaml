@@ -1,0 +1,17 @@
+{{- if .Values.kong.enable.traceability }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kong-agents.fullname" . }}-traceability
+  labels:
+    {{- include "kong-agents.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "kong-agents.selectorLabels" . | nindent 4 }}
+    app.agent.type: traceability
+  ports:
+  - name: logs
+    protocol: TCP
+    port: {{ .Values.kong.logs.http.port }}
+    targetPort: logs
+{{- end -}}

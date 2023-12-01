@@ -50,8 +50,8 @@ func initConfig(centralConfig corecfg.CentralConfig) (interface{}, error) {
 	rootProps := TraceCmd.GetProperties()
 
 	agentConfig := &config.AgentConfig{
-		CentralCfg:          centralConfig,
-		HttpLogPluginConfig: config.ParseProperties(rootProps),
+		CentralCfg:     centralConfig,
+		KongGatewayCfg: config.ParseProperties(rootProps),
 	}
 
 	config.SetAgentConfig(agentConfig)

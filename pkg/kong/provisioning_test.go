@@ -584,6 +584,9 @@ func TestAddQuota(t *testing.T) {
 									ID: klib.String("routeID"),
 								},
 								Enabled: klib.Bool(true),
+								Consumer: &klib.Consumer{
+									ID: klib.String("consumerID"),
+								},
 							},
 						},
 						"next": "null",
@@ -605,6 +608,9 @@ func TestAddQuota(t *testing.T) {
 								Name: klib.String(common.RateLimitingPlugin),
 								Route: &klib.Route{
 									ID: klib.String("routeID"),
+								},
+								Consumer: &klib.Consumer{
+									ID: klib.String("consumerID"),
 								},
 								Enabled: klib.Bool(false),
 							},

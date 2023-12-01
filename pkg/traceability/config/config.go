@@ -6,22 +6,32 @@ import (
 )
 
 const (
-	cfgKongHTTPLogPluginPath = "kong.httpLogPlugin.path"
-	cfgKongHTTPLogPluginPort = "kong.httpLogPlugin.port"
+	cfgKongHTTPLogsPath = "kong.logs.http.path"
+	cfgKongHTTPLogsPort = "kong.logs.http.port"
 )
 
 func AddKongProperties(rootProps properties.Properties) {
-	rootProps.AddStringProperty(cfgKongHTTPLogPluginPath, "/requestlogs", "Path on which the HTTP Log plugin sends request logs")
-	rootProps.AddIntProperty(cfgKongHTTPLogPluginPort, 9000, "Port that listens for request logs from HTTP Log plugin")
+	rootProps.AddStringProperty(cfgKongHTTPLogsPath, "/requestlogs", "Path on which the HTTP Log plugin sends request logs")
+	rootProps.AddIntProperty(cfgKongHTTPLogsPort, 9000, "Port that listens for request logs from HTTP Log plugin")
 }
 
 // AgentConfig - represents the config for agent
 type AgentConfig struct {
-	CentralCfg          corecfg.CentralConfig    `config:"central"`
-	HttpLogPluginConfig *KongHttpLogPluginConfig `config:"httpLogPlugin"`
+	CentralCfg     corecfg.CentralConfig `config:"central"`
+	KongGatewayCfg KongGatewayConfig     `config:"kong"`
 }
 
-type KongHttpLogPluginConfig struct {
+// KongGatewayConfig - represents the config for gateway
+type KongGatewayConfig struct {
+	corecfg.IConfigValidator
+	Logs KongLogsConfig `config:"logs"`
+}
+
+type KongLogsConfig struct {
+	HTTP KongLogsHTTPConfig `config:"http"`
+}
+
+type KongLogsHTTPConfig struct {
 	Path string `config:"path"`
 	Port int    `config:"port"`
 }
@@ -36,10 +46,14 @@ func GetAgentConfig() *AgentConfig {
 	return agentConfig
 }
 
-func ParseProperties(rootProps properties.Properties) *KongHttpLogPluginConfig {
+func ParseProperties(rootProps properties.Properties) KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
-	return &KongHttpLogPluginConfig{
-		Path: rootProps.StringPropertyValue(cfgKongHTTPLogPluginPath),
-		Port: rootProps.IntPropertyValue(cfgKongHTTPLogPluginPort),
+	return KongGatewayConfig{
+		Logs: KongLogsConfig{
+			HTTP: KongLogsHTTPConfig{
+				Path: rootProps.StringPropertyValue(cfgKongHTTPLogsPath),
+				Port: rootProps.IntPropertyValue(cfgKongHTTPLogsPort),
+			},
+		},
 	}
 }

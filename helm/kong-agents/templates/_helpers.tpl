@@ -43,6 +43,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
+Traceability selector labels
+*/}}
+{{- define "kong-agents.traceability.selectorLabels" -}}
+{{ include "kong-agents.selectorLabels" . }}
+app.agent.type: traceability
+{{- end }}
+
+{{/*
 Selector labels
 */}}
 {{- define "kong-agents.selectorLabels" -}}
