@@ -132,8 +132,7 @@ func createSummaryEvent(ktle TrafficLogEntry, teamID string, txnid string) (*tra
 		SetTeam(teamID).
 		SetEntryPoint(ktle.Service.Protocol, ktle.Request.Method, ktle.Request.URI, ktle.Request.URL).
 		SetDuration(ktle.Latencies.Request).
-		// TODO: APIGOV-26720 - service ID should be the API ID and Route should be the Stage
-		SetProxy(sdkUtil.FormatProxyID(ktle.Route.ID), ktle.Service.Name, 1)
+		SetProxyWithStage(sdkUtil.FormatProxyID(ktle.Route.ID), ktle.Service.Name, ktle.Route.Name, 1)
 
 	if ktle.Consumer != nil {
 		builder.SetApplication(sdkUtil.FormatApplicationID(ktle.Consumer.ID), ktle.Consumer.Username)

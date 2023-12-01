@@ -37,7 +37,7 @@ func (m *MetricsProcessor) process(entry TrafficLogEntry) (bool, error) {
 		details.Status = util.GetTransactionSummaryStatus(entry.Response.Status)
 	}
 	if entry.Service != nil {
-		details.APIID = entry.Service.ID
+		details.APIID = entry.Route.ID
 	}
 	if entry.Consumer != nil {
 		details.SubID = entry.Consumer.ID
@@ -54,7 +54,7 @@ func (m *MetricsProcessor) process(entry TrafficLogEntry) (bool, error) {
 
 func (m *MetricsProcessor) updateMetric(entry TrafficLogEntry) {
 	apiDetails := models.APIDetails{
-		ID:    entry.Service.ID,
+		ID:    entry.Route.ID,
 		Name:  entry.Service.Name,
 		Stage: entry.Route.Name,
 	}
