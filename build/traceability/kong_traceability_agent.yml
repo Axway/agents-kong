@@ -1,12 +1,6 @@
 kong_traceability_agent:
   # Settings for connecting to Kong
   kong:
-    admin:
-      url: ${KONG_ADMIN_URL}
-      auth:
-        apikey:
-          header: ${KONG_ADMIN_AUTH_APIKEY_HEADER}
-          value: ${KONG_ADMIN_AUTH_APIKEY_VALUE}
     httpLogPlugin:
       path: ${KONG_HTTPLOGPLUGIN_PATH}
       port: ${KONG_HTTPLOGPLUGIN_PORT}
