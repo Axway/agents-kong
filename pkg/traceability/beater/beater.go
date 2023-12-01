@@ -59,10 +59,10 @@ func (b *httpLogBeater) Run(beater *beat.Beat) error {
 	agent.RegisterShutdownHandler(b.shutdownHandler)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(config.GetAgentConfig().HttpLogPluginConfig.Path, b.HandleEvent)
+	mux.HandleFunc(config.GetAgentConfig().KongGatewayCfg.Logs.HTTP.Path, b.HandleEvent)
 
 	// other handlers can be assigned to separate paths
-	b.server = http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().HttpLogPluginConfig.Port)}
+	b.server = http.Server{Handler: mux, Addr: fmt.Sprintf(":%d", config.GetAgentConfig().KongGatewayCfg.Logs.HTTP.Port)}
 	b.server.ListenAndServe()
 
 	// wait for the shutdown process to finish prior to exit
