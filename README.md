@@ -151,6 +151,13 @@ All CENTRAL_* variables listed on [docs.axway.com](https://docs.axway.com/bundle
 
 ### Kong setup
 
+---
+**NOTE:**
+
+The Discovery agent expects that the Kong Gateway utilizes the [ACL](https://docs.konghq.com/hub/kong-inc/acl/) plugin to control access to the various routes provided in the Kong Gateway. On startup the agent checks that this plugin is in use prior to performing any discovery. The agent then uses this plugin while provisioning access to routes in Kong. [Provisioning Process](#provisioning-process).
+
+---
+
 #### Kong admin API secured by Kong Gateway
 
 See [Kong - Securing the Admin API](https://docs.konghq.com/gateway/latest/production/running-kong/secure-admin-api/)
@@ -276,7 +283,7 @@ Before beginning to deploy the agents following information will need to be gath
 
 #### Environment variable files
 
-In this section we will use the information gathered within the setup and additional information sections above and create two environment variable files for each agent to use. This is the minimum configuration assuming defaults for all other available settings. Note the setting below expect the use of the API Key authentication method for the [Kong admin api](#kong-admin-api-secured-by-kong-gateway).
+In this section we will use the information gathered within the setup and additional information sections above and create two environment variable files for each agent to use. This is the minimum configuration assuming defaults for all other available settings. Note the settings below expect the use of the API Key authentication method for the [Kong admin api](#kong-admin-api-secured-by-kong-gateway).
 
 Discovery Agent
 
@@ -463,7 +470,7 @@ spec:
       storage: 1Gi
 ```
 
-- Create a CrongJob - this will run on the specified interval synchronizing the S3 bucket to the volume
+- Create a CronJob - this will run on the specified interval synchronizing the S3 bucket to the volume
   - The keys are embedded in this definition, but this can be replaced by a kubernetes secret or service account with the proper role in EKS
   - The schedule is to sync the spec files every 15 minutes
   - The bucket name is within the command, `specs-bucket`
