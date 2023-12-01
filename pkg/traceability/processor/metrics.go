@@ -37,8 +37,7 @@ func (m *MetricsProcessor) process(entry TrafficLogEntry) (bool, error) {
 		details.Status = util.GetTransactionSummaryStatus(entry.Response.Status)
 	}
 	if entry.Service != nil {
-		// TODO: APIGOV-26720 - service ID should be the API ID and Route should be the Stage
-		details.APIID = entry.Route.ID
+		details.APIID = entry.Service.ID
 	}
 	if entry.Consumer != nil {
 		details.SubID = entry.Consumer.ID
@@ -55,11 +54,9 @@ func (m *MetricsProcessor) process(entry TrafficLogEntry) (bool, error) {
 
 func (m *MetricsProcessor) updateMetric(entry TrafficLogEntry) {
 	apiDetails := models.APIDetails{
-		// TODO: APIGOV-26720 - service ID should be the API ID and Route should be the Stage
-		// ID:   entry.Service.ID,
-		ID:   entry.Route.ID,
-		Name: entry.Service.Name,
-		// Stage: entry.Route.ID,
+		ID:    entry.Service.ID,
+		Name:  entry.Service.Name,
+		Stage: entry.Route.Name,
 	}
 
 	statusCode := entry.Response.Status
