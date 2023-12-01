@@ -23,6 +23,8 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Download](#download)
       - [Create secrets](#create-secrets)
       - [Create volume, local specification files only](#create-volume-local-specification-files-only)
+        - [ConfigMap](#configmap)
+        - [AWS S3 Synchronization](#aws-s3-synchronization)
       - [Create overrides](#create-overrides)
       - [Deploy local helm chart](#deploy-local-helm-chart)
   - [Discovery process](#discovery-process)
@@ -288,7 +290,13 @@ stringData:
 
 #### Create volume, local specification files only
 
-A volume of with the local specification files is required, given that is the desired [specification discovery method](#specification-discovery-methods). This volume could be of any kubernetes resource type which can be mounted in the Kong agent container. Below is a sample of a ConfigMap that is used for the local specification files. See [Kubernetes Volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
+A volume of with the local specification files is required, given that is the desired [specification discovery method](#specification-discovery-methods). This volume could be of any kubernetes resource type which can be mounted in the Kong agent container. See [Kubernetes Volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
+
+Below are a couple of examples on adding specifications to a volume, of any type, to the agent pod for discovery purposes.
+
+##### ConfigMap
+
+Here is a sample of a ConfigMap that is used for the local specification files.
 
 ```yaml
 apiVersion: v1
@@ -323,6 +331,101 @@ kong:
     localPath:
       configMap:             # type of the resource, provided in the deployment as a volume.
         name: my-spec-files  # name of the resource created
+```
+
+##### AWS S3 Synchronization
+
+A kubernetes PersistentVolume resource with a CronJob volume can be set up to regularly synchronize spec files from an S3 bucket to the volume for the agent to utilize. Below you will find the three kubernetes resources that would need to be created as well as the update to the agnet helm chart override file.
+
+- Create a PersistentVolume - this will store the specification files in the cluster
+  - In this example a storage class of manual is used with a host path in the kubernetes cluster, however any class type may be used
+    - [K8S Persistent Volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+    - [EKS Persistent Volumes](https://aws.amazon.com/blogs/storage/persistent-storage-for-kubernetes/)
+
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: spec-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data"
+```
+
+- Create a PersistentVolumeClaim - this allows pods to mount this volume, needed for the job and the agent
+
+```yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spec-volume-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+- Create a CrongJob - this will run on the specified interval synchronizing the S3 bucket to the volume
+  - The keys are embedded in this definition, but this can be replaced by a kubernetes secret or service account with the proper role in EKS
+  - The schedule is to sync the spec files every 15 minutes
+  - The bucket name is within the command, `specs-bucket`
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: s3-sync
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: s3-sync
+            image: public.ecr.aws/aws-cli/aws-cli
+            env:
+            - name: AWS_ACCESS_KEY_ID
+              value: XXXXXXXXXXXXXXXXXXX
+            - name: AWS_SECRET_ACCESS_KEY
+              value: XXXXXXXXXXXXXXXXXXX
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - aws s3 sync s3://specs-bucket/ /specs/
+            volumeMounts:
+            - name: specs-mount
+              mountPath: /specs
+          volumes:
+          - name: specs-mount
+            persistentVolumeClaim:
+              claimName: spec-volume-claim
+          restartPolicy: Never
+```
+
+- Override the agent helm chart accordingly
+  
+```yaml
+kong:
+  ...
+  spec:
+    localPath:
+      persistentVolumeClaim:           # type of the resource, provided in the deployment as a volume.
+        claimName: spec-volume-claim   # name of the resource created
 ```
 
 #### Create overrides
