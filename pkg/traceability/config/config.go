@@ -9,7 +9,7 @@ import (
 
 type props interface {
 	AddStringProperty(name string, defaultVal string, description string)
-	AddIntProperty(name string, defaultVal int, description string) // Methods to get the configured properties
+	AddIntProperty(name string, defaultVal int, description string)
 	StringPropertyValue(name string) string
 	IntPropertyValue(name string) int
 }
