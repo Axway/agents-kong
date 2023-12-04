@@ -24,7 +24,7 @@ jobs:
           cd helm
           tar -czf kong-agents.tgz ./kong-agents
           mv kong-agents.tgz ../
-      - name: Upload binaries to release
+      - name: Upload chart to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
