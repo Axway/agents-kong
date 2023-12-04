@@ -6,7 +6,6 @@ on:
 
 jobs:
   helm-archive:
-    name: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -30,4 +29,4 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: kong-agents.tgz
-          tag: v${GIT_TAG_NAME}
+          tag: ${{ github.ref_name }}
