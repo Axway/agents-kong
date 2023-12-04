@@ -7,8 +7,8 @@ import (
 	"github.com/Axway/agent-sdk/pkg/filter"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
-	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	"github.com/Axway/agents-kong/pkg/kong"
+	config "github.com/Axway/agents-kong/pkg/discovery/config"
+	"github.com/Axway/agents-kong/pkg/discovery/kong"
 )
 
 type Client struct {

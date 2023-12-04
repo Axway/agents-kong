@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
   -X 'github.com/Axway/agent-sdk/pkg/cmd.SDKBuildVersion=${sdk_version}' \
   -X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentName=KongDiscoveryAgent' \
 	-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentDescription=Kong Discovery Agent'" \
-  -a -o /discovery_agent ${BASEPATH}/pkg/main/discovery/main.go
+  -a -o /discovery_agent ${BASEPATH}/pkg/discovery/main/agent.go
 
 # Create non-root user
 RUN addgroup -g 2500 axway && adduser -u 2500 -D -G axway axway

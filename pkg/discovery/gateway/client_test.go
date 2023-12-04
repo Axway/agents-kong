@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
-	config "github.com/Axway/agents-kong/pkg/config/discovery"
+	config "github.com/Axway/agents-kong/pkg/discovery/config"
 )
 
 func TestKongClient(t *testing.T) {

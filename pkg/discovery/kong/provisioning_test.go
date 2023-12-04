@@ -14,8 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
+
 	"github.com/Axway/agents-kong/pkg/common"
-	config "github.com/Axway/agents-kong/pkg/config/discovery"
+	config "github.com/Axway/agents-kong/pkg/discovery/config"
 )
 
 func formatRequestKey(method, path string) string {

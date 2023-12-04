@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Axway/agent-sdk/pkg/util/log"
+	klib "github.com/kong/go-kong/kong"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
-	"github.com/Axway/agents-kong/pkg/common"
-	config "github.com/Axway/agents-kong/pkg/config/discovery"
+	"github.com/Axway/agent-sdk/pkg/util/log"
 
-	klib "github.com/kong/go-kong/kong"
+	"github.com/Axway/agents-kong/pkg/common"
+	config "github.com/Axway/agents-kong/pkg/discovery/config"
 )
 
 const tagPrefix = "spec_local_"
