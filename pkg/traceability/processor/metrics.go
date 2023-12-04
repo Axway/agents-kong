@@ -54,7 +54,7 @@ func (m *MetricsProcessor) process(entry TrafficLogEntry) (bool, error) {
 
 func (m *MetricsProcessor) updateMetric(entry TrafficLogEntry) {
 	apiDetails := models.APIDetails{
-		ID:    entry.Route.ID,
+		ID:    entry.Service.Name,
 		Name:  entry.Service.Name,
 		Stage: entry.Route.Name,
 	}

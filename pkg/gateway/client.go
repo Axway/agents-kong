@@ -268,7 +268,7 @@ func newKongAPI(
 	endpoints []apic.EndpointDefinition,
 ) KongAPI {
 	return KongAPI{
-		id:            *route.ID,
+		id:            *service.Name,
 		name:          *service.Name,
 		description:   oasSpec.Description(),
 		version:       oasSpec.Version(),
@@ -332,16 +332,4 @@ func isPublished(api *KongAPI, c cache.Cache) (bool, string) {
 		return false, checksum
 	}
 	return true, checksum
-}
-
-func isValidAuthTypeAndEnabled(p *klib.Plugin) bool {
-	if !*p.Enabled {
-		return false
-	}
-	for _, availableAuthName := range []string{"basic-auth", "oauth2", "key-auth"} {
-		if *p.Name == availableAuthName {
-			return true
-		}
-	}
-	return false
 }
