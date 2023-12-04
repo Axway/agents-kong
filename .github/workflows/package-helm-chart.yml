@@ -1,0 +1,33 @@
+name: Kong Agents Helm
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  helm-archive:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: olegtarasov/get-tag@v2.1.2
+        id: tagName
+        with:
+          tagRegex: "v(.*)"  
+          tagRegexGroup: 1
+      - name: Update chart versions
+        run: |
+          
+          sed helm/kong-agents/Chart.yaml -i -e "s/^appVersion.*/appVersion:\ \"v${GIT_TAG_NAME}\"/"
+          sed helm/kong-agents/Chart.yaml -i -e "s/^version.*/version:\ ${GIT_TAG_NAME}/"
+      - name: Archive chart
+        run: |
+          cd helm
+          tar -czf kong-agents.tgz ./kong-agents
+          mv kong-agents.tgz ../
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: kong-agents.tgz
+          tag: v${GIT_TAG_NAME}
