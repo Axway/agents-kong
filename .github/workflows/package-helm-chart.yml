@@ -21,9 +21,7 @@ jobs:
           sed helm/kong-agents/Chart.yaml -i -e "s/^version.*/version:\ ${GIT_TAG_NAME}/"
       - name: Archive chart
         run: |
-          cd helm
-          tar -czf kong-agents.tgz ./kong-agents
-          mv kong-agents.tgz ../
+          tar czf kong-agents.tgz -C helm/kong-agents .
       - name: Upload chart to release
         uses: svenstaro/upload-release-action@v2
         with:
