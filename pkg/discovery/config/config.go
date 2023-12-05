@@ -37,8 +37,8 @@ func AddKongProperties(rootProps properties.Properties) {
 	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
 	rootProps.AddBoolProperty(cfgKongProxyPortHttpDisabled, false, "Set to true to disable adding an http endpoint to discovered routes")
 	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
-	rootProps.AddStringProperty(cfgKongProxyBasePath, "", "The base path for the Kong proxy endpoint")
 	rootProps.AddBoolProperty(cfgKongProxyPortHttpsDisabled, false, "Set to true to disable adding an https endpoint to discovered routes")
+	rootProps.AddStringProperty(cfgKongProxyBasePath, "", "The base path for the Kong proxy endpoint")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
 	rootProps.AddStringProperty(cfgKongSpecFilter, "", "SDK Filter format. Empty means filters are ignored.")
@@ -83,7 +83,7 @@ type KongPortConfig struct {
 
 type KongPortSettingsConfig struct {
 	Number  int  `config:"number"`
-	Disable bool `config:"disable"`
+	Disable bool `config:"disabled"`
 }
 
 type KongSpecConfig struct {
