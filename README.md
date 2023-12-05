@@ -77,8 +77,8 @@ All Kong specific environment variables available are listed below
 | **KONG_PROXY_HOST**                    | The proxy host that the agent will use in API Services when the Kong route does not specify hosts         |
 | **KONG_PROXY_PORTS_HTTP**              | The HTTP port number that the agent will set for discovered APIS                                          |
 | **KONG_PROXY_PORTS_HTTPS**             | The HTTPs port number that the agent will set for discovered APIS                                         |
-| **KONG_PROXY_PORTS_HTTP_DISABLE**      | Set to true if the agent should ignore routes that server over HTTP                                       |
-| **KONG_PROXY_PORTS_HTTPS_DISABLE**     | Set to true if the agent should ignore routes that server over HTTPs                                      |
+| **KONG_PROXY_PORTS_HTTP_DISABLE**      | Set to true if the agent should ignore routes that serve over HTTP                                       |
+| **KONG_PROXY_PORTS_HTTPS_DISABLE**     | Set to true if the agent should ignore routes that serve over HTTPs                                      |
 | **KONG_PROXY_BASEPATH**                | The proxy base path that will be added between the proxy host and Kong route path when building endpoints |
 | **KONG_SPEC_LOCALPATH**                | The local path that the agent will look in for API definitions                                            |
 | **KONG_SPEC_URLPATHS**                 | The URL paths that the agent will query on the gateway service for API definitions                        |
