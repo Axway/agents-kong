@@ -39,6 +39,26 @@ func TestKongRoute(t *testing.T) {
 				},
 			},
 		},
+		"https only route only has http": {
+			cfgHost:      "my.host.com",
+			cfgHttpsPort: 8443,
+			route: &kong.Route{
+				Hosts:     []*string{},
+				Protocols: []*string{kHttp},
+				Paths:     []*string{kong.String("/path")},
+			},
+			expectedEndpoints: []apic.EndpointDefinition{},
+		},
+		"http only route only has https": {
+			cfgHost:     "my.host.com",
+			cfgHttpPort: 8080,
+			route: &kong.Route{
+				Hosts:     []*string{},
+				Protocols: []*string{kHttps},
+				Paths:     []*string{kong.String("/path")},
+			},
+			expectedEndpoints: []apic.EndpointDefinition{},
+		},
 		"https default route, no base path": {
 			cfgHost:      "my.host.com",
 			cfgHttpsPort: 8443,

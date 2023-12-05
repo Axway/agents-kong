@@ -165,6 +165,10 @@ func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, servic
 	}
 
 	endpoints := gc.processKongRoute(route)
+	if len(endpoints) == 0 {
+		log.Info("not processing route as no enabled endpoints detected")
+		return
+	}
 	serviceBody, err := gc.processKongAPI(ctx, route, service, spec, endpoints, apiPlugins)
 	if err != nil {
 		log.WithError(err).Error("failed to process kong API")
