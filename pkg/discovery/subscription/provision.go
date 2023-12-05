@@ -3,22 +3,19 @@ package subscription
 import (
 	"context"
 
-	klib "github.com/kong/go-kong/kong"
-
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
-	"github.com/Axway/agents-kong/pkg/kong"
-	"github.com/Axway/agents-kong/pkg/subscription/access"
-	"github.com/Axway/agents-kong/pkg/subscription/application"
-	"github.com/Axway/agents-kong/pkg/subscription/credential"
+	"github.com/Axway/agents-kong/pkg/discovery/kong"
+	"github.com/Axway/agents-kong/pkg/discovery/subscription/access"
+	"github.com/Axway/agents-kong/pkg/discovery/subscription/application"
+	"github.com/Axway/agents-kong/pkg/discovery/subscription/credential"
 )
 
 type provisioner struct {
 	logger log.FieldLogger
 	client kong.KongAPIClient
-	kc     *klib.Client
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions

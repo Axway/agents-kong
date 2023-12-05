@@ -7,20 +7,20 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
-	"github.com/Axway/agent-sdk/pkg/filter"
-	"github.com/Axway/agents-kong/pkg/common"
-	"github.com/Axway/agents-kong/pkg/subscription"
+	klib "github.com/kong/go-kong/kong"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic"
+	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/cache"
-
+	"github.com/Axway/agent-sdk/pkg/filter"
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
-	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	kutil "github.com/Axway/agents-kong/pkg/kong"
-	klib "github.com/kong/go-kong/kong"
+
+	"github.com/Axway/agents-kong/pkg/common"
+	"github.com/Axway/agents-kong/pkg/discovery/config"
+	kutil "github.com/Axway/agents-kong/pkg/discovery/kong"
+	"github.com/Axway/agents-kong/pkg/discovery/subscription"
 )
 
 var kongToCRDMapper = map[string]string{

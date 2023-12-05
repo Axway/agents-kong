@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Axway/agents-kong/pkg/kong"
 	klib "github.com/kong/go-kong/kong"
+
+	"github.com/Axway/agents-kong/pkg/discovery/kong"
 )
 
 type pluginsMock []*klib.Plugin

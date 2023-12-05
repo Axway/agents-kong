@@ -28,14 +28,13 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Environment variable files](#environment-variable-files)
       - [Deployment](#deployment)
     - [Helm](#helm)
-      - [Download](#download)
       - [Traceability agent stateful set](#traceability-agent-stateful-set)
       - [Create secrets](#create-secrets)
       - [Create volume, local specification files only](#create-volume-local-specification-files-only)
         - [ConfigMap](#configmap)
         - [AWS S3 Synchronization](#aws-s3-synchronization)
       - [Create overrides](#create-overrides)
-      - [Deploy local helm chart](#deploy-local-helm-chart)
+      - [Deploy helm chart](#deploy-helm-chart)
 
 ## Discovery process
 
@@ -338,17 +337,6 @@ docker run -d -v /home/user/keys:/keys -v /home/user/traceability/data:/data --e
 
 ### Helm
 
-#### Download
-
-At the current time the Kong agents helm chart is not hosted on a helm chart repository. To deploy using this helm chart you will first want to download the helm directory from your desired release tag, removing the v, 0.0.1 in the sample below.
-
-```shell
-tag=0.0.1                                                                                                  # tag v0.0.1 with 'v' removed
-curl -L https://github.com/Axway/agents-kong/archive/refs/tags/v${tag}.tar.gz --output kong-agents.tar.gz  # download release archive
-tar xvf kong-agents.tar.gz --strip-components=2 agents-kong-${tag}/helm/kong-agents                        # extract the helm chart in the current directory 
-rm kong-agents.tar.gz                                                                                      # remove the archive
-```
-
 #### Traceability agent stateful set
 
 The helm deployment of the Traceability agent uses a resource type of Stateful set along with a service to distribute the events to the agent pods. This is to allow scaling of the traceability agent in order to properly handle the load of events being sent through Kong. The agent is expected to be ran in the same kubernetes cluster as the Gateway and the [HTTP Log plugin](#http-log-plugin) should set its endpoint configuration to the [Service](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#services) that is created (ie.`http://kong-traceability-agent.kong-agents.svc.cluster.local:9000` where `kong-traceability-agent` is the service name and `kong-agents` is the namespace for the service)
@@ -526,14 +514,6 @@ kong:
 overrides.yaml
 
 ```yaml
-discovery:
-  image:
-    tag: v0.0.1 # update accordingly
-
-traceability:
-  image:
-    tag: v0.0.1 # update accordingly
-
 kong:
   enable:
     traceability: true # set this to true to deploy the traceability agent stateful set
@@ -556,7 +536,7 @@ env:
   AGENTFEATURES_MARKETPLACEPROVISIONING: true
 ```
 
-#### Deploy local helm chart
+#### Deploy helm chart
 
 Assuming you are already in the desired kubernetes context and namespace, execute the following commands.
 
@@ -566,8 +546,9 @@ Create the secret containing the Central key files used for authentication.
 kubectl apply -f kong-agent-keys.yaml
 ```
 
-Install the helm chart using the created overrides file.
+Install the helm chart using the created overrides file. Set the release version to install.
 
 ```shell
-helm install kong-agents ./kong-agents -f overrides.yaml
+release=v0.0.1
+helm upgrade -i kong-agents https://github.com/Axway/agents-kong/releases/download/${release}/kong-agents.tgz -f overrides.yaml
 ```

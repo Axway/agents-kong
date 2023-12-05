@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Axway/agents-kong/pkg/cmd/discovery"
+	discovery "github.com/Axway/agents-kong/pkg/discovery/cmd"
 )
 
 func main() {

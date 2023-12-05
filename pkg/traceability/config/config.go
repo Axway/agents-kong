@@ -1,16 +1,25 @@
 package config
 
 import (
-	"github.com/Axway/agent-sdk/pkg/cmd/properties"
+	"fmt"
+	"strings"
+
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 )
+
+type props interface {
+	AddStringProperty(name string, defaultVal string, description string)
+	AddIntProperty(name string, defaultVal int, description string)
+	StringPropertyValue(name string) string
+	IntPropertyValue(name string) int
+}
 
 const (
 	cfgKongHTTPLogsPath = "kong.logs.http.path"
 	cfgKongHTTPLogsPort = "kong.logs.http.port"
 )
 
-func AddKongProperties(rootProps properties.Properties) {
+func AddKongProperties(rootProps props) {
 	rootProps.AddStringProperty(cfgKongHTTPLogsPath, "/requestlogs", "Path on which the HTTP Log plugin sends request logs")
 	rootProps.AddIntProperty(cfgKongHTTPLogsPort, 9000, "Port that listens for request logs from HTTP Log plugin")
 }
@@ -25,6 +34,22 @@ type AgentConfig struct {
 type KongGatewayConfig struct {
 	corecfg.IConfigValidator
 	Logs KongLogsConfig `config:"logs"`
+}
+
+const (
+	pathErr = "a path for the http server to listen on is required"
+	portErr = "a port for the http server to listen on is required"
+)
+
+// ValidateCfg - Validates the gateway config
+func (c *KongGatewayConfig) ValidateCfg() (err error) {
+	if c.Logs.HTTP.Path == "" {
+		return fmt.Errorf(pathErr)
+	}
+	if c.Logs.HTTP.Port == 0 {
+		return fmt.Errorf(portErr)
+	}
+	return
 }
 
 type KongLogsConfig struct {
@@ -46,9 +71,9 @@ func GetAgentConfig() *AgentConfig {
 	return agentConfig
 }
 
-func ParseProperties(rootProps properties.Properties) KongGatewayConfig {
+func ParseProperties(rootProps props) KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
-	return KongGatewayConfig{
+	cfg := KongGatewayConfig{
 		Logs: KongLogsConfig{
 			HTTP: KongLogsHTTPConfig{
 				Path: rootProps.StringPropertyValue(cfgKongHTTPLogsPath),
@@ -56,4 +81,10 @@ func ParseProperties(rootProps properties.Properties) KongGatewayConfig {
 			},
 		},
 	}
+
+	if !strings.HasPrefix(cfg.Logs.HTTP.Path, "/") {
+		cfg.Logs.HTTP.Path = fmt.Sprintf("/%s", cfg.Logs.HTTP.Path)
+	}
+
+	return cfg
 }

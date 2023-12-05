@@ -7,8 +7,8 @@ import (
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
-	config "github.com/Axway/agents-kong/pkg/config/discovery"
-	"github.com/Axway/agents-kong/pkg/gateway"
+	"github.com/Axway/agents-kong/pkg/discovery/config"
+	"github.com/Axway/agents-kong/pkg/discovery/gateway"
 )
 
 var DiscoveryCmd corecmd.AgentRootCmd

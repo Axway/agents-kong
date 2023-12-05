@@ -48,7 +48,7 @@ ${WORKSPACE}/discovery_agent:
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.SDKBuildVersion=$(sdk_version)' \
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentName=KongDiscoveryAgent' \
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentDescription=Kong Discovery Agent'" \
-		-a -o ${WORKSPACE}/bin/discovery_agent ${WORKSPACE}/pkg/main/discovery/main.go
+		-a -o ${WORKSPACE}/bin/discovery_agent ${WORKSPACE}/pkg/discovery/main/agent.go
 
 build-da: dep ${WORKSPACE}/discovery_agent
 	@echo "Discovery Agent build completed"
