@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestKongGateCfg(t *testing.T) {
+func TestKongGatewayCfg(t *testing.T) {
 	cfg := &KongGatewayConfig{}
 
 	err := cfg.ValidateCfg()
@@ -14,13 +14,28 @@ func TestKongGateCfg(t *testing.T) {
 
 	cfg.Proxy.Host = "localhost"
 	err = cfg.ValidateCfg()
-	assert.Equal(t, proxyPortErr, err.Error())
+	assert.Equal(t, httpPortErr, err.Error())
 
-	cfg.Proxy.Ports.HTTP = 8000
-	cfg.Proxy.Ports.HTTPS = 8443
+	cfg.Proxy.Ports.HTTP.Number = 8000
 	err = cfg.ValidateCfg()
-	assert.Equal(t, invalidUrlErr, err.Error())
+	assert.Equal(t, httpsPortErr, err.Error())
 
+	cfg.Proxy.Ports.HTTPS.Number = 8443
+	cfg.Proxy.Ports.HTTP.Disable = true
+	cfg.Proxy.Ports.HTTPS.Disable = true
+	err = cfg.ValidateCfg()
+	assert.Equal(t, portErr, err.Error())
+
+	cfg.Proxy.Ports.HTTP.Disable = false
+	cfg.Proxy.BasePath = "base"
+	err = cfg.ValidateCfg()
+	assert.Equal(t, basePathPrefixErr, err.Error())
+
+	cfg.Proxy.BasePath = "/base/"
+	err = cfg.ValidateCfg()
+	assert.Equal(t, basePathSuffixErr, err.Error())
+
+	cfg.Proxy.BasePath = "/base"
 	cfg.Admin.Url = "sdl.com:8000"
 	err = cfg.ValidateCfg()
 	assert.Equal(t, invalidUrlErr, err.Error())
