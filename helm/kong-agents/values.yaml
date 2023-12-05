@@ -33,18 +33,23 @@ kong:
         username:
         password:
   proxy:
-    host: 
+    host:
+    basePath:
     ports:
-      http: 8000
-      https: 8443
+      http:
+        disable:
+        number: 
+      https:
+        disable: 
+        number: 
   spec:
     filter:
     urlPaths: []
     localPath:
   logs:
     http:
-      path: /requestlogs
-      port: 9000
+      path:
+      port:
 
 # Add any environment variable overrides here
 env: {}

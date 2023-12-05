@@ -66,24 +66,27 @@ On startup the Kong traceability agent first validates that it is able to connec
 
 All Kong specific environment variables available are listed below
 
-| Name                                   | Description                                                                                   |
-| -------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Discovery Agent Variables              |                                                                                               |
-| **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                                      |
-| **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                                |
-| **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                                      |
-| **KONG_ADMIN_AUTH_BASICAUTH_USERNAME** | The HTTP Basic username that the agent will use when authenticating                           |
-| **KONG_ADMIN_AUTH_BASICAUTH_PASSWORD** | The HTTP Basic password that the agent will use when authenticating                           |
-| **KONG_PROXY_HOST**                    | The proxy endpoint that the agent will use in API Services for discovered Kong routes         |
-| **KONG_PROXY_PORTS_HTTP**              | The HTTP port number that the agent will set for discovered APIS                              |
-| **KONG_PROXY_PORTS_HTTPS**             | The HTTPs port number that the agent will set for discovered APIS                             |
-| **KONG_SPEC_LOCALPATH**                | The local path that the agent will look in for API definitions                                |
-| **KONG_SPEC_URLPATHS**                 | The URL paths that the agent will query on the gateway service for API definitions            |
-| **KONG_SPEC_DEVPORTALENABLED**         | Set to true if hte agent should look for spec files in the Kong Dev Portal (default: `false`) |
-|                                        |                                                                                               |
-| Traceability Agent Variables           |                                                                                               |
-| **KONG_LOGS_HTTP_PATH**                | The path endpoint that the Traceability agent will listen on (default: `/requestlogs`)        |
-| **KONG_LOGS_HTTP_PORT**                | The port that the Traceability agent HTTP server will listen on (default: `9000`)             |
+| Name                                   | Description                                                                                               |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Discovery Agent Variables              |                                                                                                           |
+| **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                                                  |
+| **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                                            |
+| **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                                                  |
+| **KONG_ADMIN_AUTH_BASICAUTH_USERNAME** | The HTTP Basic username that the agent will use when authenticating                                       |
+| **KONG_ADMIN_AUTH_BASICAUTH_PASSWORD** | The HTTP Basic password that the agent will use when authenticating                                       |
+| **KONG_PROXY_HOST**                    | The proxy host that the agent will use in API Services when the Kong route does not specify hosts         |
+| **KONG_PROXY_PORTS_HTTP**              | The HTTP port number that the agent will set for discovered APIS                                          |
+| **KONG_PROXY_PORTS_HTTPS**             | The HTTPs port number that the agent will set for discovered APIS                                         |
+| **KONG_PROXY_PORTS_HTTP_DISABLE**      | Set to true if the agent should ignore routes that server over HTTP                                       |
+| **KONG_PROXY_PORTS_HTTPS_DISABLE**     | Set to true if the agent should ignore routes that server over HTTPs                                      |
+| **KONG_PROXY_BASEPATH**                | The proxy base path that will be added between the proxy host and Kong route path when building endpoints |
+| **KONG_SPEC_LOCALPATH**                | The local path that the agent will look in for API definitions                                            |
+| **KONG_SPEC_URLPATHS**                 | The URL paths that the agent will query on the gateway service for API definitions                        |
+| **KONG_SPEC_DEVPORTALENABLED**         | Set to true if hte agent should look for spec files in the Kong Dev Portal (default: `false`)             |
+|                                        |                                                                                                           |
+| Traceability Agent Variables           |                                                                                                           |
+| **KONG_LOGS_HTTP_PATH**                | The path endpoint that the Traceability agent will listen on (default: `/requestlogs`)                    |
+| **KONG_LOGS_HTTP_PORT**                | The port that the Traceability agent HTTP server will listen on (default: `9000`)                         |
 
 ## Setup
 

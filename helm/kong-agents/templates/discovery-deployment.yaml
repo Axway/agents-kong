@@ -68,10 +68,16 @@ spec:
           env:
             - name: KONG_PROXY_HOST
               value: "{{ .Values.kong.proxy.host }}"
+            - name: KONG_PROXY_BASEPATH
+              value: "{{ .Values.kong.proxy.basePath }}"
             - name: KONG_PROXY_PORTS_HTTP
-              value: "{{ .Values.kong.proxy.ports.http }}"
+              value: "{{ .Values.kong.proxy.ports.http.number }}"
             - name: KONG_PROXY_PORTS_HTTPS
-              value: "{{ .Values.kong.proxy.ports.https }}"
+              value: "{{ .Values.kong.proxy.ports.https.number }}"
+            - name: KONG_PROXY_PORTS_HTTP_DISABLE
+              value: "{{ .Values.kong.proxy.ports.http.disable }}"
+            - name: KONG_PROXY_PORTS_HTTPS_DISABLE
+              value: "{{ .Values.kong.proxy.ports.https.disable }}"
             - name: KONG_ADMIN_URL
               value: "{{ .Values.kong.admin.url }}"
             {{- if (include "kong-agents.specDownloadPathsString" .) }}
@@ -116,10 +122,15 @@ spec:
                      (not (eq (toString $key) ""))
                      (not (has (toString $key) (list "KONG_ADMIN_URL" 
                                                      "KONG_ADMIN_AUTH_APIKEY_HEADER" 
-                                                     "KONG_ADMIN_AUTH_APIKEY_VALUE" 
+                                                     "KONG_ADMIN_AUTH_APIKEY_VALUE"
+                                                     "KONG_ADMIN_AUTH_BASICAUTH_USERNAME"
+                                                     "KONG_ADMIN_AUTH_BASICAUTH_PASSWORD"
                                                      "KONG_PROXY_HOST" 
+                                                     "KONG_PROXY_BASEPATH" 
                                                      "KONG_PROXY_PORTS_HTTP" 
                                                      "KONG_PROXY_PORTS_HTTPS" 
+                                                     "KONG_PROXY_PORTS_HTTP_DISABLE" 
+                                                     "KONG_PROXY_PORTS_HTTPS_DISABLE" 
                                                      "KONG_SPEC_LOCALPATH"
                                                      "KONG_SPEC_URLPATHS"
                                                      "KONG_LOGS_HTTP_SERVER_PATH"
