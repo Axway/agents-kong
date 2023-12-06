@@ -85,7 +85,7 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 
 	if !a.hasACL {
 		a.logger.Info("ACL plugin is disabled or not existing for current spec. Skipping access request provisioning")
-		return rs.SetMessage("Access request provisioning not required due to missing ACL plugin.").Success(), nil
+		return rs.Success(), nil
 	}
 
 	if a.quota != nil && a.quota.GetInterval().String() == provisioning.Weekly.String() {
@@ -132,7 +132,7 @@ func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 
 	if !a.hasACL {
 		a.logger.Info("ACL plugin is disabled or not existing for current spec. Skipping access request deprovisioning")
-		return rs.SetMessage("Access request deprovisioning not required due to missing ACL plugin.").Success()
+		return rs.Success()
 	}
 
 	err := a.client.RemoveRouteACL(a.ctx, a.routeID, a.appID)
