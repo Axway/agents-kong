@@ -50,7 +50,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}
 
 	if err := hasACLEnabledInPlugins(plugins); err != nil {
-		return nil, err
+		logger.WithError(err).Warn("No ACL plugin found. Assuming global access is allowed for all services.")
 	}
 
 	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
@@ -71,6 +71,16 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
 	for _, plugin := range plugins {
 		if *plugin.Name == "acl" && *plugin.Enabled {
+			return nil
+		}
+	}
+	return fmt.Errorf("failed to find acl plugin is enabled and installed")
+}
+
+// Returns no error in case an ACL plugin which is enabled is found
+func hasACLEnabledInPluginsMap(plugins map[string]*klib.Plugin) error {
+	for name, plugin := range plugins {
+		if name == "acl" && *plugin.Enabled {
 			return nil
 		}
 	}
@@ -247,10 +257,16 @@ func (gc *Client) processKongAPI(
 		}
 	}
 
+	hasACL := "true"
+	if err := hasACLEnabledInPluginsMap(apiPlugins); err != nil {
+		hasACL = "false"
+	}
+
 	agentDetails := map[string]string{
 		common.AttrServiceID: *service.ID,
 		common.AttrRouteID:   *route.ID,
 		common.AttrChecksum:  checksum,
+		common.AttrHasACL:    hasACL,
 	}
 	kongAPI.agentDetails = agentDetails
 	serviceBody, err := kongAPI.buildServiceBody()

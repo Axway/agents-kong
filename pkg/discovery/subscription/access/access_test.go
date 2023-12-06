@@ -99,14 +99,33 @@ func TestProvision(t *testing.T) {
 	}{
 		"no app id configured": {
 			result: provisioning.Error,
+			request: mockAccessRequest{
+				details: map[string]interface{}{
+					common.AttrHasACL: "true",
+				},
+			},
 		},
 		"no route id configured": {
 			request: mockAccessRequest{
 				values: map[string]string{
 					common.AttrAppID: "appID",
 				},
+				details: map[string]interface{}{
+					common.AttrHasACL: "true",
+				},
 			},
 			result: provisioning.Error,
+		},
+		"no ACL found": {
+			request: mockAccessRequest{
+				values: map[string]string{
+					common.AttrAppID: "appID",
+				},
+				details: map[string]interface{}{
+					common.AttrRouteID: "routeID",
+				},
+			},
+			result: provisioning.Success,
 		},
 		"unsupported quota interval": {
 			request: mockAccessRequest{
@@ -115,6 +134,7 @@ func TestProvision(t *testing.T) {
 				},
 				details: map[string]interface{}{
 					common.AttrRouteID: "routeID",
+					common.AttrHasACL:  "true",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Weekly,
@@ -134,6 +154,7 @@ func TestProvision(t *testing.T) {
 				},
 				details: map[string]interface{}{
 					common.AttrRouteID: "routeID",
+					common.AttrHasACL:  "true",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -153,6 +174,7 @@ func TestProvision(t *testing.T) {
 				},
 				details: map[string]interface{}{
 					common.AttrRouteID: "routeID",
+					common.AttrHasACL:  "true",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -170,6 +192,7 @@ func TestProvision(t *testing.T) {
 				},
 				details: map[string]interface{}{
 					common.AttrRouteID: "routeID",
+					common.AttrHasACL:  "true",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -207,6 +230,17 @@ func TestDeprovision(t *testing.T) {
 			},
 			result: provisioning.Error,
 		},
+		"no ACL found": {
+			request: mockAccessRequest{
+				values: map[string]string{
+					common.AttrAppID: "appID",
+				},
+				details: map[string]interface{}{
+					common.AttrRouteID: "routeID",
+				},
+			},
+			result: provisioning.Success,
+		},
 		"error revoking access for managed app": {
 			client: mockAccessClient{
 				removeManagedAppErr: true,
@@ -217,6 +251,7 @@ func TestDeprovision(t *testing.T) {
 				},
 				details: map[string]interface{}{
 					common.AttrRouteID: "routeID",
+					common.AttrHasACL:  "true",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -234,6 +269,7 @@ func TestDeprovision(t *testing.T) {
 				},
 				details: map[string]interface{}{
 					common.AttrRouteID: "routeID",
+					common.AttrHasACL:  "true",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,

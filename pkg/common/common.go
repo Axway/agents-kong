@@ -8,6 +8,7 @@ const (
 	AttrServiceTag  = "serviceTag"
 	AttrChecksum    = "checksum"
 	AttrAppID       = "kongApplicationId"
+	AttrHasACL      = "hasACL"
 
 	AttrCredentialID = "kongCredentialID"
 	AttrCredUpdater  = "kongCredentialUpdate"
