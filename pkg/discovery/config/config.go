@@ -5,17 +5,27 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Axway/agent-sdk/pkg/cmd/properties"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 )
+
+type props interface {
+	AddStringProperty(name string, defaultVal string, description string)
+	AddStringSliceProperty(name string, defaultVal []string, description string)
+	AddIntProperty(name string, defaultVal int, description string)
+	AddBoolProperty(name string, defaultVal bool, description string)
+	StringPropertyValue(name string) string
+	StringSlicePropertyValue(name string) []string
+	IntPropertyValue(name string) int
+	BoolPropertyValue(name string) bool
+}
 
 const (
 	cfgKongAdminUrl               = "kong.admin.url"
 	cfgKongAdminAPIKey            = "kong.admin.auth.apiKey.value"
 	cfgKongAdminAPIKeyHeader      = "kong.admin.auth.apiKey.header"
-	cfgKongAdminUsername          = "kong.admin.auth.basicauth.username"
-	cfgKongAdminPassword          = "kong.admin.auth.basicauth.password"
+	cfgKongAdminBasicUsername     = "kong.admin.auth.basicauth.username"
+	cfgKongAdminBasicPassword     = "kong.admin.auth.basicauth.password"
 	cfgKongProxyHost              = "kong.proxy.host"
 	cfgKongProxyPortHttp          = "kong.proxy.ports.http"
 	cfgKongProxyPortHttpDisabled  = "kong.proxy.ports.http.disabled"
@@ -25,14 +35,15 @@ const (
 	cfgKongSpecURLPaths           = "kong.spec.urlPaths"
 	cfgKongSpecLocalPath          = "kong.spec.localPath"
 	cfgKongSpecFilter             = "kong.spec.filter"
+	cfgKongSpecDevPortal          = "kong.spec.devPortalEnabled"
 )
 
-func AddKongProperties(rootProps properties.Properties) {
+func AddKongProperties(rootProps props) {
 	rootProps.AddStringProperty(cfgKongAdminUrl, "", "The Admin API url")
 	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
-	rootProps.AddStringProperty(cfgKongAdminUsername, "", "Username for basic auth to authenticate with Kong Admin API")
-	rootProps.AddStringProperty(cfgKongAdminPassword, "", "Password for basic auth to authenticate with Kong Admin API")
+	rootProps.AddStringProperty(cfgKongAdminBasicUsername, "", "Username for basic auth to authenticate with Kong Admin API")
+	rootProps.AddStringProperty(cfgKongAdminBasicPassword, "", "Password for basic auth to authenticate with Kong Admin API")
 	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
 	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
 	rootProps.AddBoolProperty(cfgKongProxyPortHttpDisabled, false, "Set to true to disable adding an http endpoint to discovered routes")
@@ -42,6 +53,7 @@ func AddKongProperties(rootProps properties.Properties) {
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
 	rootProps.AddStringProperty(cfgKongSpecFilter, "", "SDK Filter format. Empty means filters are ignored.")
+	rootProps.AddBoolProperty(cfgKongSpecDevPortal, false, "Set to true to enable gathering specs from teh Kong's dev portal.")
 }
 
 // AgentConfig - represents the config for agent
@@ -181,7 +193,7 @@ func invalidCredentialConfig(c *KongGatewayConfig) bool {
 	return false
 }
 
-func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
+func ParseProperties(rootProps props) *KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
 	httpPortConf := KongPortSettingsConfig{
 		Disable: rootProps.BoolPropertyValue(cfgKongProxyPortHttpDisabled),
@@ -208,8 +220,8 @@ func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 					Header: rootProps.StringPropertyValue(cfgKongAdminAPIKeyHeader),
 				},
 				BasicAuth: KongAdminBasicAuthConfig{
-					Username: rootProps.StringPropertyValue(cfgKongAdminUsername),
-					Password: rootProps.StringPropertyValue(cfgKongAdminPassword),
+					Username: rootProps.StringPropertyValue(cfgKongAdminBasicUsername),
+					Password: rootProps.StringPropertyValue(cfgKongAdminBasicPassword),
 				},
 			},
 		},
@@ -222,9 +234,10 @@ func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 			BasePath: rootProps.StringPropertyValue(cfgKongProxyBasePath),
 		},
 		Spec: KongSpecConfig{
-			URLPaths:  rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
-			LocalPath: rootProps.StringPropertyValue(cfgKongSpecLocalPath),
-			Filter:    rootProps.StringPropertyValue(cfgKongSpecFilter),
+			DevPortalEnabled: rootProps.BoolPropertyValue(cfgKongSpecDevPortal),
+			URLPaths:         rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
+			LocalPath:        rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+			Filter:           rootProps.StringPropertyValue(cfgKongSpecFilter),
 		},
 	}
 }
