@@ -552,6 +552,6 @@ kubectl apply -f kong-agent-keys.yaml
 Install the helm chart using the created overrides file. Set the release version to install.
 
 ```shell
-release=v0.0.1
+release=v0.0.2
 helm upgrade -i kong-agents https://github.com/Axway/agents-kong/releases/download/${release}/kong-agents.tgz -f overrides.yaml
 ```
