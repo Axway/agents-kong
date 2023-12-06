@@ -158,17 +158,17 @@ func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, servic
 	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
 		WithField(common.AttrServiceID, *service.ID)
 
-	proxyHost := gc.kongGatewayCfg.Proxy.Host
-	httpPort := gc.kongGatewayCfg.Proxy.Ports.HTTP
-	httpsPort := gc.kongGatewayCfg.Proxy.Ports.HTTPS
-
 	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
 		log.Warn("could not list plugins")
 		return
 	}
 
-	endpoints := gc.processKongRoute(proxyHost, route, httpPort, httpsPort)
+	endpoints := gc.processKongRoute(route)
+	if len(endpoints) == 0 {
+		log.Info("not processing route as no enabled endpoints detected")
+		return
+	}
 	serviceBody, err := gc.processKongAPI(ctx, route, service, spec, endpoints, apiPlugins)
 	if err != nil {
 		log.WithError(err).Error("failed to process kong API")
@@ -188,35 +188,20 @@ func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, servic
 	log.Info("Successfully published to central")
 }
 
-func (gc *Client) processKongRoute(defaultHost string, route *klib.Route, httpPort, httpsPort int) []apic.EndpointDefinition {
-	var endpoints []apic.EndpointDefinition
+func (gc *Client) processKongRoute(route *klib.Route) []apic.EndpointDefinition {
 	if route == nil {
-		return endpoints
+		return []apic.EndpointDefinition{}
 	}
 
-	hosts := route.Hosts
-	hosts = append(hosts, &defaultHost)
-
-	for _, host := range hosts {
-		for _, path := range route.Paths {
-			for _, protocol := range route.Protocols {
-				port := httpPort
-				if *protocol == "https" {
-					port = httpsPort
-				}
-
-				endpoint := apic.EndpointDefinition{
-					Host:     *host,
-					Port:     int32(port),
-					Protocol: *protocol,
-					BasePath: *path,
-				}
-				endpoints = append(endpoints, endpoint)
-			}
-		}
+	kRoute := KongRoute{
+		Route:       route,
+		defaultHost: gc.kongGatewayCfg.Proxy.Host,
+		httpPort:    gc.kongGatewayCfg.Proxy.Ports.HTTP.Value,
+		httpsPort:   gc.kongGatewayCfg.Proxy.Ports.HTTPS.Value,
+		basePath:    gc.kongGatewayCfg.Proxy.BasePath,
 	}
 
-	return endpoints
+	return kRoute.GetEndpoints()
 }
 
 func (gc *Client) processKongAPI(

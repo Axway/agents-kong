@@ -95,8 +95,12 @@ func createClient(responses map[string]response) KongAPIClient {
 		Proxy: config.KongProxyConfig{
 			Host: u.Hostname(),
 			Ports: config.KongPortConfig{
-				HTTP:  port,
-				HTTPS: port,
+				HTTP: config.KongPortSettingsConfig{
+					Value: port,
+				},
+				HTTPS: config.KongPortSettingsConfig{
+					Value: port,
+				},
 			},
 		},
 		Admin: config.KongAdminConfig{

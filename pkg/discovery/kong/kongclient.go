@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -150,7 +149,7 @@ func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service)
 
 	if specTag == "" {
 		log.Error("in order to map local specs to the desired services, a tag with format 'spec_local_fileName.extension' must be present")
-		return nil, errors.New("No specification tag found.")
+		return nil, fmt.Errorf("no specification tag found")
 	}
 
 	filename := specTag[len(tagPrefix):]
