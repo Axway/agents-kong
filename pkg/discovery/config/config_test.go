@@ -16,11 +16,11 @@ func TestKongGatewayCfg(t *testing.T) {
 	err = cfg.ValidateCfg()
 	assert.Equal(t, httpPortErr, err.Error())
 
-	cfg.Proxy.Ports.HTTP.Number = 8000
+	cfg.Proxy.Ports.HTTP.Value = 8000
 	err = cfg.ValidateCfg()
 	assert.Equal(t, httpsPortErr, err.Error())
 
-	cfg.Proxy.Ports.HTTPS.Number = 8443
+	cfg.Proxy.Ports.HTTPS.Value = 8443
 	cfg.Proxy.Ports.HTTP.Disable = true
 	cfg.Proxy.Ports.HTTPS.Disable = true
 	err = cfg.ValidateCfg()

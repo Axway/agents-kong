@@ -38,10 +38,10 @@ kong:
     ports:
       http:
         disable:
-        number: 
+        value: 
       https:
         disable: 
-        number: 
+        value: 
   spec:
     filter:
     urlPaths: []

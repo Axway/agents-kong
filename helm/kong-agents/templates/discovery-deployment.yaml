@@ -71,9 +71,9 @@ spec:
             - name: KONG_PROXY_BASEPATH
               value: "{{ .Values.kong.proxy.basePath }}"
             - name: KONG_PROXY_PORTS_HTTP
-              value: "{{ .Values.kong.proxy.ports.http.number }}"
+              value: "{{ .Values.kong.proxy.ports.http.value }}"
             - name: KONG_PROXY_PORTS_HTTPS
-              value: "{{ .Values.kong.proxy.ports.https.number }}"
+              value: "{{ .Values.kong.proxy.ports.https.value }}"
             - name: KONG_PROXY_PORTS_HTTP_DISABLE
               value: "{{ .Values.kong.proxy.ports.http.disable }}"
             - name: KONG_PROXY_PORTS_HTTPS_DISABLE

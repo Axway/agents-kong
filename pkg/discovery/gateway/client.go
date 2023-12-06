@@ -196,8 +196,8 @@ func (gc *Client) processKongRoute(route *klib.Route) []apic.EndpointDefinition 
 	kRoute := KongRoute{
 		Route:       route,
 		defaultHost: gc.kongGatewayCfg.Proxy.Host,
-		httpPort:    gc.kongGatewayCfg.Proxy.Ports.HTTP.Number,
-		httpsPort:   gc.kongGatewayCfg.Proxy.Ports.HTTPS.Number,
+		httpPort:    gc.kongGatewayCfg.Proxy.Ports.HTTP.Value,
+		httpsPort:   gc.kongGatewayCfg.Proxy.Ports.HTTPS.Value,
 		basePath:    gc.kongGatewayCfg.Proxy.BasePath,
 	}
 

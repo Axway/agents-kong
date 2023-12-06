@@ -82,7 +82,7 @@ type KongPortConfig struct {
 }
 
 type KongPortSettingsConfig struct {
-	Number  int  `config:"number"`
+	Value   int  `config:"value"`
 	Disable bool `config:"disabled"`
 }
 
@@ -120,7 +120,7 @@ func (c *KongGatewayConfig) ValidateCfg() error {
 	if c.Proxy.Host == "" {
 		return fmt.Errorf(hostErr)
 	}
-	if !c.Proxy.Ports.HTTP.Disable && c.Proxy.Ports.HTTP.Number == 0 {
+	if !c.Proxy.Ports.HTTP.Disable && c.Proxy.Ports.HTTP.Value == 0 {
 		return fmt.Errorf(httpPortErr)
 	}
 	if len(c.Proxy.BasePath) > 0 && !strings.HasPrefix(c.Proxy.BasePath, "/") {
@@ -129,7 +129,7 @@ func (c *KongGatewayConfig) ValidateCfg() error {
 	if len(c.Proxy.BasePath) > 0 && strings.HasSuffix(c.Proxy.BasePath, "/") {
 		return fmt.Errorf(basePathSuffixErr)
 	}
-	if !c.Proxy.Ports.HTTPS.Disable && c.Proxy.Ports.HTTPS.Number == 0 {
+	if !c.Proxy.Ports.HTTPS.Disable && c.Proxy.Ports.HTTPS.Value == 0 {
 		return fmt.Errorf(httpsPortErr)
 	}
 	if c.Proxy.Ports.HTTP.Disable && c.Proxy.Ports.HTTPS.Disable {
@@ -185,18 +185,18 @@ func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
 	httpPortConf := KongPortSettingsConfig{
 		Disable: rootProps.BoolPropertyValue(cfgKongProxyPortHttpDisabled),
-		Number:  rootProps.IntPropertyValue(cfgKongProxyPortHttp),
+		Value:   rootProps.IntPropertyValue(cfgKongProxyPortHttp),
 	}
 	if httpPortConf.Disable {
-		httpPortConf.Number = 0
+		httpPortConf.Value = 0
 	}
 
 	httpsPortConf := KongPortSettingsConfig{
 		Disable: rootProps.BoolPropertyValue(cfgKongProxyPortHttpsDisabled),
-		Number:  rootProps.IntPropertyValue(cfgKongProxyPortHttps),
+		Value:   rootProps.IntPropertyValue(cfgKongProxyPortHttps),
 	}
 	if httpsPortConf.Disable {
-		httpsPortConf.Number = 0
+		httpsPortConf.Value = 0
 	}
 
 	return &KongGatewayConfig{
