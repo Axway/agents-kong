@@ -38,7 +38,7 @@ The Kong agents are used to discover, provision access to, and track usages of K
 
 ## Discovery process
 
-On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, as the ACL plugin is required for handling Amplify Central provisioning events. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
+On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, more specifically for the ACL. The default option is to not require having it. By doing so, it is assumed that access is allowed for everyone. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
 
 After that initial startup process the discovery agent begins running its main discovery loop. In this loop the agent first gets a list of all Gateway Services. With each service the agent looks for all configured routes. The agent then looks to gather the specification file, see [Specification discovery methods](#specification-discovery-methods), if found the process continues. Using the route the agent checks for plugins to determine the types of credentials to associate with it. After gathering all of this information the agent creates a new API service with the specification file and linking the appropriate credentials. The endpoints associated to the API service are constructed using the **KONG_PROXY_HOST**, **KONG_PROXY_PORTS_HTTP**, and **KONG_PROXY_PORTS_HTTPS** settings.
 
@@ -52,7 +52,7 @@ A Marketplace application is created by a Marketplace user. When a resource with
 
 ### Access request
 
-When a Marketplace user requests access to a resource, within the Kong environment, Central will create an AccessRequest resource in the same Kong environment. The agent receives this event and makes several changes within Kong. First the agent will add, or update, an ACL configuration on the Route being requested. This ACL will allow the Group ID created during the handling of the [Marketplace application](#marketplace-application) access to the route. Additionally, if a quota for this route has been set in Central in the product being handled the agent will add a Rate limiting plugin to reflect the quota that was set in Central for that product. Note: Quotas in Central can have a Weekly amount, this is not supported by Kong and the agent will reject the Access Request.
+(Note: if the ACL plugin is not required, access request is skipped altogether). When a Marketplace user requests access to a resource, within the Kong environment, Central will create an AccessRequest resource in the same Kong environment. The agent receives this event and makes several changes within Kong. First the agent will add, or update, an ACL configuration on the Route being requested. This ACL will allow the Group ID created during the handling of the [Marketplace application](#marketplace-application) access to the route. Additionally, if a quota for this route has been set in Central in the product being handled the agent will add a Rate limiting plugin to reflect the quota that was set in Central for that product. Note: Quotas in Central can have a Weekly amount, this is not supported by Kong and the agent will reject the Access Request.
 
 ### Credential
 
@@ -60,7 +60,7 @@ Finally, when a Marketplace user requests a credential, within the Kong environm
 
 ## Traceability process
 
-On startup the Kong traceability agent first validates that it is able to connect to all required services. Once validation is complete the agent begins listening for log events to be sent to it. The agent receives these events and iterates through them to determine if any of the events should be sampled. If it is to be sampled the agent creates a transaction summary and leg sending that the Amplify Central. Regardless of the event being set for sampling the agent will update the proper API Metric and Usage details to be sent to Amplify Central on the interval configured. See [Usage](https://docs.axway.com/bundle/amplify-central/page/docs/connect_manage_environ/connected_agent_common_reference/traceability_usage/index.html).
+On startup the Kong traceability agent first validates that it is able to connect to all required services. Once validation is complete the agent begins listening for log events to be sent to it. The agent receives these events and iterates through them to determine if any of the events should be sampled. If it is to be sampled the agent creates a transaction summary and leg sending that the Amplify Central. Regardless of the event being set for sampling the agent will update the proper API Metric and Usage details to be sent to Amplify Central on the interval configured. See [Usage](https://docs.axway.com/bundle/amplify-central/page/docs/connect_manage_environ/connected_agent_common_reference/traceability_usage/index.html). Note: if the ACL plugin is not required, the traceability agent cannot associate API traffic with a consumer application.
 
 ## Environment variables
 
