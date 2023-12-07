@@ -68,6 +68,8 @@ spec:
           env:
             - name: KONG_PROXY_HOST
               value: "{{ .Values.kong.proxy.host }}"
+            - name: KONG_ACL_REQUIRED
+              value: "{{ .Values.kong.acl.required }}"
             - name: KONG_PROXY_PORTS_HTTP
               value: "{{ .Values.kong.proxy.ports.http }}"
             - name: KONG_PROXY_PORTS_HTTPS

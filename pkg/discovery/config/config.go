@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	cfgKongACLRequired       = "kong.acl.required"
 	cfgKongProxyHost         = "kong.proxy.host"
 	cfgKongAdminUrl          = "kong.admin.url"
 	cfgKongAdminAPIKey       = "kong.admin.auth.apiKey.value"
@@ -25,6 +26,7 @@ const (
 )
 
 func AddKongProperties(rootProps properties.Properties) {
+	rootProps.AddBoolProperty(cfgKongACLRequired, false, "Whether or not an ACL plugin on Kong is required. False by default.")
 	rootProps.AddStringProperty(cfgKongAdminUrl, "", "The Admin API url")
 	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
@@ -81,12 +83,17 @@ type KongSpecConfig struct {
 	Filter           string   `config:"filter"`
 }
 
+type KongACLConfig struct {
+	Required bool `config:"required"`
+}
+
 // KongGatewayConfig - represents the config for gateway
 type KongGatewayConfig struct {
 	corecfg.IConfigValidator
 	Admin KongAdminConfig `config:"admin"`
 	Proxy KongProxyConfig `config:"proxy"`
 	Spec  KongSpecConfig  `config:"spec"`
+	ACL   KongACLConfig   `config:"acl"`
 }
 
 const (
@@ -156,6 +163,9 @@ func invalidCredentialConfig(c *KongGatewayConfig) bool {
 func ParseProperties(rootProps properties.Properties) *KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
 	return &KongGatewayConfig{
+		ACL: KongACLConfig{
+			Required: rootProps.BoolPropertyValue(cfgKongACLRequired),
+		},
 		Admin: KongAdminConfig{
 			Url: rootProps.StringPropertyValue(cfgKongAdminUrl),
 			Auth: KongAdminAuthConfig{

@@ -49,10 +49,17 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		return nil, err
 	}
 
-	hasACL := "true"
-	if err := hasACLEnabledInPlugins(plugins); err != nil {
-		hasACL = "false"
-		logger.WithError(err).Warn("No ACL plugin found. Assuming global access is allowed for all services.")
+	hasACL := "false"
+	err = hasGlobalACLEnabledInPlugins(plugins)
+	if err != nil && agentConfig.KongGatewayCfg.ACL.Required {
+		logger.WithError(err).Error("ACL Plugin configured as required, but none found in Kong plugins.")
+		return nil, err
+	}
+	if err == nil && agentConfig.KongGatewayCfg.ACL.Required {
+		hasACL = "true"
+	}
+	if !agentConfig.KongGatewayCfg.ACL.Required {
+		logger.Warn("ACL Plugin not required. Assuming global access is allowed for all services.")
 	}
 
 	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
@@ -70,10 +77,17 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 	}, nil
 }
 
-// Returns no error in case an ACL plugin which is enabled is found
-func hasACLEnabledInPlugins(plugins []*klib.Plugin) error {
+func pluginIsGlobal(p *klib.Plugin) bool {
+	if p.Service == nil && p.Route == nil {
+		return true
+	}
+	return false
+}
+
+// Returns no error in case a global ACL plugin which is enabled is found
+func hasGlobalACLEnabledInPlugins(plugins []*klib.Plugin) error {
 	for _, plugin := range plugins {
-		if *plugin.Name == "acl" && *plugin.Enabled {
+		if *plugin.Name == "acl" && *plugin.Enabled && pluginIsGlobal(plugin) {
 			return nil
 		}
 	}
