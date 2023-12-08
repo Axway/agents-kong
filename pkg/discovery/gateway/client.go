@@ -244,8 +244,6 @@ func (gc *Client) processKongAPI(
 
 	kongAPI.ard = provisioning.APIKeyARD
 	kongAPI.crds = []string{}
-	// routeName := *route.Name
-	// _ = routeName
 	for k := range apiPlugins {
 		if crd, ok := kongToCRDMapper[k]; ok {
 			kongAPI.crds = append(kongAPI.crds, crd)
