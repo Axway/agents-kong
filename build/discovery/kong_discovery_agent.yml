@@ -1,7 +1,7 @@
 # Settings for Kong Discovery Agent
 kong:
   acl:
-    disabled: ${KONG_ACL_DISABLED:""}
+    disable: ${KONG_ACL_DISABLE:""}
   admin:
     url: ${KONG_ADMIN_URL:""}
     auth:
@@ -16,10 +16,10 @@ kong:
     ports:
       http:
         value: ${KONG_PROXY_PORTS_HTTP_VALUE:""}
-        disabled: ${KONG_PROXY_PORTS_HTTP_DISABLED:""}
+        disable: ${KONG_PROXY_PORTS_HTTP_DISABLE:""}
       https:
         value: ${KONG_PROXY_PORTS_HTTPS_VALUE:""}
-        disabled: ${KONG_PROXY_PORTS_HTTPS_DISABLED:""}
+        disable: ${KONG_PROXY_PORTS_HTTPS_DISABLE:""}
     basePath: ${KONG_PROXY_BASEPATH:""}
   spec:
     urlPaths: ${KONG_SPEC_URLPATHS:""}

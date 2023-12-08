@@ -29,16 +29,16 @@ type accessRequest interface {
 }
 
 type AccessProvisioner struct {
-	ctx         context.Context
-	logger      log.FieldLogger
-	client      accessClient
-	quota       provisioning.Quota
-	routeID     string
-	appID       string
-	aclDisabled bool
+	ctx        context.Context
+	logger     log.FieldLogger
+	client     accessClient
+	quota      provisioning.Quota
+	routeID    string
+	appID      string
+	aclDisable bool
 }
 
-func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest, aclDisabled bool) AccessProvisioner {
+func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest, aclDisable bool) AccessProvisioner {
 	instDetails := request.GetInstanceDetails()
 	routeID := sdkUtil.ToString(instDetails[common.AttrRouteID])
 	logger := log.NewFieldLogger().
@@ -46,13 +46,13 @@ func NewAccessProvisioner(ctx context.Context, client accessClient, request acce
 		WithPackage("access")
 
 	a := AccessProvisioner{
-		ctx:         context.Background(),
-		logger:      logger,
-		client:      client,
-		quota:       request.GetQuota(),
-		routeID:     routeID,
-		appID:       request.GetApplicationDetailsValue(common.AttrAppID),
-		aclDisabled: aclDisabled,
+		ctx:        context.Background(),
+		logger:     logger,
+		client:     client,
+		quota:      request.GetQuota(),
+		routeID:    routeID,
+		appID:      request.GetApplicationDetailsValue(common.AttrAppID),
+		aclDisable: aclDisable,
 	}
 
 	if a.routeID != "" {
@@ -78,8 +78,8 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 		return rs.SetMessage("route ID not found").Failed(), nil
 	}
 
-	if a.aclDisabled {
-		a.logger.Info("ACL plugin is disabled or not existing for current spec. Skipping access request provisioning")
+	if a.aclDisable {
+		a.logger.Info("ACL plugin check is disabled or not existing for current spec. Skipping access request provisioning")
 		return rs.Success(), nil
 	}
 
@@ -125,8 +125,8 @@ func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 		return rs.SetMessage("route ID not found").Failed()
 	}
 
-	if a.aclDisabled {
-		a.logger.Info("ACL plugin is disabled or not existing for current spec. Skipping access request deprovisioning")
+	if a.aclDisable {
+		a.logger.Info("ACL plugin check is disabled or not existing for current spec. Skipping access request deprovisioning")
 		return rs.Success()
 	}
 

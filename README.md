@@ -38,7 +38,7 @@ The Kong agents are used to discover, provision access to, and track usages of K
 
 ## Discovery process
 
-On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, more specifically for the ACL. The default option is to require having it. This can be changed from the config by disabling this check. By having it disabled, it is assumed that access is allowed for everyone. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
+On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, more specifically for the ACL. The default option is to require having it. This can be changed from the config by disabling this check. By having the check disabled, it is assumed that access is allowed for everyone. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
 
 After that initial startup process the discovery agent begins running its main discovery loop. In this loop the agent first gets a list of all Gateway Services. With each service the agent looks for all configured routes. The agent then looks to gather the specification file, see [Specification discovery methods](#specification-discovery-methods), if found the process continues. Using the route the agent checks for plugins to determine the types of credentials to associate with it. After gathering all of this information the agent creates a new API service with the specification file and linking the appropriate credentials. The endpoints associated to the API service are constructed using the **KONG_PROXY_HOST**, **KONG_PROXY_PORTS_HTTP**, and **KONG_PROXY_PORTS_HTTPS** settings.
 
@@ -69,7 +69,7 @@ All Kong specific environment variables available are listed below
 | Name                                   | Description                                                                                               |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Discovery Agent Variables              |                                                                                                           |
-| **KONG_ACL_DISABLED**                  | Set to true to disable the check for a globally enabled ACL plugin on Kong. False by default.             |
+| **KONG_ACL_DISABLE**                   | Set to true to disable the check for a globally enabled ACL plugin on Kong. False by default.             |
 | **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                                                  |
 | **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                                            |
 | **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                                                  |

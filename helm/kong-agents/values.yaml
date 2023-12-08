@@ -22,7 +22,7 @@ statusPort: 8989
 
 kong:
   acl:
-    required: false
+    disable: false
   enable:
     traceability: false
   admin:

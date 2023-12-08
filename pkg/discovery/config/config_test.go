@@ -120,7 +120,7 @@ func TestKongProperties(t *testing.T) {
 
 	// validate add props
 	AddKongProperties(newProps)
-	assert.Contains(t, newProps.props, cfgKongACLDisabled)
+	assert.Contains(t, newProps.props, cfgKongACLDisable)
 	assert.Contains(t, newProps.props, cfgKongAdminUrl)
 	assert.Contains(t, newProps.props, cfgKongAdminAPIKey)
 	assert.Contains(t, newProps.props, cfgKongAdminAPIKeyHeader)
@@ -128,9 +128,9 @@ func TestKongProperties(t *testing.T) {
 	assert.Contains(t, newProps.props, cfgKongAdminBasicPassword)
 	assert.Contains(t, newProps.props, cfgKongProxyHost)
 	assert.Contains(t, newProps.props, cfgKongProxyPortHttp)
-	assert.Contains(t, newProps.props, cfgKongProxyPortHttpDisabled)
+	assert.Contains(t, newProps.props, cfgKongProxyPortHttpDisable)
 	assert.Contains(t, newProps.props, cfgKongProxyPortHttps)
-	assert.Contains(t, newProps.props, cfgKongProxyPortHttpsDisabled)
+	assert.Contains(t, newProps.props, cfgKongProxyPortHttpsDisable)
 	assert.Contains(t, newProps.props, cfgKongProxyBasePath)
 	assert.Contains(t, newProps.props, cfgKongSpecURLPaths)
 	assert.Contains(t, newProps.props, cfgKongSpecLocalPath)
@@ -139,7 +139,7 @@ func TestKongProperties(t *testing.T) {
 
 	// validate defaults
 	cfg := ParseProperties(newProps)
-	assert.Equal(t, false, cfg.ACL.Disabled)
+	assert.Equal(t, false, cfg.ACL.Disable)
 	assert.Equal(t, "", cfg.Admin.Url)
 	assert.Equal(t, "", cfg.Admin.Auth.APIKey.Value)
 	assert.Equal(t, "", cfg.Admin.Auth.APIKey.Header)
@@ -157,7 +157,7 @@ func TestKongProperties(t *testing.T) {
 	assert.Equal(t, false, cfg.Spec.DevPortalEnabled)
 
 	// validate changed values
-	newProps.props[cfgKongACLDisabled] = propData{"bool", "", true}
+	newProps.props[cfgKongACLDisable] = propData{"bool", "", true}
 	newProps.props[cfgKongAdminUrl] = propData{"string", "", "http://host:port/path"}
 	newProps.props[cfgKongAdminAPIKey] = propData{"string", "", "apikey"}
 	newProps.props[cfgKongAdminAPIKeyHeader] = propData{"string", "", "header"}
@@ -172,7 +172,7 @@ func TestKongProperties(t *testing.T) {
 	newProps.props[cfgKongSpecFilter] = propData{"string", "", "tag_filter"}
 	newProps.props[cfgKongSpecDevPortal] = propData{"bool", "", true}
 	cfg = ParseProperties(newProps)
-	assert.Equal(t, true, cfg.ACL.Disabled)
+	assert.Equal(t, true, cfg.ACL.Disable)
 	assert.Equal(t, "http://host:port/path", cfg.Admin.Url)
 	assert.Equal(t, "apikey", cfg.Admin.Auth.APIKey.Value)
 	assert.Equal(t, "header", cfg.Admin.Auth.APIKey.Header)
@@ -190,8 +190,8 @@ func TestKongProperties(t *testing.T) {
 	assert.Equal(t, true, cfg.Spec.DevPortalEnabled)
 
 	// validate no port configured when port type disabled
-	newProps.props[cfgKongProxyPortHttpDisabled] = propData{"bool", "", true}
-	newProps.props[cfgKongProxyPortHttpsDisabled] = propData{"bool", "", true}
+	newProps.props[cfgKongProxyPortHttpDisable] = propData{"bool", "", true}
+	newProps.props[cfgKongProxyPortHttpsDisable] = propData{"bool", "", true}
 	cfg = ParseProperties(newProps)
 	assert.Equal(t, 0, cfg.Proxy.Ports.HTTP.Value)
 	assert.Equal(t, 0, cfg.Proxy.Ports.HTTPS.Value)

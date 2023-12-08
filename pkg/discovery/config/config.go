@@ -21,26 +21,26 @@ type props interface {
 }
 
 const (
-	cfgKongACLDisabled            = "kong.acl.disabled"
-	cfgKongAdminUrl               = "kong.admin.url"
-	cfgKongAdminAPIKey            = "kong.admin.auth.apiKey.value"
-	cfgKongAdminAPIKeyHeader      = "kong.admin.auth.apiKey.header"
-	cfgKongAdminBasicUsername     = "kong.admin.auth.basicauth.username"
-	cfgKongAdminBasicPassword     = "kong.admin.auth.basicauth.password"
-	cfgKongProxyHost              = "kong.proxy.host"
-	cfgKongProxyPortHttp          = "kong.proxy.ports.http.value"
-	cfgKongProxyPortHttpDisabled  = "kong.proxy.ports.http.disabled"
-	cfgKongProxyPortHttps         = "kong.proxy.ports.https.value"
-	cfgKongProxyPortHttpsDisabled = "kong.proxy.ports.https.disabled"
-	cfgKongProxyBasePath          = "kong.proxy.basePath"
-	cfgKongSpecURLPaths           = "kong.spec.urlPaths"
-	cfgKongSpecLocalPath          = "kong.spec.localPath"
-	cfgKongSpecFilter             = "kong.spec.filter"
-	cfgKongSpecDevPortal          = "kong.spec.devPortalEnabled"
+	cfgKongACLDisable            = "kong.acl.disable"
+	cfgKongAdminUrl              = "kong.admin.url"
+	cfgKongAdminAPIKey           = "kong.admin.auth.apiKey.value"
+	cfgKongAdminAPIKeyHeader     = "kong.admin.auth.apiKey.header"
+	cfgKongAdminBasicUsername    = "kong.admin.auth.basicauth.username"
+	cfgKongAdminBasicPassword    = "kong.admin.auth.basicauth.password"
+	cfgKongProxyHost             = "kong.proxy.host"
+	cfgKongProxyPortHttp         = "kong.proxy.ports.http.value"
+	cfgKongProxyPortHttpDisable  = "kong.proxy.ports.http.disable"
+	cfgKongProxyPortHttps        = "kong.proxy.ports.https.value"
+	cfgKongProxyPortHttpsDisable = "kong.proxy.ports.https.disable"
+	cfgKongProxyBasePath         = "kong.proxy.basePath"
+	cfgKongSpecURLPaths          = "kong.spec.urlPaths"
+	cfgKongSpecLocalPath         = "kong.spec.localPath"
+	cfgKongSpecFilter            = "kong.spec.filter"
+	cfgKongSpecDevPortal         = "kong.spec.devPortalEnabled"
 )
 
 func AddKongProperties(rootProps props) {
-	rootProps.AddBoolProperty(cfgKongACLDisabled, false, "Disable the check for a globally enabled ACL plugin on Kong. False by default.")
+	rootProps.AddBoolProperty(cfgKongACLDisable, false, "Disable the check for a globally enabled ACL plugin on Kong. False by default.")
 	rootProps.AddStringProperty(cfgKongAdminUrl, "", "The Admin API url")
 	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
@@ -48,9 +48,9 @@ func AddKongProperties(rootProps props) {
 	rootProps.AddStringProperty(cfgKongAdminBasicPassword, "", "Password for basic auth to authenticate with Kong Admin API")
 	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
 	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
-	rootProps.AddBoolProperty(cfgKongProxyPortHttpDisabled, false, "Set to true to disable adding an http endpoint to discovered routes")
+	rootProps.AddBoolProperty(cfgKongProxyPortHttpDisable, false, "Set to true to disable adding an http endpoint to discovered routes")
 	rootProps.AddIntProperty(cfgKongProxyPortHttps, 443, "The Kong proxy https port")
-	rootProps.AddBoolProperty(cfgKongProxyPortHttpsDisabled, false, "Set to true to disable adding an https endpoint to discovered routes")
+	rootProps.AddBoolProperty(cfgKongProxyPortHttpsDisable, false, "Set to true to disable adding an https endpoint to discovered routes")
 	rootProps.AddStringProperty(cfgKongProxyBasePath, "", "The base path for the Kong proxy endpoint")
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
@@ -97,7 +97,7 @@ type KongPortConfig struct {
 
 type KongPortSettingsConfig struct {
 	Value   int  `config:"value"`
-	Disable bool `config:"disabled"`
+	Disable bool `config:"disable"`
 }
 
 type KongSpecConfig struct {
@@ -108,7 +108,7 @@ type KongSpecConfig struct {
 }
 
 type KongACLConfig struct {
-	Disabled bool `config:"disabled"`
+	Disable bool `config:"disable"`
 }
 
 // KongGatewayConfig - represents the config for gateway
@@ -203,7 +203,7 @@ func invalidCredentialConfig(c *KongGatewayConfig) bool {
 func ParseProperties(rootProps props) *KongGatewayConfig {
 	// Parse the config from bound properties and setup gateway config
 	httpPortConf := KongPortSettingsConfig{
-		Disable: rootProps.BoolPropertyValue(cfgKongProxyPortHttpDisabled),
+		Disable: rootProps.BoolPropertyValue(cfgKongProxyPortHttpDisable),
 		Value:   rootProps.IntPropertyValue(cfgKongProxyPortHttp),
 	}
 	if httpPortConf.Disable {
@@ -211,7 +211,7 @@ func ParseProperties(rootProps props) *KongGatewayConfig {
 	}
 
 	httpsPortConf := KongPortSettingsConfig{
-		Disable: rootProps.BoolPropertyValue(cfgKongProxyPortHttpsDisabled),
+		Disable: rootProps.BoolPropertyValue(cfgKongProxyPortHttpsDisable),
 		Value:   rootProps.IntPropertyValue(cfgKongProxyPortHttps),
 	}
 	if httpsPortConf.Disable {
@@ -220,7 +220,7 @@ func ParseProperties(rootProps props) *KongGatewayConfig {
 
 	return &KongGatewayConfig{
 		ACL: KongACLConfig{
-			Disabled: rootProps.BoolPropertyValue(cfgKongACLDisabled),
+			Disable: rootProps.BoolPropertyValue(cfgKongACLDisable),
 		},
 		Admin: KongAdminConfig{
 			Url: rootProps.StringPropertyValue(cfgKongAdminUrl),

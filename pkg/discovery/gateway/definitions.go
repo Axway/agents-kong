@@ -20,7 +20,6 @@ type Client struct {
 	cache          cache.Cache
 	mode           string
 	filter         filter.Filter
-	aclDisabled    string
 }
 
 type KongAPI struct {

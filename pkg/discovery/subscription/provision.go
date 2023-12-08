@@ -16,9 +16,9 @@ import (
 type ProvisionerOption func(*provisioner)
 
 type provisioner struct {
-	logger         log.FieldLogger
-	client         kong.KongAPIClient
-	hasACLDisabled bool
+	logger     log.FieldLogger
+	client     kong.KongAPIClient
+	aclDisable bool
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
@@ -37,9 +37,9 @@ func NewProvisioner(client kong.KongAPIClient, logger log.FieldLogger, opts ...P
 	registerKeyAuth()
 }
 
-func WithACLDisabled() ProvisionerOption {
+func WithACLDisable() ProvisionerOption {
 	return func(p *provisioner) {
-		p.hasACLDisabled = true
+		p.aclDisable = true
 	}
 }
 
@@ -64,9 +64,9 @@ func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (p
 }
 
 func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) (provisioning.RequestStatus, provisioning.AccessData) {
-	return access.NewAccessProvisioner(context.Background(), p.client, request, p.hasACLDisabled).Provision()
+	return access.NewAccessProvisioner(context.Background(), p.client, request, p.aclDisable).Provision()
 }
 
 func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest) provisioning.RequestStatus {
-	return access.NewAccessProvisioner(context.Background(), p.client, request, p.hasACLDisabled).Deprovision()
+	return access.NewAccessProvisioner(context.Background(), p.client, request, p.aclDisable).Deprovision()
 }
