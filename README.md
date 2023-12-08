@@ -38,7 +38,7 @@ The Kong agents are used to discover, provision access to, and track usages of K
 
 ## Discovery process
 
-On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, more specifically for the ACL. The default option is to not require having it. By doing so, it is assumed that access is allowed for everyone. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
+On startup the Kong discovery agent first validates that it is able to connect to all required services. Once connected to Kong the agent begins looking at the Plugins configured, more specifically for the ACL. The default option is to require having it. This can be changed from the config by disabling this check. By having it disabled, it is assumed that access is allowed for everyone. Then the agent will determine, from the plugins, which credential types the Kong Gateway has configured and create the Central representation of those types.
 
 After that initial startup process the discovery agent begins running its main discovery loop. In this loop the agent first gets a list of all Gateway Services. With each service the agent looks for all configured routes. The agent then looks to gather the specification file, see [Specification discovery methods](#specification-discovery-methods), if found the process continues. Using the route the agent checks for plugins to determine the types of credentials to associate with it. After gathering all of this information the agent creates a new API service with the specification file and linking the appropriate credentials. The endpoints associated to the API service are constructed using the **KONG_PROXY_HOST**, **KONG_PROXY_PORTS_HTTP**, and **KONG_PROXY_PORTS_HTTPS** settings.
 
@@ -69,17 +69,19 @@ All Kong specific environment variables available are listed below
 | Name                                   | Description                                                                                               |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Discovery Agent Variables              |                                                                                                           |
+| **KONG_ACL_DISABLED**                  | Disable the check for a globally enabled ACL plugin on Kong. False by default.                            |
 | **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                                                  |
 | **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                                            |
 | **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                                                  |
 | **KONG_ADMIN_AUTH_BASICAUTH_USERNAME** | The HTTP Basic username that the agent will use when authenticating                                       |
 | **KONG_ADMIN_AUTH_BASICAUTH_PASSWORD** | The HTTP Basic password that the agent will use when authenticating                                       |
 | **KONG_PROXY_HOST**                    | The proxy host that the agent will use in API Services when the Kong route does not specify hosts         |
-| **KONG_PROXY_PORTS_HTTP**              | The HTTP port number that the agent will set for discovered APIS                                          |
-| **KONG_PROXY_PORTS_HTTPS**             | The HTTPs port number that the agent will set for discovered APIS                                         |
-| **KONG_PROXY_PORTS_HTTP_DISABLE**      | Set to true if the agent should ignore routes that serve over HTTP                                       |
-| **KONG_PROXY_PORTS_HTTPS_DISABLE**     | Set to true if the agent should ignore routes that serve over HTTPs                                      |
+| **KONG_PROXY_PORTS_HTTP_VALUE**        | The HTTP port value that the agent will set for discovered APIS                                           |
+| **KONG_PROXY_PORTS_HTTPS_VALUE**       | The HTTPs port value that the agent will set for discovered APIS                                          |
+| **KONG_PROXY_PORTS_HTTP_DISABLE**      | Set to true if the agent should ignore routes that serve over HTTP                                        |
+| **KONG_PROXY_PORTS_HTTPS_DISABLE**     | Set to true if the agent should ignore routes that serve over HTTPs                                       |
 | **KONG_PROXY_BASEPATH**                | The proxy base path that will be added between the proxy host and Kong route path when building endpoints |
+| **KONG_SPEC_FILTER**                   | The Agent SDK specific filter format for filtering out specific Kong services                             |
 | **KONG_SPEC_LOCALPATH**                | The local path that the agent will look in for API definitions                                            |
 | **KONG_SPEC_URLPATHS**                 | The URL paths that the agent will query on the gateway service for API definitions                        |
 | **KONG_SPEC_DEVPORTALENABLED**         | Set to true if the agent should look for spec files in the Kong Dev Portal (default: `false`)             |
@@ -294,8 +296,8 @@ KONG_ADMIN_URL=https://kong.url.com:8444
 KONG_ADMIN_AUTH_APIKEY_HEADER="apikey"
 KONG_ADMIN_AUTH_APIKEY_VALUE=123456789abcdefghijkl098765432109
 KONG_PROXY_HOST=kong.proxy.endpoint.com
-KONG_PROXY_PORTS_HTTP=8000
-KONG_PROXY_PORTS_HTTPS=8443
+KONG_PROXY_PORTS_HTTP_VALUE=8000
+KONG_PROXY_PORTS_HTTPS_VALUE=8443
 KONG_SPEC_LOCALPATH=/specs
 
 CENTRAL_ORGANIZATIONID=123456789
