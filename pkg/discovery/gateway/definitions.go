@@ -23,7 +23,7 @@ type Client struct {
 }
 
 type KongAPI struct {
-	swaggerSpec       []byte
+	spec              []byte
 	id                string
 	name              string
 	description       string
