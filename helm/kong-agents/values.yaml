@@ -21,6 +21,8 @@ fullnameOverride: ""
 statusPort: 8989
 
 kong:
+  acl:
+    disable: false
   enable:
     traceability: false
   admin:

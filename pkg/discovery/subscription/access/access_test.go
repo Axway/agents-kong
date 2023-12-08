@@ -93,9 +93,10 @@ func (q *mockQuota) GetPlanName() string {
 
 func TestProvision(t *testing.T) {
 	cases := map[string]struct {
-		client  mockAccessClient
-		request mockAccessRequest
-		result  provisioning.Status
+		client     mockAccessClient
+		request    mockAccessRequest
+		result     provisioning.Status
+		aclDisable bool
 	}{
 		"no app id configured": {
 			result: provisioning.Error,
@@ -107,6 +108,18 @@ func TestProvision(t *testing.T) {
 				},
 			},
 			result: provisioning.Error,
+		},
+		"ACL disable is active": {
+			request: mockAccessRequest{
+				values: map[string]string{
+					common.AttrAppID: "appID",
+				},
+				details: map[string]interface{}{
+					common.AttrRouteID: "routeID",
+				},
+			},
+			result:     provisioning.Success,
+			aclDisable: true,
 		},
 		"unsupported quota interval": {
 			request: mockAccessRequest{
@@ -184,7 +197,7 @@ func TestProvision(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), testName, name)
 
-			result, _ := NewAccessProvisioner(ctx, tc.client, &tc.request).Provision()
+			result, _ := NewAccessProvisioner(ctx, tc.client, &tc.request, tc.aclDisable).Provision()
 			assert.Equal(t, tc.result, result.GetStatus())
 		})
 	}
@@ -192,9 +205,10 @@ func TestProvision(t *testing.T) {
 
 func TestDeprovision(t *testing.T) {
 	cases := map[string]struct {
-		client  mockAccessClient
-		request mockAccessRequest
-		result  provisioning.Status
+		client     mockAccessClient
+		request    mockAccessRequest
+		result     provisioning.Status
+		aclDisable bool
 	}{
 		"no app id configured": {
 			result: provisioning.Error,
@@ -206,6 +220,18 @@ func TestDeprovision(t *testing.T) {
 				},
 			},
 			result: provisioning.Error,
+		},
+		"ACL disable is active": {
+			request: mockAccessRequest{
+				values: map[string]string{
+					common.AttrAppID: "appID",
+				},
+				details: map[string]interface{}{
+					common.AttrRouteID: "routeID",
+				},
+			},
+			result:     provisioning.Success,
+			aclDisable: true,
 		},
 		"error revoking access for managed app": {
 			client: mockAccessClient{
@@ -248,7 +274,7 @@ func TestDeprovision(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), testName, name)
 
-			result := NewAccessProvisioner(ctx, tc.client, &tc.request).Deprovision()
+			result := NewAccessProvisioner(ctx, tc.client, &tc.request, tc.aclDisable).Deprovision()
 			assert.Equal(t, tc.result, result.GetStatus())
 		})
 	}
