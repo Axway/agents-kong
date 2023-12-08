@@ -21,16 +21,16 @@ type props interface {
 }
 
 const (
-  cfgKongACLRequired            = "kong.acl.required"
+	cfgKongACLDisabled            = "kong.acl.disabled"
 	cfgKongAdminUrl               = "kong.admin.url"
 	cfgKongAdminAPIKey            = "kong.admin.auth.apiKey.value"
 	cfgKongAdminAPIKeyHeader      = "kong.admin.auth.apiKey.header"
 	cfgKongAdminBasicUsername     = "kong.admin.auth.basicauth.username"
 	cfgKongAdminBasicPassword     = "kong.admin.auth.basicauth.password"
 	cfgKongProxyHost              = "kong.proxy.host"
-	cfgKongProxyPortHttp          = "kong.proxy.ports.http"
+	cfgKongProxyPortHttp          = "kong.proxy.ports.http.value"
 	cfgKongProxyPortHttpDisabled  = "kong.proxy.ports.http.disabled"
-	cfgKongProxyPortHttps         = "kong.proxy.ports.https"
+	cfgKongProxyPortHttps         = "kong.proxy.ports.https.value"
 	cfgKongProxyPortHttpsDisabled = "kong.proxy.ports.https.disabled"
 	cfgKongProxyBasePath          = "kong.proxy.basePath"
 	cfgKongSpecURLPaths           = "kong.spec.urlPaths"
@@ -40,7 +40,7 @@ const (
 )
 
 func AddKongProperties(rootProps props) {
-  rootProps.AddBoolProperty(cfgKongACLRequired, false, "Whether or not an ACL plugin on Kong is required. False by default.")
+	rootProps.AddBoolProperty(cfgKongACLDisabled, false, "Disable the check for a globally enabled ACL plugin on Kong. False by default.")
 	rootProps.AddStringProperty(cfgKongAdminUrl, "", "The Admin API url")
 	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
@@ -108,7 +108,7 @@ type KongSpecConfig struct {
 }
 
 type KongACLConfig struct {
-	Required bool `config:"required"`
+	Disabled bool `config:"disabled"`
 }
 
 // KongGatewayConfig - represents the config for gateway
@@ -220,7 +220,7 @@ func ParseProperties(rootProps props) *KongGatewayConfig {
 
 	return &KongGatewayConfig{
 		ACL: KongACLConfig{
-			Required: rootProps.BoolPropertyValue(cfgKongACLRequired),
+			Disabled: rootProps.BoolPropertyValue(cfgKongACLDisabled),
 		},
 		Admin: KongAdminConfig{
 			Url: rootProps.StringPropertyValue(cfgKongAdminUrl),

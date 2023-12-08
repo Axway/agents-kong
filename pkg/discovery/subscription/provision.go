@@ -13,22 +13,34 @@ import (
 	"github.com/Axway/agents-kong/pkg/discovery/subscription/credential"
 )
 
+type ProvisionerOption func(*provisioner)
+
 type provisioner struct {
-	logger log.FieldLogger
-	client kong.KongAPIClient
+	logger         log.FieldLogger
+	client         kong.KongAPIClient
+	hasACLDisabled bool
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(client kong.KongAPIClient, logger log.FieldLogger) {
+func NewProvisioner(client kong.KongAPIClient, logger log.FieldLogger, opts ...ProvisionerOption) {
 	logger.Info("Registering provisioning callbacks")
 	provisioner := &provisioner{
 		client: client,
 		logger: logger,
 	}
+	for _, o := range opts {
+		o(provisioner)
+	}
 	agent.RegisterProvisioner(provisioner)
 	registerOauth2()
 	registerBasicAuth()
 	registerKeyAuth()
+}
+
+func WithACLDisabled() ProvisionerOption {
+	return func(p *provisioner) {
+		p.hasACLDisabled = true
+	}
 }
 
 func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
@@ -52,9 +64,9 @@ func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (p
 }
 
 func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) (provisioning.RequestStatus, provisioning.AccessData) {
-	return access.NewAccessProvisioner(context.Background(), p.client, request).Provision()
+	return access.NewAccessProvisioner(context.Background(), p.client, request, p.hasACLDisabled).Provision()
 }
 
 func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest) provisioning.RequestStatus {
-	return access.NewAccessProvisioner(context.Background(), p.client, request).Deprovision()
+	return access.NewAccessProvisioner(context.Background(), p.client, request, p.hasACLDisabled).Deprovision()
 }

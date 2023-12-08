@@ -5,7 +5,7 @@ kong_traceability_agent:
       http:
         path: ${KONG_LOGS_HTTP_PATH}
         port: ${KONG_LOGS_HTTP_PORT}
-  # Settings for connecting to Amplify Centralddd
+  # Settings for connecting to Amplify Central
   central:
     url: ${CENTRAL_URL:https://apicentral.axway.com}
     organizationID: ${CENTRAL_ORGANIZATIONID:""}

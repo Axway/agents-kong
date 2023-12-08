@@ -49,21 +49,17 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		return nil, err
 	}
 
-	hasACL := "false"
-	err = hasGlobalACLEnabledInPlugins(plugins)
-	if err != nil && agentConfig.KongGatewayCfg.ACL.Required {
+	if err = hasGlobalACLEnabledInPlugins(logger, plugins, agentConfig.KongGatewayCfg.ACL.Disabled); err != nil {
 		logger.WithError(err).Error("ACL Plugin configured as required, but none found in Kong plugins.")
 		return nil, err
 	}
-	if err == nil && agentConfig.KongGatewayCfg.ACL.Required {
-		hasACL = "true"
-	}
-	if !agentConfig.KongGatewayCfg.ACL.Required {
-		logger.Warn("ACL Plugin not required. Assuming global access is allowed for all services.")
-	}
 
 	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
-	subscription.NewProvisioner(kongClient, provisionLogger)
+	opts := []subscription.ProvisionerOption{}
+	if agentConfig.KongGatewayCfg.ACL.Disabled {
+		opts = append(opts, subscription.WithACLDisabled())
+	}
+	subscription.NewProvisioner(kongClient, provisionLogger, opts...)
 
 	return &Client{
 		logger:         logger,
@@ -73,7 +69,7 @@ func NewClient(agentConfig config.AgentConfig) (*Client, error) {
 		cache:          daCache,
 		mode:           common.Marketplace,
 		filter:         discoveryFilter,
-		hasACL:         hasACL,
+		aclDisabled:    fmt.Sprint(agentConfig.KongGatewayCfg.ACL.Disabled),
 	}, nil
 }
 
@@ -85,13 +81,18 @@ func pluginIsGlobal(p *klib.Plugin) bool {
 }
 
 // Returns no error in case a global ACL plugin which is enabled is found
-func hasGlobalACLEnabledInPlugins(plugins []*klib.Plugin) error {
+func hasGlobalACLEnabledInPlugins(logger log.FieldLogger, plugins []*klib.Plugin, aclDisabled bool) error {
+	if aclDisabled {
+		logger.Warn("ACL Plugin disabled. Assuming global access is allowed for all services.")
+		return nil
+	}
 	for _, plugin := range plugins {
 		if *plugin.Name == "acl" && *plugin.Enabled && pluginIsGlobal(plugin) {
 			return nil
 		}
 	}
-	return fmt.Errorf("failed to find acl plugin is enabled and installed")
+	return fmt.Errorf("failed to find acl plugin is enabled and installed on the Kong Gateway. " +
+		"Enable in on the Gateway or change the config to disable this check.")
 }
 
 func (gc *Client) DiscoverAPIs() error {
@@ -253,7 +254,6 @@ func (gc *Client) processKongAPI(
 		common.AttrServiceID: *service.ID,
 		common.AttrRouteID:   *route.ID,
 		common.AttrChecksum:  checksum,
-		common.AttrHasACL:    gc.hasACL,
 	}
 	kongAPI.agentDetails = agentDetails
 	serviceBody, err := kongAPI.buildServiceBody()
