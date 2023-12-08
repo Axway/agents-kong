@@ -78,15 +78,16 @@ spec:
           {{- range $key, $value := . }}
           {{- if and (not (eq (toString $value) ""))
                      (not (eq (toString $key) ""))
-                     (not (has (toString $key) (list "KONG_ADMIN_URL" 
+                     (not (has (toString $key) (list "KONG_ACL_DISABLE"
+                                                     "KONG_ADMIN_URL" 
                                                      "KONG_ADMIN_AUTH_APIKEY_HEADER" 
                                                      "KONG_ADMIN_AUTH_APIKEY_VALUE"
                                                      "KONG_ADMIN_AUTH_BASICAUTH_USERNAME"
                                                      "KONG_ADMIN_AUTH_BASICAUTH_PASSWORD"
                                                      "KONG_PROXY_HOST" 
                                                      "KONG_PROXY_BASEPATH" 
-                                                     "KONG_PROXY_PORTS_HTTP" 
-                                                     "KONG_PROXY_PORTS_HTTPS" 
+                                                     "KONG_PROXY_PORTS_HTTP_VALUE" 
+                                                     "KONG_PROXY_PORTS_HTTPS_VALUE" 
                                                      "KONG_PROXY_PORTS_HTTP_DISABLE" 
                                                      "KONG_PROXY_PORTS_HTTPS_DISABLE" 
                                                      "KONG_SPEC_LOCALPATH"

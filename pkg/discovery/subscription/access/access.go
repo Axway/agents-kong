@@ -29,27 +29,30 @@ type accessRequest interface {
 }
 
 type AccessProvisioner struct {
-	ctx     context.Context
-	logger  log.FieldLogger
-	client  accessClient
-	quota   provisioning.Quota
-	routeID string
-	appID   string
+	ctx        context.Context
+	logger     log.FieldLogger
+	client     accessClient
+	quota      provisioning.Quota
+	routeID    string
+	appID      string
+	aclDisable bool
 }
 
-func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest) AccessProvisioner {
+func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest, aclDisable bool) AccessProvisioner {
 	instDetails := request.GetInstanceDetails()
 	routeID := sdkUtil.ToString(instDetails[common.AttrRouteID])
+	logger := log.NewFieldLogger().
+		WithComponent("AccessProvisioner").
+		WithPackage("access")
 
 	a := AccessProvisioner{
-		ctx: context.Background(),
-		logger: log.NewFieldLogger().
-			WithComponent("AccessProvisioner").
-			WithPackage("access"),
-		client:  client,
-		quota:   request.GetQuota(),
-		routeID: routeID,
-		appID:   request.GetApplicationDetailsValue(common.AttrAppID),
+		ctx:        context.Background(),
+		logger:     logger,
+		client:     client,
+		quota:      request.GetQuota(),
+		routeID:    routeID,
+		appID:      request.GetApplicationDetailsValue(common.AttrAppID),
+		aclDisable: aclDisable,
 	}
 
 	if a.routeID != "" {
@@ -63,8 +66,8 @@ func NewAccessProvisioner(ctx context.Context, client accessClient, request acce
 
 func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning.AccessData) {
 	a.logger.Info("provisioning access")
-
 	rs := provisioning.NewRequestStatusBuilder()
+
 	if a.appID == "" {
 		a.logger.Error("could not find the managed application ID on the resource")
 		return rs.SetMessage("managed application ID not found").Failed(), nil
@@ -73,6 +76,11 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 	if a.routeID == "" {
 		a.logger.Error("could not find the route ID on the resource")
 		return rs.SetMessage("route ID not found").Failed(), nil
+	}
+
+	if a.aclDisable {
+		a.logger.Debug("ACL plugin check is disabled or not existing for current spec. Skipping access request provisioning")
+		return rs.Success(), nil
 	}
 
 	if a.quota != nil && a.quota.GetInterval().String() == provisioning.Weekly.String() {
@@ -105,8 +113,8 @@ func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning
 
 func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 	a.logger.Info("deprovisioning access")
-
 	rs := provisioning.NewRequestStatusBuilder()
+
 	if a.appID == "" {
 		a.logger.Error("could not find the managed application ID on the resource")
 		return rs.SetMessage("managed application ID not found").Failed()
@@ -115,6 +123,11 @@ func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 	if a.routeID == "" {
 		a.logger.Error("could not find the route ID on the resource")
 		return rs.SetMessage("route ID not found").Failed()
+	}
+
+	if a.aclDisable {
+		a.logger.Debug("ACL plugin check is disabled or not existing for current spec. Skipping access request deprovisioning")
+		return rs.Success()
 	}
 
 	err := a.client.RemoveRouteACL(a.ctx, a.routeID, a.appID)
