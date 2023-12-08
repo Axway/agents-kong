@@ -69,7 +69,7 @@ All Kong specific environment variables available are listed below
 | Name                                   | Description                                                                                               |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Discovery Agent Variables              |                                                                                                           |
-| **KONG_ACL_DISABLED**                  | Disable the check for a globally enabled ACL plugin on Kong. False by default.                            |
+| **KONG_ACL_DISABLED**                  | Set to true to disable the check for a globally enabled ACL plugin on Kong. False by default.             |
 | **KONG_ADMIN_URL**                     | The Kong admin API URL that the agent will query against                                                  |
 | **KONG_ADMIN_AUTH_APIKEY_HEADER**      | The API Key header name the agent will use when authenticating                                            |
 | **KONG_ADMIN_AUTH_APIKEY_VALUE**       | The API Key value the agent will use when authenticating                                                  |
