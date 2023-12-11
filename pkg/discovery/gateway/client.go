@@ -161,17 +161,18 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 		log.Warn("no spec found")
 		return nil
 	}
-	oasSpec := &Openapi{
-		spec: string(kongServiceSpec),
-	}
+
+	// parse the spec file that was found and get the spec processor
+	spec := apic.NewSpecResourceParser(kongServiceSpec, "")
+	spec.Parse()
 
 	for _, route := range routes {
-		gc.specPreparation(ctx, route, service, oasSpec)
+		gc.specPreparation(ctx, route, service, spec.GetSpecProcessor())
 	}
 	return nil
 }
 
-func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service, spec *Openapi) {
+func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service, spec apic.SpecProcessor) {
 	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
 		WithField(common.AttrServiceID, *service.ID)
 
@@ -225,11 +226,11 @@ func (gc *Client) processKongAPI(
 	ctx context.Context,
 	route *klib.Route,
 	service *klib.Service,
-	oasSpec *Openapi,
+	spec apic.SpecProcessor,
 	endpoints []apic.EndpointDefinition,
 	apiPlugins map[string]*klib.Plugin,
 ) (*apic.ServiceBody, error) {
-	kongAPI := newKongAPI(route, service, oasSpec, endpoints)
+	kongAPI := newKongAPI(route, service, spec, endpoints)
 	isAlreadyPublished, checksum := isPublished(&kongAPI, gc.cache)
 	// If true, then the api is published and there were no changes detected
 	if isAlreadyPublished {
@@ -266,18 +267,24 @@ func (gc *Client) processKongAPI(
 func newKongAPI(
 	route *klib.Route,
 	service *klib.Service,
-	oasSpec *Openapi,
+	spec apic.SpecProcessor,
 	endpoints []apic.EndpointDefinition,
 ) KongAPI {
+	// strip any security from spec if it is an oas spec
+	resType := spec.GetResourceType()
+	if resType == apic.Oas2 || resType == apic.Oas3 {
+		spec.(apic.OasSpecProcessor).StripSpecAuth()
+	}
+
 	return KongAPI{
 		id:            *service.Name,
 		name:          *service.Name,
-		description:   oasSpec.Description(),
-		version:       oasSpec.Version(),
+		description:   spec.GetDescription(),
+		version:       spec.GetVersion(),
 		url:           *service.Host,
-		resourceType:  oasSpec.ResourceType(),
+		resourceType:  resType,
 		documentation: []byte(*service.Name),
-		swaggerSpec:   []byte(oasSpec.spec),
+		spec:          spec.GetSpecBytes(),
 		endpoints:     endpoints,
 		stage:         *route.Name,
 	}
@@ -295,9 +302,9 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		"GatewayType": "Kong API Gateway",
 	}
 
-	return apic.NewServiceBodyBuilder().
+	builder := apic.NewServiceBodyBuilder().
 		SetAPIName(ka.name).
-		SetAPISpec(ka.swaggerSpec).
+		SetAPISpec(ka.spec).
 		SetAPIUpdateSeverity(ka.apiUpdateSeverity).
 		SetDescription(ka.description).
 		SetDocumentation(ka.documentation).
@@ -308,15 +315,20 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetServiceAgentDetails(util.MapStringStringToMapStringInterface(ka.agentDetails)).
 		SetServiceAttribute(serviceAttributes).
 		SetStage(ka.stage).
+		SetStageDescriptor("Route").
 		SetState(apic.PublishedStatus).
 		SetStatus(apic.PublishedStatus).
 		SetTags(tags).
 		SetTitle(ka.name).
 		SetURL(ka.url).
 		SetVersion(ka.version).
-		SetServiceEndpoints(ka.endpoints).
-		SetAccessRequestDefinitionName(ka.ard, false).
-		SetCredentialRequestDefinitions(ka.crds).Build()
+		SetServiceEndpoints(ka.endpoints)
+
+	if len(ka.crds) > 0 {
+		return builder.SetAccessRequestDefinitionName(ka.ard, false).
+			SetCredentialRequestDefinitions(ka.crds).Build()
+	}
+	return builder.SetAuthPolicy(apic.Passthrough).Build()
 }
 
 // makeChecksum generates a makeChecksum for the api for change detection

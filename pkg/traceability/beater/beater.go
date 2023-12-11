@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"sync"
 
 	"github.com/elastic/beats/v7/libbeat/beat"
@@ -110,12 +109,6 @@ func (b *httpLogBeater) shutdownHandler() {
 	// publish the metrics and usage
 	b.logger.Info("publishing cached metrics and usage")
 	metric.GetMetricCollector().ShutdownPublish()
-
-	// remove the agent resource in k8s clusters
-	pod_name := os.Getenv("POD_NAME")
-	if pod_name != "" {
-		agent.GetCentralClient().DeleteResourceInstance(agent.GetAgentResource())
-	}
 }
 
 // Stop stops kong_traceability_agent.
