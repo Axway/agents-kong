@@ -21,22 +21,27 @@ type props interface {
 }
 
 const (
-	cfgKongACLDisable            = "kong.acl.disable"
-	cfgKongAdminUrl              = "kong.admin.url"
-	cfgKongAdminAPIKey           = "kong.admin.auth.apiKey.value"
-	cfgKongAdminAPIKeyHeader     = "kong.admin.auth.apiKey.header"
-	cfgKongAdminBasicUsername    = "kong.admin.auth.basicauth.username"
-	cfgKongAdminBasicPassword    = "kong.admin.auth.basicauth.password"
-	cfgKongProxyHost             = "kong.proxy.host"
-	cfgKongProxyPortHttp         = "kong.proxy.ports.http.value"
-	cfgKongProxyPortHttpDisable  = "kong.proxy.ports.http.disable"
-	cfgKongProxyPortHttps        = "kong.proxy.ports.https.value"
-	cfgKongProxyPortHttpsDisable = "kong.proxy.ports.https.disable"
-	cfgKongProxyBasePath         = "kong.proxy.basePath"
-	cfgKongSpecURLPaths          = "kong.spec.urlPaths"
-	cfgKongSpecLocalPath         = "kong.spec.localPath"
-	cfgKongSpecFilter            = "kong.spec.filter"
-	cfgKongSpecDevPortal         = "kong.spec.devPortalEnabled"
+	cfgKongACLDisable                 = "kong.acl.disable"
+	cfgKongAdminUrl                   = "kong.admin.url"
+	cfgKongAdminAPIKey                = "kong.admin.auth.apiKey.value"
+	cfgKongAdminAPIKeyHeader          = "kong.admin.auth.apiKey.header"
+	cfgKongAdminBasicUsername         = "kong.admin.auth.basicauth.username"
+	cfgKongAdminBasicPassword         = "kong.admin.auth.basicauth.password"
+	cfgKongAdminSSLNextProto          = "kong.admin.ssl.nextProtos"
+	cfgKongAdminSSLInsecureSkipVerify = "kong.admin.ssl.insecureSkipVerify"
+	cfgKongAdminSSLCipherSuites       = "kong.admin.ssl.cipherSuites"
+	cfgKongAdminSSLMinVersion         = "kong.admin.ssl.minVersion"
+	cfgKongAdminSSLMaxVersion         = "kong.admin.ssl.maxVersion"
+	cfgKongProxyHost                  = "kong.proxy.host"
+	cfgKongProxyPortHttp              = "kong.proxy.ports.http.value"
+	cfgKongProxyPortHttpDisable       = "kong.proxy.ports.http.disable"
+	cfgKongProxyPortHttps             = "kong.proxy.ports.https.value"
+	cfgKongProxyPortHttpsDisable      = "kong.proxy.ports.https.disable"
+	cfgKongProxyBasePath              = "kong.proxy.basePath"
+	cfgKongSpecURLPaths               = "kong.spec.urlPaths"
+	cfgKongSpecLocalPath              = "kong.spec.localPath"
+	cfgKongSpecFilter                 = "kong.spec.filter"
+	cfgKongSpecDevPortal              = "kong.spec.devPortalEnabled"
 )
 
 func AddKongProperties(rootProps props) {
@@ -67,6 +72,7 @@ type AgentConfig struct {
 type KongAdminConfig struct {
 	Url  string              `config:"url"`
 	Auth KongAdminAuthConfig `config:"auth"`
+	TLS  corecfg.TLSConfig   `config:"ssl"`
 }
 
 type KongAdminAuthConfig struct {
@@ -233,6 +239,13 @@ func ParseProperties(rootProps props) *KongGatewayConfig {
 					Username: rootProps.StringPropertyValue(cfgKongAdminBasicUsername),
 					Password: rootProps.StringPropertyValue(cfgKongAdminBasicPassword),
 				},
+			},
+			TLS: &corecfg.TLSConfiguration{
+				NextProtos:         rootProps.StringSlicePropertyValue(cfgKongAdminSSLNextProto),
+				InsecureSkipVerify: rootProps.BoolPropertyValue(cfgKongAdminSSLInsecureSkipVerify),
+				CipherSuites:       corecfg.NewCipherArray(rootProps.StringSlicePropertyValue(cfgKongAdminSSLCipherSuites)),
+				MinVersion:         corecfg.TLSVersionAsValue(rootProps.StringPropertyValue(cfgKongAdminSSLMinVersion)),
+				MaxVersion:         corecfg.TLSVersionAsValue(rootProps.StringPropertyValue(cfgKongAdminSSLMaxVersion)),
 			},
 		},
 		Proxy: KongProxyConfig{

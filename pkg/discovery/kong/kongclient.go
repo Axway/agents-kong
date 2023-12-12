@@ -2,7 +2,6 @@ package kong
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -69,9 +68,9 @@ type KongClient struct {
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 	headers := make(http.Header)
 	var kongEndpoint string
-	defaultTransport := http.DefaultTransport.(*http.Transport)
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	baseClient.Transport = defaultTransport
+	kongTransport := http.DefaultTransport.(*http.Transport)
+	kongTransport.TLSClientConfig = kongConfig.Admin.TLS.BuildTLSConfig()
+	baseClient.Transport = kongTransport
 	kongEndpoint = kongConfig.Admin.Url
 
 	if kongConfig.Admin.Auth.APIKey.Value != "" {
