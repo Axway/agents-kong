@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/Axway/agent-sdk/pkg/traceability/redaction"
@@ -42,6 +43,7 @@ var testData = []byte(`[{
 }]`)
 
 func TestNewHandler(t *testing.T) {
+	testLock := sync.Mutex{}
 	cases := map[string]struct {
 		data                  []byte
 		constructorErr        bool
@@ -68,6 +70,9 @@ func TestNewHandler(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			testLock.Lock()
+			defer testLock.Unlock()
+
 			ctx := context.WithValue(context.Background(), "test", name)
 
 			redaction.SetupGlobalRedaction(redaction.DefaultConfig())
