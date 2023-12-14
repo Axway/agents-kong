@@ -174,8 +174,10 @@ func (c *KongGatewayConfig) ValidateCfg() error {
 	if invalidCredentialConfig(c) {
 		return fmt.Errorf(credentialConfigErr)
 	}
-	if err := c.Admin.TLS.(*corecfg.TLSConfiguration).ValidateCfg(); err != nil {
-		return fmt.Errorf("kong.admin.%s", err.Error())
+	if tlsValidate, validator := c.Admin.TLS.(corecfg.IConfigValidator); validator {
+		if err := tlsValidate.ValidateCfg(); err != nil {
+			return fmt.Errorf("kong.admin.%s", err.Error())
+		}
 	}
 	return nil
 }
