@@ -19,6 +19,7 @@ The Kong agents are used to discover, provision access to, and track usages of K
       - [Kong admin API secured by Kong Gateway](#kong-admin-api-secured-by-kong-gateway)
       - [Specification discovery methods](#specification-discovery-methods)
         - [Local specification path](#local-specification-path)
+        - [Filtering gateway services](#filtering-gateway-services)
         - [URL specification paths](#url-specification-paths)
         - [Kong Dev Portal](#kong-dev-portal)
       - [HTTP Log plugin](#http-log-plugin)
@@ -212,6 +213,16 @@ Configuration on my-service gateway service
 ...
 }
 ```
+
+##### Filtering gateway services
+
+Some possible ways to use the filter for gateway services (all these are done with the env var `KONG_SPEC_FILTER`):
+
+Ex1: "tag.Any() == \"spec_local_petstore.json\"" -> this will find all the services that have a tag as "spec_local_petstore.json"
+Ex2: "tag.discover.Exists()" -> this will find all tags that are equal to "discover"
+Note: while both ways can achieve the same functionality, the first one is preferred because it does not restrict you on character usages for Kong tags (note the dot in example 2)
+
+Currently, functionalities such as tag.Any().Contains() are not implemented in the SDK and only fully equal values are taken into account
 
 ##### URL specification paths
 

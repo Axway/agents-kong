@@ -135,8 +135,8 @@ func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.
 func toTagsMap(service *klib.Service) map[string]string {
 	// The SDK currently only supports map[string]string format.
 	filters := make(map[string]string)
-	for i, t := range service.Tags {
-		filters[fmt.Sprintf("t%d", i)] = *t
+	for _, tag := range service.Tags {
+		filters[*tag] = *tag
 	}
 	return filters
 }
