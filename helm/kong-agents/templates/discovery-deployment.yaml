@@ -82,9 +82,19 @@ spec:
               value: "{{ .Values.kong.proxy.ports.https.disable }}"
             - name: KONG_ADMIN_URL
               value: "{{ .Values.kong.admin.url }}"
-            {{- if (include "kong-agents.specDownloadPathsString" .) }}
+            - name: KONG_ADMIN_SSL_NEXTPROTOS
+              value: {{ include "kong-agents.admin.ssl.nextProtos.string" . }}
+            - name: KONG_ADMIN_SSL_CIPHERSUITES
+              value: {{ include "kong-agents.admin.ssl.cipherSuites.string" . }}
+            - name: KONG_ADMIN_SSL_INSECURESKIPVERIFY
+              value: "{{ .Values.kong.admin.ssl.insecureSkipVerify }}"
+            - name: KONG_ADMIN_SSL_MAXVERSION
+              value: "{{ .Values.kong.admin.ssl.maxVersion }}"
+            - name: KONG_ADMIN_SSL_MINVERSION
+              value: "{{ .Values.kong.admin.ssl.minVersion }}"
+            {{- if (include "kong-agents.spec.urlPaths.string" .) }}
             - name: KONG_SPEC_URLPATHS
-              value: {{ include "kong-agents.specDownloadPathsString" . }}
+              value: {{ include "kong-agents.spec.urlPaths.string" . }}
             {{- end }}
             {{- if .Values.kong.spec.localPath }}
             - name: KONG_SPEC_LOCALPATH
@@ -128,6 +138,11 @@ spec:
                                                      "KONG_ADMIN_AUTH_APIKEY_VALUE"
                                                      "KONG_ADMIN_AUTH_BASICAUTH_USERNAME"
                                                      "KONG_ADMIN_AUTH_BASICAUTH_PASSWORD"
+                                                     "KONG_ADMIN_SSL_NEXTPROTOS"
+                                                     "KONG_ADMIN_SSL_CIPHERSUITES"
+                                                     "KONG_ADMIN_SSL_INSECURESKIPVERIFY"
+                                                     "KONG_ADMIN_SSL_MAXVERSION"
+                                                     "KONG_ADMIN_SSL_MINVERSION"
                                                      "KONG_PROXY_HOST" 
                                                      "KONG_PROXY_BASEPATH" 
                                                      "KONG_PROXY_PORTS_HTTP_VALUE" 
