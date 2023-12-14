@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
+	corecfg "github.com/Axway/agent-sdk/pkg/config"
 
 	"github.com/Axway/agents-kong/pkg/common"
 	config "github.com/Axway/agents-kong/pkg/discovery/config"
@@ -105,6 +106,7 @@ func createClient(responses map[string]response) KongAPIClient {
 		},
 		Admin: config.KongAdminConfig{
 			Url: s.URL,
+			TLS: corecfg.NewTLSConfig(),
 		},
 	}
 	if err := cfg.ValidateCfg(); err != nil {
