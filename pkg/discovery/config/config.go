@@ -51,6 +51,11 @@ func AddKongProperties(rootProps props) {
 	rootProps.AddStringProperty(cfgKongAdminAPIKeyHeader, "", "API Key header to authenticate with Kong Gateway")
 	rootProps.AddStringProperty(cfgKongAdminBasicUsername, "", "Username for basic auth to authenticate with Kong Admin API")
 	rootProps.AddStringProperty(cfgKongAdminBasicPassword, "", "Password for basic auth to authenticate with Kong Admin API")
+	rootProps.AddStringSliceProperty(cfgKongAdminSSLNextProto, []string{}, "List of supported application level protocols, comma separated")
+	rootProps.AddBoolProperty(cfgKongAdminSSLInsecureSkipVerify, false, "Controls whether a client verifies the server's certificate chain and host name")
+	rootProps.AddStringSliceProperty(cfgKongAdminSSLCipherSuites, corecfg.TLSDefaultCipherSuitesStringSlice(), "List of supported cipher suites, comma separated")
+	rootProps.AddStringProperty(cfgKongAdminSSLMinVersion, corecfg.TLSDefaultMinVersionString(), "Minimum acceptable SSL/TLS protocol version")
+	rootProps.AddStringProperty(cfgKongAdminSSLMaxVersion, "0", "Maximum acceptable SSL/TLS protocol version")
 	rootProps.AddStringProperty(cfgKongProxyHost, "", "The Kong proxy endpoint")
 	rootProps.AddIntProperty(cfgKongProxyPortHttp, 80, "The Kong proxy http port")
 	rootProps.AddBoolProperty(cfgKongProxyPortHttpDisable, false, "Set to true to disable adding an http endpoint to discovered routes")
@@ -168,6 +173,9 @@ func (c *KongGatewayConfig) ValidateCfg() error {
 	}
 	if invalidCredentialConfig(c) {
 		return fmt.Errorf(credentialConfigErr)
+	}
+	if err := c.Admin.TLS.(*corecfg.TLSConfiguration).ValidateCfg(); err != nil {
+		return fmt.Errorf("kong.admin.%s", err.Error())
 	}
 	return nil
 }
