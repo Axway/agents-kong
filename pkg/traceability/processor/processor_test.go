@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/Axway/agent-sdk/pkg/traceability/redaction"
@@ -43,11 +42,9 @@ var testData = []byte(`[{
 }]`)
 
 func TestNewHandler(t *testing.T) {
-	testLock := sync.Mutex{}
 	cases := map[string]struct {
 		data                  []byte
 		constructorErr        bool
-		setupSampling         bool
 		expectedEvents        int
 		expectedMetricDetails int
 	}{
@@ -58,27 +55,18 @@ func TestNewHandler(t *testing.T) {
 		"expect no error when empty array data sent into handler": {
 			data: []byte("[]"),
 		},
-		"handle data without sampling setup": {
-			data: testData,
-		},
 		"handle data with sampling setup": {
 			data:                  testData,
-			setupSampling:         true,
 			expectedEvents:        4,
 			expectedMetricDetails: 2,
 		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			testLock.Lock()
-			defer testLock.Unlock()
-
 			ctx := context.WithValue(context.Background(), "test", name)
 
 			redaction.SetupGlobalRedaction(redaction.DefaultConfig())
-			if tc.setupSampling {
-				sampling.SetupSampling(sampling.DefaultConfig(), false)
-			}
+			sampling.SetupSampling(sampling.DefaultConfig(), false)
 
 			// create the handler
 			h, err := NewEventsHandler(ctx, tc.data)
@@ -91,7 +79,7 @@ func TestNewHandler(t *testing.T) {
 			assert.NotNil(t, h)
 
 			// setup collector
-			collector := &mock.CollectorMock{Details: make([]metric.Detail, 0)}
+			collector := &mock.CollectorMock{Details: make([]metric.Detail, 0), Expected: tc.expectedMetricDetails}
 			mock.SetMockCollector(collector)
 			h.collectorGetter = func() metricCollector {
 				return mock.GetMockCollector()

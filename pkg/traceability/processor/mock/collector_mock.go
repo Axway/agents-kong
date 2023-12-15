@@ -1,7 +1,6 @@
 package mock
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/Axway/agent-sdk/pkg/transaction/metric"
@@ -19,11 +18,11 @@ func SetMockCollector(c *CollectorMock) {
 
 type CollectorMock struct {
 	sync.WaitGroup
-	Details []metric.Detail
+	Details  []metric.Detail
+	Expected int
 }
 
 func (c *CollectorMock) AddMetricDetail(metricDetail metric.Detail) {
-	fmt.Printf("%v\n", metricDetail)
 	c.Details = append(c.Details, metricDetail)
 	c.Done()
 }
