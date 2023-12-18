@@ -32,8 +32,10 @@ type TransactionProcessor struct {
 
 func NewTransactionProcessor(ctx context.Context) *TransactionProcessor {
 	p := &TransactionProcessor{
-		ctx:    ctx,
-		logger: log.NewLoggerFromContext(ctx).WithComponent("eventMapper").WithPackage("processor"),
+		ctx: ctx,
+		logger: log.NewLoggerFromContext(ctx).WithComponent("eventMapper").WithPackage("processor").
+			WithField(string(ctxEntryIndex), ctx.Value(ctxEntryIndex)).
+			WithField(string(ctxRequestID), ctx.Value(ctxRequestID)),
 	}
 	return p
 }
@@ -56,7 +58,7 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 	txnID := uuid.New().String()
 
 	// leg 0
-	transactionLogEvent, err := createTransactionEvent(p.event, txnID)
+	transactionLogEvent, err := p.createTransactionEvent(txnID)
 	if err != nil {
 		p.logger.WithError(err).Error("building transaction leg event")
 		return nil, err
@@ -68,7 +70,7 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 	}
 
 	// summary
-	summaryLogEvent, err := createSummaryEvent(p.event, "id", txnID)
+	summaryLogEvent, err := p.createSummaryEvent("id", txnID)
 	if err != nil {
 		p.logger.WithError(err).Error("building transaction summary event")
 		return nil, err
@@ -82,60 +84,61 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 	return []beat.Event{summaryEvent, legEvent}, nil
 }
 
-func createTransactionEvent(ktle TrafficLogEntry, txnid string) (*transaction.LogEvent, error) {
+func (p *TransactionProcessor) createTransactionEvent(txnid string) (*transaction.LogEvent, error) {
 	requestHost := ""
-	if value, found := ktle.Request.Headers[host]; found {
+	if value, found := p.event.Request.Headers[host]; found {
 		requestHost = fmt.Sprintf("%v", value)
 	}
 
 	userAgentVal := ""
-	if value, found := ktle.Request.Headers[userAgent]; found {
+	if value, found := p.event.Request.Headers[userAgent]; found {
 		userAgentVal = fmt.Sprintf("%v", value)
 	}
 
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
-		SetURI(ktle.Request.URI).
-		SetMethod(ktle.Request.Method).
-		SetArgs(processQueryArgs(ktle.Request.QueryString)).
-		SetStatus(ktle.Response.Status, http.StatusText(ktle.Response.Status)).
+		SetURI(p.event.Request.URI).
+		SetMethod(p.event.Request.Method).
+		SetArgs(processQueryArgs(p.event.Request.QueryString)).
+		SetStatus(p.event.Response.Status, http.StatusText(p.event.Response.Status)).
 		SetHost(requestHost).
-		SetHeaders(buildHeaders(ktle.Request.Headers), buildHeaders(ktle.Response.Headers)).
-		SetByteLength(ktle.Request.Size, ktle.Response.Size).
-		SetLocalAddress(ktle.ClientIP, 0). // Could not determine local port for now
-		SetRemoteAddress("", "", ktle.Service.Port).
-		SetSSLProperties(buildSSLInfoIfAvailable(ktle)).
+		SetHeaders(buildHeaders(p.event.Request.Headers), buildHeaders(p.event.Response.Headers)).
+		SetByteLength(p.event.Request.Size, p.event.Response.Size).
+		SetLocalAddress(p.event.ClientIP, 0). // Could not determine local port for now
+		SetRemoteAddress("", "", p.event.Service.Port).
+		SetSSLProperties(buildSSLInfoIfAvailable(p.event)).
 		SetUserAgent(userAgentVal).
 		Build()
 
 	if err != nil {
+
 		return nil, err
 	}
 
 	return transaction.NewTransactionEventBuilder().
-		SetTimestamp(ktle.StartedAt).
+		SetTimestamp(p.event.StartedAt).
 		SetTransactionID(txnid).
 		SetID(leg0).
-		SetSource(ktle.ClientIP).
+		SetSource(p.event.ClientIP).
 		SetDestination(requestHost).
-		SetDuration(ktle.Latencies.Request).
+		SetDuration(p.event.Latencies.Request).
 		SetDirection(inbound).
-		SetStatus(getTransactionEventStatus(ktle.Response.Status)).
+		SetStatus(getTransactionEventStatus(p.event.Response.Status)).
 		SetProtocolDetail(httpProtocolDetails).
 		Build()
 }
 
-func createSummaryEvent(ktle TrafficLogEntry, teamID string, txnid string) (*transaction.LogEvent, error) {
+func (p *TransactionProcessor) createSummaryEvent(teamID string, txnid string) (*transaction.LogEvent, error) {
 	builder := transaction.NewTransactionSummaryBuilder().
-		SetTimestamp(ktle.StartedAt).
+		SetTimestamp(p.event.StartedAt).
 		SetTransactionID(txnid).
-		SetStatus(getTransactionSummaryStatus(ktle.Response.Status), strconv.Itoa(ktle.Response.Status)).
+		SetStatus(getTransactionSummaryStatus(p.event.Response.Status), strconv.Itoa(p.event.Response.Status)).
 		SetTeam(teamID).
-		SetEntryPoint(ktle.Service.Protocol, ktle.Request.Method, ktle.Request.URI, ktle.Request.URL).
-		SetDuration(ktle.Latencies.Request).
-		SetProxyWithStage(sdkUtil.FormatProxyID(ktle.Service.Name), ktle.Service.Name, ktle.Route.Name, 1)
+		SetEntryPoint(p.event.Service.Protocol, p.event.Request.Method, p.event.Request.URI, p.event.Request.URL).
+		SetDuration(p.event.Latencies.Request).
+		SetProxyWithStage(sdkUtil.FormatProxyID(p.event.Service.Name), p.event.Service.Name, p.event.Route.Name, 1)
 
-	if ktle.Consumer != nil {
-		builder.SetApplication(sdkUtil.FormatApplicationID(ktle.Consumer.ID), ktle.Consumer.Username)
+	if p.event.Consumer != nil {
+		builder.SetApplication(sdkUtil.FormatApplicationID(p.event.Consumer.ID), p.event.Consumer.Username)
 	}
 
 	return builder.Build()

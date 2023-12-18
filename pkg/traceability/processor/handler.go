@@ -7,6 +7,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/transaction"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/elastic/beats/v7/libbeat/beat"
+	"github.com/google/uuid"
 )
 
 // EventsHandler -
@@ -15,20 +16,25 @@ type EventsHandler struct {
 	logger          log.FieldLogger
 	metrics         MetricsProcessor
 	logEntries      []TrafficLogEntry
+	requestID       string
 	eventGenerator  func() transaction.EventGenerator
 	collectorGetter func() metricCollector
 }
 
 // NewEventsHandler - return a new EventProcessor
 func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, error) {
+	requestID := uuid.NewString()
+
 	p := &EventsHandler{
 		ctx:             ctx,
-		logger:          log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor"),
+		logger:          log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor").WithField(string(ctxRequestID), requestID),
+		requestID:       requestID,
 		metrics:         NewMetricsProcessor(ctx),
 		eventGenerator:  transaction.NewEventGenerator,
 		collectorGetter: getMetricCollector,
 	}
 
+	p.logger.WithField("inputData", string(logData)).Debug("data sent from kong")
 	err := json.Unmarshal(logData, &p.logEntries)
 	if err != nil {
 		p.logger.WithError(err).Error("could not read log data")
@@ -68,7 +74,7 @@ func (p *EventsHandler) handleTransaction(ctx context.Context, entry TrafficLogE
 
 	newEvents, err := NewTransactionProcessor(ctx).setEventGenerator(p.eventGenerator()).setEntry(entry).process()
 	if err != nil {
-		log.WithError(err).Error("creating transaction event")
+		log.WithError(err).Error("executing transaction processor")
 		return []beat.Event{}
 	}
 	return newEvents
