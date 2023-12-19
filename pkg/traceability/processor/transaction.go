@@ -98,7 +98,7 @@ func (p *TransactionProcessor) createTransactionEvent(txnid string) (*transactio
 	httpProtocolDetails, err := transaction.NewHTTPProtocolBuilder().
 		SetURI(p.event.Request.URI).
 		SetMethod(p.event.Request.Method).
-		SetArgs(processQueryArgs(p.event.Request.QueryString)).
+		SetArgsMap(processQueryArgs(p.event.Request.QueryString)).
 		SetStatus(p.event.Response.Status, http.StatusText(p.event.Response.Status)).
 		SetHost(requestHost).
 		SetHeaders(buildHeaders(p.event.Request.Headers), buildHeaders(p.event.Response.Headers)).
@@ -110,7 +110,6 @@ func (p *TransactionProcessor) createTransactionEvent(txnid string) (*transactio
 		Build()
 
 	if err != nil {
-
 		return nil, err
 	}
 

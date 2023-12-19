@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -52,12 +51,12 @@ func buildSSLInfoIfAvailable(ktle TrafficLogEntry) (string, string, string) {
 	return "", "", ""
 }
 
-func processQueryArgs(args map[string]string) string {
-	b := new(bytes.Buffer)
+func processQueryArgs(args map[string]string) map[string][]string {
+	newArgs := make(map[string][]string)
 	for key, value := range args {
-		fmt.Fprintf(b, "%s=\"%s\",", key, value)
+		newArgs[key] = []string{value}
 	}
-	return b.String()
+	return newArgs
 }
 
 func getMetricCollector() metricCollector {
