@@ -8,6 +8,7 @@ import (
 const (
 	CtxTransactionID log.ContextField = "transactionID"
 	ctxEntryIndex    log.ContextField = "entryIndex"
+	ctxRequestID     log.ContextField = "requestID"
 )
 
 func init() {
