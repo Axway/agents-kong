@@ -118,8 +118,8 @@ func (b *httpLogBeater) shutdownHandler() {
 
 func (b *httpLogBeater) cleanResource() {
 	// if pod name is empty do nothing further
-	pod_name := os.Getenv("POD_NAME")
-	if pod_name == "" {
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
 		b.logger.Debug("not cleaning the agent resource, does not seem to be a kubernetes pod")
 		return
 	}
