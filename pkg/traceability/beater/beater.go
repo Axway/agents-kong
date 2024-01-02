@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/elastic/beats/v7/libbeat/beat"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
+	management "github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/transaction/metric"
 	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
 	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"
@@ -109,6 +111,30 @@ func (b *httpLogBeater) shutdownHandler() {
 	// publish the metrics and usage
 	b.logger.Info("publishing cached metrics and usage")
 	metric.GetMetricCollector().ShutdownPublish()
+
+	// clean the agent resource, if necessary
+	b.cleanResource()
+}
+
+func (*httpLogBeater) cleanResource() {
+	// if pod name is empty do nothing further
+	pod_name := os.Getenv("POD_NAME")
+	if pod_name == "" {
+		return
+	}
+
+	// check if this agent resource reported an error
+	if agent.GetStatus() == agent.AgentFailed || agent.GetStatus() == agent.AgentUnhealthy {
+		return
+	}
+
+	// check that this is not the last agent resource to be removed
+	agentRes := management.NewTraceabilityAgent(config.GetAgentConfig().CentralCfg.GetAgentName(), config.GetAgentConfig().CentralCfg.GetEnvironmentName())
+	res, err := agent.GetCentralClient().GetResources(agentRes)
+	if len(res) > 1 && err != nil {
+		// cleanup the agent resource
+		agent.GetCentralClient().DeleteResourceInstance(agentRes)
+	}
 }
 
 // Stop stops kong_traceability_agent.
