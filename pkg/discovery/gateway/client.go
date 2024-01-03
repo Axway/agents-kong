@@ -277,7 +277,7 @@ func newKongAPI(
 	}
 
 	return KongAPI{
-		id:            *service.Name,
+		id:            *service.ID,
 		name:          *service.Name,
 		description:   spec.GetDescription(),
 		version:       spec.GetVersion(),
@@ -286,7 +286,8 @@ func newKongAPI(
 		documentation: []byte(*service.Name),
 		spec:          spec.GetSpecBytes(),
 		endpoints:     endpoints,
-		stage:         *route.Name,
+		stageName:     *route.Name,
+		stage:         *route.ID,
 	}
 }
 
@@ -315,6 +316,7 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetServiceAgentDetails(util.MapStringStringToMapStringInterface(ka.agentDetails)).
 		SetServiceAttribute(serviceAttributes).
 		SetStage(ka.stage).
+		SetStageDisplayName(ka.stageName).
 		SetStageDescriptor("Route").
 		SetState(apic.PublishedStatus).
 		SetStatus(apic.PublishedStatus).

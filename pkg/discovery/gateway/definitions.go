@@ -39,5 +39,6 @@ type KongAPI struct {
 	agentDetails      map[string]string
 	tags              []string
 	stage             string
+	stageName         string
 	ard               string
 }
