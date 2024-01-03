@@ -134,7 +134,7 @@ func (p *TransactionProcessor) createSummaryEvent(teamID string, txnid string) (
 		SetTeam(teamID).
 		SetEntryPoint(p.event.Service.Protocol, p.event.Request.Method, p.event.Request.URI, p.event.Request.URL).
 		SetDuration(p.event.Latencies.Request).
-		SetProxyWithStage(sdkUtil.FormatProxyID(p.event.Service.Name), p.event.Service.Name, p.event.Route.Name, 1)
+		SetProxyWithStage(sdkUtil.FormatProxyID(p.event.Service.ID), p.event.Service.Name, p.event.Route.ID, 1)
 
 	if p.event.Consumer != nil {
 		builder.SetApplication(sdkUtil.FormatApplicationID(p.event.Consumer.ID), p.event.Consumer.Username)

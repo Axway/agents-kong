@@ -7,7 +7,6 @@ import (
 	"github.com/Axway/agent-sdk/pkg/traceability/sampling"
 	"github.com/Axway/agent-sdk/pkg/transaction/metric"
 	"github.com/Axway/agent-sdk/pkg/transaction/models"
-	"github.com/Axway/agent-sdk/pkg/transaction/util"
 	sdkUtil "github.com/Axway/agent-sdk/pkg/transaction/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 )
@@ -34,10 +33,13 @@ func (m *MetricsProcessor) setCollector(collector metricCollector) {
 func (m *MetricsProcessor) process(entry TrafficLogEntry) (bool, error) {
 	details := sampling.TransactionDetails{}
 	if entry.Response != nil {
-		details.Status = util.GetTransactionSummaryStatus(entry.Response.Status)
+		details.Status = sdkUtil.GetTransactionSummaryStatus(entry.Response.Status)
 	}
 	if entry.Service != nil {
-		details.APIID = entry.Route.ID
+		details.APIID = entry.Service.ID
+		if entry.Route != nil {
+			details.APIID = fmt.Sprintf("%s-%s", entry.Service.ID, entry.Route.ID)
+		}
 	}
 	if entry.Consumer != nil {
 		details.SubID = entry.Consumer.ID
@@ -54,9 +56,10 @@ func (m *MetricsProcessor) process(entry TrafficLogEntry) (bool, error) {
 
 func (m *MetricsProcessor) updateMetric(entry TrafficLogEntry) {
 	apiDetails := models.APIDetails{
-		ID:    entry.Service.Name,
-		Name:  entry.Service.Name,
-		Stage: entry.Route.Name,
+		ID:       sdkUtil.FormatProxyID(entry.Service.ID),
+		Name:     entry.Service.Name,
+		Stage:    entry.Route.ID,
+		Revision: 1,
 	}
 
 	statusCode := entry.Response.Status
