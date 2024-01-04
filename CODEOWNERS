@@ -4,7 +4,6 @@
 #[CSR]
  # .csr-profile.json requires SPOC approval for any modifications
 .csr-profile.json @dfeldick @jcollins-axway @vivekschauhan
-whitesource.config @dfeldick
 
 #[CICD]
 # cicd-related files
