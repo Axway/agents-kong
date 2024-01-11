@@ -43,6 +43,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
+Traceability selector labels
+*/}}
+{{- define "kong-agents.traceability.selectorLabels" -}}
+{{ include "kong-agents.selectorLabels" . }}
+app.agent.type: traceability
+{{- end }}
+
+{{/*
 Selector labels
 */}}
 {{- define "kong-agents.selectorLabels" -}}
@@ -62,8 +70,22 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+Create the env var value for spec download paths
 */}}
-{{- define "kong-agents.specDownloadPathsString" -}}
+{{- define "kong-agents.spec.urlPaths.string" -}}
 {{- join "," .Values.kong.spec.urlPaths }}
+{{- end -}}
+
+{{/*
+Create the env var value for ssl next protos
+*/}}
+{{- define "kong-agents.admin.ssl.nextProtos.string" -}}
+{{- join "," .Values.kong.admin.ssl.nextProtos }}
+{{- end -}}
+
+{{/*
+Create the env var value for ssl cipher suites
+*/}}
+{{- define "kong-agents.admin.ssl.cipherSuites.string" -}}
+{{- join "," .Values.kong.admin.ssl.cipherSuites }}
 {{- end -}}

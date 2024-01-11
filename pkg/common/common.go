@@ -2,11 +2,12 @@ package common
 
 const (
 	AttrServiceID   = "serviceID"
-	AttrRouteID     = "routeID"
-	AttrChecksum    = "checksum"
-	AttrAppID       = "kongApplicationID"
 	AttrServiceName = "serviceName"
 	AttrRouteName   = "routeName"
+	AttrRouteID     = "routeID"
+	AttrServiceTag  = "serviceTag"
+	AttrChecksum    = "checksum"
+	AttrAppID       = "kongApplicationId"
 
 	AttrCredentialID = "kongCredentialID"
 	AttrCredUpdater  = "kongCredentialUpdate"

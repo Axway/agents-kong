@@ -19,6 +19,10 @@ all: clean
 test: dep
 	@go vet ${GO_PKG_LIST}
 	@go test -race -v -short -coverprofile=${WORKSPACE}/gocoverage.out -count=1 ${GO_PKG_LIST}
+
+test-s: dep
+	@go vet ${GO_PKG_LIST}
+	@go test -race -short -coverprofile=${WORKSPACE}/gocoverage.out -count=1 ${GO_PKG_LIST}
 	
 clean:
 	@rm -rf ./bin/
@@ -44,7 +48,7 @@ ${WORKSPACE}/discovery_agent:
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.SDKBuildVersion=$(sdk_version)' \
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentName=KongDiscoveryAgent' \
 				-X 'github.com/Axway/agent-sdk/pkg/cmd.BuildAgentDescription=Kong Discovery Agent'" \
-		-a -o ${WORKSPACE}/bin/discovery_agent ${WORKSPACE}/pkg/main/discovery/main.go
+		-a -o ${WORKSPACE}/bin/discovery_agent ${WORKSPACE}/pkg/discovery/main/agent.go
 
 build-da: dep ${WORKSPACE}/discovery_agent
 	@echo "Discovery Agent build completed"

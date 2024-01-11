@@ -3,14 +3,13 @@ module github.com/Axway/agents-kong
 go 1.18
 
 require (
-	github.com/Axway/agent-sdk v1.1.68-0.20231120204404-5fa2c5b231e1
+	github.com/Axway/agent-sdk v1.1.72-0.20240103224310-c9edbdc66989
 	github.com/elastic/beats/v7 v7.17.15
 	github.com/google/uuid v1.3.1
 	github.com/kong/go-kong v0.47.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
-	github.com/tidwall/gjson v1.16.0
 )
 
 require (
@@ -124,6 +123,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
 	github.com/subosito/gotenv v1.4.0 // indirect
+	github.com/tidwall/gjson v1.16.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/urso/diag v0.0.0-20200210123136-21b3cc8eb797 // indirect

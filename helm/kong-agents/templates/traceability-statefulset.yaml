@@ -1,14 +1,15 @@
+{{- if .Values.kong.enable.traceability }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: {{ include "kong-agents.fullname" . }}-discovery
+  name: {{ include "kong-agents.fullname" . }}-traceability
   labels:
     {{- include "kong-agents.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.discovery.replicaCount }}
+  replicas: {{ .Values.traceability.replicaCount }}
   selector:
     matchLabels:
-      {{- include "kong-agents.selectorLabels" . | nindent 6 }}
+      {{- include "kong-agents.traceability.selectorLabels" . | nindent 6 }}
       {{- with .Values.additionalLabels }}
       {{- range $key, $value := . }}
       {{ default "none" $key }}: {{ default "none" $value | quote }}
@@ -21,7 +22,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "kong-agents.selectorLabels" . | nindent 8 }}
+        {{- include "kong-agents.traceability.selectorLabels" . | nindent 8 }}
         {{- with .Values.additionalLabels }}
         {{- range $key, $value := . }}
         {{ default "none" $key }}: {{ default "none" $value | quote }}
@@ -41,11 +42,14 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.discovery.image.repository }}:{{ .Values.discovery.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.discovery.image.pullPolicy }}
+          image: "{{ .Values.traceability.image.repository }}:{{ .Values.traceability.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.traceability.image.pullPolicy }}
           ports:
           - name: probe-port
             containerPort: {{ .Values.statusPort }}
+            protocol: TCP
+          - name: logs
+            containerPort: {{ .Values.kong.logs.http.port }}
             protocol: TCP
           livenessProbe:
             httpGet:
@@ -66,68 +70,10 @@ spec:
             {{- end }}
             {{- end }}
           env:
-            - name: KONG_PROXY_HOST
-              value: "{{ .Values.kong.proxy.host }}"
-            - name: KONG_ACL_DISABLE
-              value: "{{ .Values.kong.acl.disable }}"
-            - name: KONG_PROXY_BASEPATH
-              value: "{{ .Values.kong.proxy.basePath }}"
-            - name: KONG_PROXY_PORTS_HTTP_VALUE
-              value: "{{ .Values.kong.proxy.ports.http.value }}"
-            - name: KONG_PROXY_PORTS_HTTPS_VALUE
-              value: "{{ .Values.kong.proxy.ports.https.value }}"
-            - name: KONG_PROXY_PORTS_HTTP_DISABLE
-              value: "{{ .Values.kong.proxy.ports.http.disable }}"
-            - name: KONG_PROXY_PORTS_HTTPS_DISABLE
-              value: "{{ .Values.kong.proxy.ports.https.disable }}"
-            - name: KONG_ADMIN_URL
-              value: "{{ .Values.kong.admin.url }}"
-            - name: KONG_ADMIN_SSL_NEXTPROTOS
-              value: {{ include "kong-agents.admin.ssl.nextProtos.string" . }}
-            - name: KONG_ADMIN_SSL_CIPHERSUITES
-              value: {{ include "kong-agents.admin.ssl.cipherSuites.string" . }}
-            - name: KONG_ADMIN_SSL_INSECURESKIPVERIFY
-              value: "{{ .Values.kong.admin.ssl.insecureSkipVerify }}"
-            - name: KONG_ADMIN_SSL_MAXVERSION
-              value: "{{ .Values.kong.admin.ssl.maxVersion }}"
-            - name: KONG_ADMIN_SSL_MINVERSION
-              value: "{{ .Values.kong.admin.ssl.minVersion }}"
-            {{- if (include "kong-agents.spec.urlPaths.string" .) }}
-            - name: KONG_SPEC_URLPATHS
-              value: {{ include "kong-agents.spec.urlPaths.string" . }}
-            {{- end }}
-            {{- if .Values.kong.spec.localPath }}
-            - name: KONG_SPEC_LOCALPATH
-              value: /specs
-            {{- end }}
-            {{- if .Values.kong.spec.filter }}
-            - name: KONG_SPEC_FILTER
-              value: "{{ .Values.kong.spec.filter }}"
-            {{- end }}
-            {{- if .Values.kong.admin.auth.apikey.value }}
-            - name: KONG_ADMIN_AUTH_APIKEY_VALUE
-              valueFrom:
-                secretKeyRef: 
-                  name: kong-admin-auth-apikey
-                  key: value
-            - name: KONG_ADMIN_AUTH_APIKEY_HEADER
-              valueFrom:
-                secretKeyRef: 
-                  name: kong-admin-auth-apikey
-                  key: header
-            {{- end }}
-            {{- if .Values.kong.admin.auth.basicAuth.username }}
-            - name: KONG_ADMIN_AUTH_BASICAUTH_USERNAME
-              valueFrom:
-                secretKeyRef: 
-                  name: kong-admin-auth-basicauth
-                  key: username
-            - name: KONG_ADMIN_AUTH_BASICAUTH_PASSWORD
-              valueFrom:
-                secretKeyRef: 
-                  name: kong-admin-auth-basicauth
-                  key: password
-            {{- end }}
+            - name: KONG_LOGS_HTTP_SERVER_PATH
+              value: "{{ .Values.kong.logs.http.path }}"
+            - name: KONG_LOGS_HTTP_SERVER_PORT
+              value: "{{ .Values.kong.logs.http.port }}"
           {{- with .Values.env }}
           {{- range $key, $value := . }}
           {{- if and (not (eq (toString $value) ""))
@@ -154,7 +100,7 @@ spec:
                                                      "KONG_LOGS_HTTP_SERVER_PATH"
                                                      "KONG_LOGS_HTTP_SERVER_PORT"
                                                      "STATUS_PORT")))
-           }} 
+           }}
             - name: {{ $key }}
               value: {{ $value | quote }} 
           {{- end }}
@@ -166,16 +112,20 @@ spec:
               value: "/keys/public_key.pem"
             - name: STATUS_PORT
               value: "{{ .Values.statusPort }}"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           volumeMounts:
+            - name: beat-storage
+              mountPath: /data
             - name: "kong-agent-keys"
               mountPath: "/keys"
-          {{- if .Values.kong.spec.localPath }}
-            - name: "kong-agent-specs"
-              mountPath: "/specs"
-          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+      - name: beat-storage
+        emptyDir: {}
       - name: kong-agent-keys
         secret:
           secretName: {{ .Values.secrets.keys }}
@@ -184,12 +134,6 @@ spec:
             path: private_key.pem
           - key: public_key
             path: public_key.pem
-      {{- if .Values.kong.spec.localPath }}
-      {{- with .Values.kong.spec.localPath }}
-      - name: kong-agent-specs
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -202,3 +146,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
