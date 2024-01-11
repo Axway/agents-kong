@@ -152,8 +152,10 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	}
 	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, service)
 	if err != nil {
-		return
+		log.WithError(err).Errorf("failed to get spec for service")
+		return err
 	}
+
 	// don't publish an empty spec
 	if kongServiceSpec == nil {
 		log.Warn("no spec found")
