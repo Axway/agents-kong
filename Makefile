@@ -39,6 +39,16 @@ dep: resolve-dependencies
 dep-check:
 	@go mod verify
 
+dep-version:
+	@export version=$(sdk) && make update-sdk && make dep
+
+dep-sdk: 
+	@make sdk=main dep-version
+
+update-sdk:
+	@echo "Updating SDK dependencies"
+	@export GOFLAGS="" && go mod edit -require "github.com/Axway/agent-sdk@${version}"
+
 
 ${WORKSPACE}/discovery_agent:
 	@go build -v -tags static_all \
