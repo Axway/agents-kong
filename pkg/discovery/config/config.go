@@ -66,8 +66,8 @@ func AddKongProperties(rootProps props) {
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
 	rootProps.AddStringProperty(cfgKongSpecFilter, "", "SDK Filter format. Empty means filters are ignored.")
-	rootProps.AddBoolProperty(cfgKongSpecDevPortal, false, "Set to true to enable gathering specs from teh Kong's dev portal.")
-	rootProps.AddBoolProperty(cfgKongSpecCreateUnstructuredAPI, false, "Set to true to publish unstructured API if none found.")
+	rootProps.AddBoolProperty(cfgKongSpecDevPortal, false, "Set to true to enable gathering specs from the Kong's dev portal.")
+	rootProps.AddBoolProperty(cfgKongSpecCreateUnstructuredAPI, false, "Set to true to publish unstructured API if spec is not found.")
 }
 
 // AgentConfig - represents the config for agent
