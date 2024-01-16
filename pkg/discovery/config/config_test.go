@@ -136,6 +136,7 @@ func TestKongProperties(t *testing.T) {
 	assert.Contains(t, newProps.props, cfgKongSpecLocalPath)
 	assert.Contains(t, newProps.props, cfgKongSpecFilter)
 	assert.Contains(t, newProps.props, cfgKongSpecDevPortal)
+	assert.Contains(t, newProps.props, cfgKongSpecCreateUnstructuredAPI)
 
 	// validate defaults
 	cfg := ParseProperties(newProps)
@@ -155,6 +156,7 @@ func TestKongProperties(t *testing.T) {
 	assert.Equal(t, "", cfg.Spec.LocalPath)
 	assert.Equal(t, "", cfg.Spec.Filter)
 	assert.Equal(t, false, cfg.Spec.DevPortalEnabled)
+	assert.Equal(t, false, cfg.Spec.CreateUnstructuredAPI)
 
 	// validate changed values
 	newProps.props[cfgKongACLDisable] = propData{"bool", "", true}
@@ -171,6 +173,7 @@ func TestKongProperties(t *testing.T) {
 	newProps.props[cfgKongSpecLocalPath] = propData{"string", "", "/path/to/specs"}
 	newProps.props[cfgKongSpecFilter] = propData{"string", "", "tag_filter"}
 	newProps.props[cfgKongSpecDevPortal] = propData{"bool", "", true}
+	newProps.props[cfgKongSpecCreateUnstructuredAPI] = propData{"bool", "", true}
 	cfg = ParseProperties(newProps)
 	assert.Equal(t, true, cfg.ACL.Disable)
 	assert.Equal(t, "http://host:port/path", cfg.Admin.Url)
@@ -188,6 +191,7 @@ func TestKongProperties(t *testing.T) {
 	assert.Equal(t, "/path/to/specs", cfg.Spec.LocalPath)
 	assert.Equal(t, "tag_filter", cfg.Spec.Filter)
 	assert.Equal(t, true, cfg.Spec.DevPortalEnabled)
+	assert.Equal(t, true, cfg.Spec.CreateUnstructuredAPI)
 
 	// validate no port configured when port type disabled
 	newProps.props[cfgKongProxyPortHttpDisable] = propData{"bool", "", true}

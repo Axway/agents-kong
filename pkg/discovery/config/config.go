@@ -42,6 +42,7 @@ const (
 	cfgKongSpecLocalPath              = "kong.spec.localPath"
 	cfgKongSpecFilter                 = "kong.spec.filter"
 	cfgKongSpecDevPortal              = "kong.spec.devPortalEnabled"
+	cfgKongSpecCreateUnstructuredAPI  = "kong.spec.createUnstructuredAPI"
 )
 
 func AddKongProperties(rootProps props) {
@@ -65,7 +66,8 @@ func AddKongProperties(rootProps props) {
 	rootProps.AddStringSliceProperty(cfgKongSpecURLPaths, []string{}, "URL paths that the agent will look in for spec files")
 	rootProps.AddStringProperty(cfgKongSpecLocalPath, "", "Local paths where the agent will look for spec files")
 	rootProps.AddStringProperty(cfgKongSpecFilter, "", "SDK Filter format. Empty means filters are ignored.")
-	rootProps.AddBoolProperty(cfgKongSpecDevPortal, false, "Set to true to enable gathering specs from teh Kong's dev portal.")
+	rootProps.AddBoolProperty(cfgKongSpecDevPortal, false, "Set to true to enable gathering specs from the Kong's dev portal.")
+	rootProps.AddBoolProperty(cfgKongSpecCreateUnstructuredAPI, false, "Set to true to publish unstructured API if spec is not found.")
 }
 
 // AgentConfig - represents the config for agent
@@ -112,10 +114,11 @@ type KongPortSettingsConfig struct {
 }
 
 type KongSpecConfig struct {
-	URLPaths         []string `config:"urlPaths"`
-	LocalPath        string   `config:"localPath"`
-	DevPortalEnabled bool     `config:"devPortalEnabled"`
-	Filter           string   `config:"filter"`
+	URLPaths              []string `config:"urlPaths"`
+	LocalPath             string   `config:"localPath"`
+	DevPortalEnabled      bool     `config:"devPortalEnabled"`
+	Filter                string   `config:"filter"`
+	CreateUnstructuredAPI bool     `config:"createUnstructuredAPI"`
 }
 
 type KongACLConfig struct {
@@ -267,10 +270,11 @@ func ParseProperties(rootProps props) *KongGatewayConfig {
 			BasePath: rootProps.StringPropertyValue(cfgKongProxyBasePath),
 		},
 		Spec: KongSpecConfig{
-			DevPortalEnabled: rootProps.BoolPropertyValue(cfgKongSpecDevPortal),
-			URLPaths:         rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
-			LocalPath:        rootProps.StringPropertyValue(cfgKongSpecLocalPath),
-			Filter:           rootProps.StringPropertyValue(cfgKongSpecFilter),
+			DevPortalEnabled:      rootProps.BoolPropertyValue(cfgKongSpecDevPortal),
+			URLPaths:              rootProps.StringSlicePropertyValue(cfgKongSpecURLPaths),
+			LocalPath:             rootProps.StringPropertyValue(cfgKongSpecLocalPath),
+			Filter:                rootProps.StringPropertyValue(cfgKongSpecFilter),
+			CreateUnstructuredAPI: rootProps.BoolPropertyValue(cfgKongSpecCreateUnstructuredAPI),
 		},
 	}
 }

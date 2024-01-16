@@ -22,6 +22,7 @@ import (
 )
 
 const tagPrefix = "spec_local_"
+const unstructuredSpec = "Unstructured API Example"
 
 type KongAPIClient interface {
 	// Provisioning
@@ -56,13 +57,14 @@ type KongServiceSpec struct {
 
 type KongClient struct {
 	*klib.Client
-	logger            log.FieldLogger
-	baseClient        DoRequest
-	kongAdminEndpoint string
-	specURLPaths      []string
-	specLocalPath     string
-	devPortalEnabled  bool
-	clientTimeout     time.Duration
+	logger                log.FieldLogger
+	baseClient            DoRequest
+	kongAdminEndpoint     string
+	specURLPaths          []string
+	specLocalPath         string
+	devPortalEnabled      bool
+	createUnstructuredAPI bool
+	clientTimeout         time.Duration
 }
 
 func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
@@ -90,14 +92,15 @@ func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig
 	}
 
 	return &KongClient{
-		Client:            baseKongClient,
-		logger:            log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
-		baseClient:        baseClient,
-		kongAdminEndpoint: kongEndpoint,
-		specURLPaths:      kongConfig.Spec.URLPaths,
-		specLocalPath:     kongConfig.Spec.LocalPath,
-		devPortalEnabled:  kongConfig.Spec.DevPortalEnabled,
-		clientTimeout:     60 * time.Second,
+		Client:                baseKongClient,
+		logger:                log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
+		baseClient:            baseClient,
+		kongAdminEndpoint:     kongEndpoint,
+		specURLPaths:          kongConfig.Spec.URLPaths,
+		specLocalPath:         kongConfig.Spec.LocalPath,
+		devPortalEnabled:      kongConfig.Spec.DevPortalEnabled,
+		createUnstructuredAPI: kongConfig.Spec.CreateUnstructuredAPI,
+		clientTimeout:         60 * time.Second,
 	}, nil
 }
 
@@ -132,7 +135,16 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 		backendURL = backendURL + *service.Path
 	}
 
-	return k.getSpecFromBackend(ctx, backendURL)
+	spec, err := k.getSpecFromBackend(ctx, backendURL)
+	if spec == nil && err == nil && k.createUnstructuredAPI {
+		return k.getUnstructuredSpec(ctx), nil
+	}
+	return spec, err
+}
+
+func (k KongClient) getUnstructuredSpec(ctx context.Context) []byte {
+	k.logger.Info("Adding unstructured API to services which had no spec associated")
+	return []byte(unstructuredSpec)
 }
 
 func (k KongClient) getSpecFromLocal(ctx context.Context, service *klib.Service) ([]byte, error) {

@@ -118,7 +118,7 @@ func (k KongClient) CreateOauth2(ctx context.Context, consumerID string, oauth2 
 func (k KongClient) CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error) {
 	keyAuth, err := k.KeyAuths.Create(ctx, &consumerID, keyAuth)
 	if err != nil {
-		k.logger.Errorf("failed to create oauth2 credential for consumerID %s. Reason: %w", consumerID, err)
+		k.logger.Errorf("failed to create API Key credential for consumerID %s. Reason: %w", consumerID, err)
 		return nil, err
 	}
 	return keyAuth, nil

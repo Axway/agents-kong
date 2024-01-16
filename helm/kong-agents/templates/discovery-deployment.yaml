@@ -104,6 +104,8 @@ spec:
             - name: KONG_SPEC_FILTER
               value: "{{ .Values.kong.spec.filter }}"
             {{- end }}
+            - name: "KONG_SPEC_CREATEUNSTRUCTUREDAPI"
+              value: "{{ .Values.kong.spec.createUnstructuredAPI }}"
             {{- if .Values.kong.admin.auth.apikey.value }}
             - name: KONG_ADMIN_AUTH_APIKEY_VALUE
               valueFrom:
@@ -151,6 +153,7 @@ spec:
                                                      "KONG_PROXY_PORTS_HTTPS_DISABLE" 
                                                      "KONG_SPEC_LOCALPATH"
                                                      "KONG_SPEC_URLPATHS"
+                                                     "KONG_SPEC_CREATEUNSTRUCTUREDAPI"
                                                      "KONG_LOGS_HTTP_SERVER_PATH"
                                                      "KONG_LOGS_HTTP_SERVER_PORT"
                                                      "STATUS_PORT")))
