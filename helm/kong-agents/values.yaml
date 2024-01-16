@@ -54,6 +54,7 @@ kong:
     filter:
     urlPaths: []
     localPath:
+    createUnstructuredAPI: false
   logs:
     http:
       path:
