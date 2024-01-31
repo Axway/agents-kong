@@ -8,7 +8,7 @@ jobs:
   helm-archive:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: olegtarasov/get-tag@v2.1.2
         id: tagName
         with:
