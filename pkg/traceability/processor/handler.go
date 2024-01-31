@@ -53,6 +53,22 @@ func (p *EventsHandler) Handle() []beat.Event {
 	for i, entry := range p.logEntries {
 		ctx := context.WithValue(p.ctx, ctxEntryIndex, i)
 
+		if entry.Service == nil {
+			// service into is nil, lets add service data so the transaction will be processed still
+			entry.Service = &Service{
+				Name:     "ErrorService",
+				ID:       "ErrorServiceID",
+				Port:     0,
+				Protocol: "",
+			}
+		}
+		if entry.Route == nil {
+			entry.Route = &Route{
+				Name: "ErrorRoute",
+				ID:   "ErrorRouteID",
+			}
+		}
+
 		sample, err := p.metrics.process(entry)
 		if err != nil {
 			p.logger.WithError(err).Error("handling event for metric")
