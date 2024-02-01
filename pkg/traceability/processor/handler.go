@@ -53,23 +53,13 @@ func (p *EventsHandler) Handle() []beat.Event {
 	for i, entry := range p.logEntries {
 		ctx := context.WithValue(p.ctx, ctxEntryIndex, i)
 
-		if entry.Service == nil {
-			// service into is nil, lets add service data so the transaction will be processed still
-			entry.Service = &Service{
-				Name:     "ErrorService",
-				ID:       "ErrorServiceID",
-				Port:     0,
-				Protocol: "",
-			}
-		}
-		if entry.Route == nil {
-			entry.Route = &Route{
-				Name: "ErrorRoute",
-				ID:   "ErrorRouteID",
-			}
+		// skip any entry that does not have request or response info
+		if entry.Request == nil || entry.Response == nil {
+			continue
 		}
 
-		sample, err := p.metrics.process(entry)
+		updatedEntry := p.validateTransaction(ctx, entry)
+		sample, err := p.metrics.process(updatedEntry)
 		if err != nil {
 			p.logger.WithError(err).Error("handling event for metric")
 			continue
@@ -79,10 +69,40 @@ func (p *EventsHandler) Handle() []beat.Event {
 		}
 
 		// Map the log entry to log event structure expected by AMPLIFY Central Observer
-		events = append(events, p.handleTransaction(ctx, entry)...)
+		events = append(events, p.handleTransaction(ctx, updatedEntry)...)
 	}
 
 	return events
+}
+
+func (p *EventsHandler) validateTransaction(ctx context.Context, entry TrafficLogEntry) TrafficLogEntry {
+	logger := log.UpdateLoggerWithContext(ctx, p.logger)
+
+	logger.Trace("checking if any entry objects are nil")
+
+	if entry.Service == nil {
+		// service into is nil, lets add service data so the transaction will be processed still
+		logger.Debug("entry service details were nil, adding ErrorService info")
+		entry.Service = &Service{
+			Name: "ErrorService",
+			ID:   "ErrorServiceID",
+		}
+	}
+
+	if entry.Route == nil {
+		logger.Debug("entry route details were nil, adding ErrorRoute info")
+		entry.Route = &Route{
+			Name: "ErrorRoute",
+			ID:   "ErrorRouteID",
+		}
+	}
+
+	if entry.Latencies == nil {
+		logger.Debug("entry latencies details were nil, adding empty latency info")
+		entry.Latencies = &Latencies{}
+	}
+
+	return entry
 }
 
 func (p *EventsHandler) handleTransaction(ctx context.Context, entry TrafficLogEntry) []beat.Event {
