@@ -40,6 +40,31 @@ var testData = []byte(`[{
 	"started_at": 1614232668342
 }]`)
 
+var testErrorData = []byte(`[{
+	"request": {"querystring": {"status": "available"},"size": 138,"uri": "/log","url": "http://localhost:8000/log","headers": {"host": "localhost:8000","accept-encoding": "gzip, deflate","user-agent": "HTTPie/2.4.0","accept": "*/*","connection": "keep-alive"},"method": "GET"},
+	"response": {"headers": {"content-type": "application/json","date": "Thu, 25 Feb 2021 05:57:48 GMT","connection": "close","access-control-allow-credentials": "true","content-length": "503","server": "gunicorn/19.9.0","via": "kong/2.2.1.0-enterprise-edition","x-kong-proxy-latency": "57","x-kong-upstream-latency": "457","access-control-allow-origin": "*"},"status": 404,"size": 827},
+	"tries": [{"balancer_latency": 0,"port": 80,"balancer_start": 1614232668399,"ip": "18.211.130.98"}],
+	"client_ip": "192.168.144.1",
+	"workspace": "54baa5a9-23d6-41e0-9c9a-02434b010b25",
+	"workspace_name": "default",
+	"upstream_uri": "/anything",
+	"authenticated_entity": {"id": "c62c1455-9b1d-4f2d-8797-509ba83b8ae8"},
+	"consumer": {"id": "ae974d6c-0f8a-4dc5-b701-fa0aa38592bd","created_at": 1674035962,"username_lower": "foo","username": "foo","type": 0},
+	"started_at": 1614232668342
+}]`)
+
+var testNoRequestData = []byte(`[{
+	"response": {"headers": {"content-type": "application/json","date": "Thu, 25 Feb 2021 05:57:48 GMT","connection": "close","access-control-allow-credentials": "true","content-length": "503","server": "gunicorn/19.9.0","via": "kong/2.2.1.0-enterprise-edition","x-kong-proxy-latency": "57","x-kong-upstream-latency": "457","access-control-allow-origin": "*"},"status": 404,"size": 827},
+	"tries": [{"balancer_latency": 0,"port": 80,"balancer_start": 1614232668399,"ip": "18.211.130.98"}],
+	"client_ip": "192.168.144.1",
+	"workspace": "54baa5a9-23d6-41e0-9c9a-02434b010b25",
+	"workspace_name": "default",
+	"upstream_uri": "/anything",
+	"authenticated_entity": {"id": "c62c1455-9b1d-4f2d-8797-509ba83b8ae8"},
+	"consumer": {"id": "ae974d6c-0f8a-4dc5-b701-fa0aa38592bd","created_at": 1674035962,"username_lower": "foo","username": "foo","type": 0},
+	"started_at": 1614232668342
+}]`)
+
 func TestNewHandler(t *testing.T) {
 	cases := map[string]struct {
 		data                  []byte
@@ -54,9 +79,17 @@ func TestNewHandler(t *testing.T) {
 		"expect no error when empty array data sent into handler": {
 			data: []byte("[]"),
 		},
+		"handle data with no request info": {
+			data: testNoRequestData,
+		},
+		"handle data with no latency, service, or route info": {
+			data:                  testErrorData,
+			expectedEvents:        2,
+			expectedMetricDetails: 1,
+		},
 		"handle data with sampling setup": {
 			data:                  testData,
-			expectedEvents:        4,
+			expectedEvents:        2,
 			expectedMetricDetails: 2,
 		},
 	}
@@ -88,7 +121,7 @@ func TestNewHandler(t *testing.T) {
 			h.eventGenerator = mock.NewEventGeneratorMock
 
 			// if metric details are expected
-			if tc.expectedMetricDetails > 1 {
+			if tc.expectedMetricDetails >= 1 {
 				collector.Add(tc.expectedMetricDetails)
 			}
 
