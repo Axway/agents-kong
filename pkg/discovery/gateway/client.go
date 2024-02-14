@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 
 	klib "github.com/kong/go-kong/kong"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/discovery/config"
+	"github.com/Axway/agents-kong/pkg/discovery/kong"
 	kutil "github.com/Axway/agents-kong/pkg/discovery/kong"
 	"github.com/Axway/agents-kong/pkg/discovery/subscription"
 )
@@ -90,8 +92,7 @@ func hasGlobalACLEnabledInPlugins(logger log.FieldLogger, plugins []*klib.Plugin
 			return nil
 		}
 	}
-	return fmt.Errorf("failed to find acl plugin is enabled and installed on the Kong Gateway. " +
-		"Enable in on the Gateway or change the config to disable this check.")
+	return fmt.Errorf("acl plugin is not enabled/installed, install and enable or change the config to disable this check")
 }
 
 func (gc *Client) DiscoverAPIs() error {
@@ -166,9 +167,16 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	spec := apic.NewSpecResourceParser(kongServiceSpec, "")
 	spec.Parse()
 
-	for _, route := range routes {
-		gc.specPreparation(ctx, route, service, spec.GetSpecProcessor())
+	wg := sync.WaitGroup{}
+	wg.Add(len(routes))
+	for _, r := range routes {
+		func(route *klib.Route) {
+			defer wg.Done()
+			gc.specPreparation(ctx, route, service, spec.GetSpecProcessor())
+		}(r)
 	}
+	wg.Wait()
+
 	return nil
 }
 
@@ -230,7 +238,7 @@ func (gc *Client) processKongAPI(
 	endpoints []apic.EndpointDefinition,
 	apiPlugins map[string]*klib.Plugin,
 ) (*apic.ServiceBody, error) {
-	kongAPI := newKongAPI(route, service, spec, endpoints)
+	kongAPI := newKongAPI(route, service, spec, endpoints, apiPlugins)
 	isAlreadyPublished, checksum := isPublished(&kongAPI, gc.cache)
 	// If true, then the api is published and there were no changes detected
 	if isAlreadyPublished {
@@ -240,14 +248,6 @@ func (gc *Client) processKongAPI(
 	err := gc.cache.Set(checksum, kongAPI)
 	if err != nil {
 		gc.logger.WithError(err).Error("failed to save api to cache")
-	}
-
-	kongAPI.ard = provisioning.APIKeyARD
-	kongAPI.crds = []string{}
-	for k := range apiPlugins {
-		if crd, ok := kongToCRDMapper[k]; ok {
-			kongAPI.crds = append(kongAPI.crds, crd)
-		}
 	}
 
 	agentDetails := map[string]string{
@@ -269,14 +269,10 @@ func newKongAPI(
 	service *klib.Service,
 	spec apic.SpecProcessor,
 	endpoints []apic.EndpointDefinition,
+	apiPlugins map[string]*klib.Plugin,
 ) KongAPI {
-	// strip any security from spec if it is an oas spec
 	resType := spec.GetResourceType()
-	if resType == apic.Oas2 || resType == apic.Oas3 {
-		spec.(apic.OasSpecProcessor).StripSpecAuth()
-	}
-
-	return KongAPI{
+	ka := &KongAPI{
 		id:            *service.ID,
 		name:          *service.Name,
 		description:   spec.GetDescription(),
@@ -289,6 +285,100 @@ func newKongAPI(
 		stageName:     *route.Name,
 		stage:         *route.ID,
 	}
+	ka.processSpecSecurity(spec, apiPlugins)
+	return *ka
+}
+
+func (ka *KongAPI) processSpecSecurity(spec apic.SpecProcessor, apiPlugins map[string]*klib.Plugin) {
+	// strip any security from spec if it is an oas spec
+	resType := spec.GetResourceType()
+	if resType != apic.Oas2 && resType != apic.Oas3 {
+		return
+	}
+	oasSpec := spec.(apic.OasSpecProcessor)
+	oasSpec.StripSpecAuth()
+
+	ka.ard = provisioning.APIKeyARD
+	ka.crds = []string{}
+	for k, plugin := range apiPlugins {
+		if crd, ok := kongToCRDMapper[k]; ok {
+			ka.crds = append(ka.crds, crd)
+		}
+		switch k {
+		case "basic-auth":
+			oasSpec.AddSecuritySchemes(oasSpec.GetSecurityBuilder().IsHTTPBasic().Build())
+		case "key-auth":
+			ka.apiKeySecurity(oasSpec, plugin.Config)
+		case "oauth2":
+			ka.oAuthSecurity(oasSpec, plugin.Config)
+		}
+	}
+
+	ka.spec = oasSpec.(apic.SpecProcessor).GetSpecBytes()
+}
+
+func (ka *KongAPI) apiKeySecurity(spec apic.OasSpecProcessor, config map[string]interface{}) {
+	keyAuth, err := kong.NewKeyAuthPluginConfigFromMap(config)
+	if err != nil {
+		return
+	}
+
+	for _, key := range keyAuth.KeyNames {
+		if keyAuth.KeyInQuery {
+			spec.AddSecuritySchemes(spec.GetSecurityBuilder().IsAPIKey().SetArgumentName(key).InQueryParam().Build())
+		} else {
+			// forcing header if not in query
+			spec.AddSecuritySchemes(spec.GetSecurityBuilder().IsAPIKey().SetArgumentName(key).InHeader().Build())
+		}
+	}
+}
+
+func (ka *KongAPI) oAuthSecurity(spec apic.OasSpecProcessor, config map[string]interface{}) {
+	oAuth, err := kong.NewOAuthPluginConfigFromMap(config)
+	if err != nil {
+		return
+	}
+
+	builder := spec.GetSecurityBuilder().IsOAuth()
+
+	s := url.URL{}
+	for _, e := range ka.endpoints {
+		if e.Protocol == "https" {
+			s = url.URL{
+				Scheme: "https",
+				Host:   fmt.Sprintf("%v:%v", e.Host, e.Port),
+				Path:   e.BasePath,
+			}
+			break
+		}
+	}
+	if s.Scheme == "" {
+		return
+	}
+	tokenURL := fmt.Sprintf("%v/oauth2/token", s.String())
+	authURL := fmt.Sprintf("%v/oauth2/authorize", s.String())
+	scopes := map[string]string{}
+	for _, n := range oAuth.Scopes {
+		scopes[n] = n
+	}
+
+	flowBase := apic.NewOAuthFlowBuilder().SetScopes(scopes).SetAuthorizationURL(authURL).SetTokenURL(tokenURL)
+	if oAuth.EnableImplicitGrant {
+		builder.AddFlow(flowBase.IsImplicit())
+	}
+
+	if oAuth.EnableAuthorizationCode {
+		builder.AddFlow(flowBase.IsAuthorizationCode())
+	}
+
+	if oAuth.EnableClientCredentials {
+		builder.AddFlow(flowBase.IsClientCredentials())
+	}
+
+	if oAuth.EnablePasswordGrant {
+		builder.AddFlow(flowBase.IsPassword())
+	}
+	spec.AddSecuritySchemes(builder.Build())
 }
 
 func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
