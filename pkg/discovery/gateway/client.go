@@ -25,10 +25,14 @@ import (
 	"github.com/Axway/agents-kong/pkg/discovery/subscription"
 )
 
+const (
+	https = "https"
+)
+
 var kongToCRDMapper = map[string]string{
-	"basic-auth": provisioning.BasicAuthCRD,
-	"key-auth":   provisioning.APIKeyCRD,
-	"oauth2":     provisioning.OAuthSecretCRD,
+	kong.BasicAuthPlugin: provisioning.BasicAuthCRD,
+	kong.KeyAuthPlugin:   provisioning.APIKeyCRD,
+	kong.OAuthPlugin:     provisioning.OAuthSecretCRD,
 }
 
 func NewClient(agentConfig config.AgentConfig) (*Client, error) {
@@ -305,11 +309,11 @@ func (ka *KongAPI) processSpecSecurity(spec apic.SpecProcessor, apiPlugins map[s
 			ka.crds = append(ka.crds, crd)
 		}
 		switch k {
-		case "basic-auth":
+		case kong.BasicAuthPlugin:
 			oasSpec.AddSecuritySchemes(oasSpec.GetSecurityBuilder().HTTPBasic().Build())
-		case "key-auth":
+		case kong.KeyAuthPlugin:
 			ka.apiKeySecurity(oasSpec, plugin.Config)
-		case "oauth2":
+		case kong.OAuthPlugin:
 			ka.oAuthSecurity(oasSpec, plugin.Config)
 		}
 	}
@@ -343,9 +347,9 @@ func (ka *KongAPI) oAuthSecurity(spec apic.OasSpecProcessor, config map[string]i
 
 	s := url.URL{}
 	for _, e := range ka.endpoints {
-		if e.Protocol == "https" {
+		if e.Protocol == https {
 			s = url.URL{
-				Scheme: "https",
+				Scheme: https,
 				Host:   fmt.Sprintf("%v:%v", e.Host, e.Port),
 				Path:   e.BasePath,
 			}

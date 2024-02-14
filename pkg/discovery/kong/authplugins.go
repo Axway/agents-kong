@@ -4,6 +4,12 @@ import (
 	"encoding/json"
 )
 
+const (
+	BasicAuthPlugin = "basic-auth"
+	KeyAuthPlugin   = "key-auth"
+	OAuthPlugin     = "oauth2"
+)
+
 type OAuthPluginConfig struct {
 	HideCredentials               bool     `json:"hide_credentials,omitempty"`
 	PersistentRefreshToken        bool     `json:"persistent_refresh_token,omitempty"`
