@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.3
 
 require (
-	github.com/Axway/agent-sdk v1.1.75-0.20240214162352-d70243e3dd4a
+	github.com/Axway/agent-sdk v1.1.75-0.20240214223332-dbdbc30f7d52
 	github.com/elastic/beats/v7 v7.17.17
 	github.com/google/uuid v1.3.1
 	github.com/kong/go-kong v0.47.0

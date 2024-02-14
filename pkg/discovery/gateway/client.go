@@ -306,7 +306,7 @@ func (ka *KongAPI) processSpecSecurity(spec apic.SpecProcessor, apiPlugins map[s
 		}
 		switch k {
 		case "basic-auth":
-			oasSpec.AddSecuritySchemes(oasSpec.GetSecurityBuilder().IsHTTPBasic().Build())
+			oasSpec.AddSecuritySchemes(oasSpec.GetSecurityBuilder().HTTPBasic().Build())
 		case "key-auth":
 			ka.apiKeySecurity(oasSpec, plugin.Config)
 		case "oauth2":
@@ -325,10 +325,10 @@ func (ka *KongAPI) apiKeySecurity(spec apic.OasSpecProcessor, config map[string]
 
 	for _, key := range keyAuth.KeyNames {
 		if keyAuth.KeyInQuery {
-			spec.AddSecuritySchemes(spec.GetSecurityBuilder().IsAPIKey().SetArgumentName(key).InQueryParam().Build())
+			spec.AddSecuritySchemes(spec.GetSecurityBuilder().APIKey().SetArgumentName(key).InQueryParam().Build())
 		} else {
 			// forcing header if not in query
-			spec.AddSecuritySchemes(spec.GetSecurityBuilder().IsAPIKey().SetArgumentName(key).InHeader().Build())
+			spec.AddSecuritySchemes(spec.GetSecurityBuilder().APIKey().SetArgumentName(key).InHeader().Build())
 		}
 	}
 }
@@ -339,7 +339,7 @@ func (ka *KongAPI) oAuthSecurity(spec apic.OasSpecProcessor, config map[string]i
 		return
 	}
 
-	builder := spec.GetSecurityBuilder().IsOAuth()
+	builder := spec.GetSecurityBuilder().OAuth()
 
 	s := url.URL{}
 	for _, e := range ka.endpoints {
@@ -362,21 +362,20 @@ func (ka *KongAPI) oAuthSecurity(spec apic.OasSpecProcessor, config map[string]i
 		scopes[n] = n
 	}
 
-	flowBase := apic.NewOAuthFlowBuilder().SetScopes(scopes).SetAuthorizationURL(authURL).SetTokenURL(tokenURL)
 	if oAuth.EnableImplicitGrant {
-		builder.AddFlow(flowBase.IsImplicit())
+		builder = builder.AddFlow(apic.NewOAuthFlowBuilder().SetScopes(scopes).SetAuthorizationURL(authURL).Implicit())
 	}
 
 	if oAuth.EnableAuthorizationCode {
-		builder.AddFlow(flowBase.IsAuthorizationCode())
+		builder = builder.AddFlow(apic.NewOAuthFlowBuilder().SetScopes(scopes).SetAuthorizationURL(authURL).SetTokenURL(tokenURL).AuthorizationCode())
 	}
 
 	if oAuth.EnableClientCredentials {
-		builder.AddFlow(flowBase.IsClientCredentials())
+		builder = builder.AddFlow(apic.NewOAuthFlowBuilder().SetScopes(scopes).SetTokenURL(tokenURL).ClientCredentials())
 	}
 
 	if oAuth.EnablePasswordGrant {
-		builder.AddFlow(flowBase.IsPassword())
+		builder = builder.AddFlow(apic.NewOAuthFlowBuilder().SetScopes(scopes).SetTokenURL(tokenURL).Password())
 	}
 	spec.AddSecuritySchemes(builder.Build())
 }
