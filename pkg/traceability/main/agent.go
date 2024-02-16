@@ -13,9 +13,9 @@ func main() {
 	os.Setenv("AGENTFEATURES_VERSIONCHECKER", "false")
 
 	// use the pod name as the agent name
-	pod_name := os.Getenv("POD_NAME")
-	if pod_name != "" {
-		os.Setenv("CENTRAL_AGENTNAME", pod_name)
+	podName := os.Getenv("POD_NAME")
+	if podName != "" {
+		os.Setenv("CENTRAL_AGENTNAME", podName)
 	}
 
 	if err := traceability.TraceCmd.Execute(); err != nil {
