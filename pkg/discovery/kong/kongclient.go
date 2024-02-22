@@ -67,12 +67,14 @@ type KongClient struct {
 	clientTimeout         time.Duration
 }
 
-func NewKongClient(baseClient *http.Client, kongConfig *config.KongGatewayConfig) (*KongClient, error) {
+func NewKongClient(kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 	headers := make(http.Header)
 	var kongEndpoint string
 	kongTransport := http.DefaultTransport.(*http.Transport)
 	kongTransport.TLSClientConfig = kongConfig.Admin.TLS.BuildTLSConfig()
-	baseClient.Transport = kongTransport
+	baseClient := &http.Client{
+		Transport: kongTransport,
+	}
 	kongEndpoint = kongConfig.Admin.Url
 
 	if kongConfig.Admin.Auth.APIKey.Value != "" {

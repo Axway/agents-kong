@@ -7,8 +7,8 @@ import (
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
+	"github.com/Axway/agents-kong/pkg/discovery/agent"
 	"github.com/Axway/agents-kong/pkg/discovery/config"
-	"github.com/Axway/agents-kong/pkg/discovery/gateway"
 )
 
 var DiscoveryCmd corecmd.AgentRootCmd
@@ -35,14 +35,14 @@ func run() error {
 	var err error
 	stopChan := make(chan struct{})
 
-	gatewayClient, err := gateway.NewClient(agentConfig)
+	kongAgent, err := agent.NewAgent(agentConfig)
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		for {
-			err = gatewayClient.DiscoverAPIs()
+			err = kongAgent.DiscoverAPIs()
 			if err != nil {
 				log.Errorf("error in processing: %v", err)
 				stopChan <- struct{}{}

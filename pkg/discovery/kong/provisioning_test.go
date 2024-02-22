@@ -112,7 +112,7 @@ func createClient(responses map[string]response) KongAPIClient {
 	if err := cfg.ValidateCfg(); err != nil {
 		panic(err)
 	}
-	client, _ := NewKongClient(&http.Client{}, cfg)
+	client, _ := NewKongClient(cfg)
 	return client
 }
 

@@ -3,6 +3,8 @@ package subscription
 import (
 	"context"
 
+	klib "github.com/kong/go-kong/kong"
+
 	"github.com/Axway/agent-sdk/pkg/agent"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -15,14 +17,38 @@ import (
 
 type ProvisionerOption func(*provisioner)
 
+type kongClient interface {
+	// Provisioning
+	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
+	AddConsumerACL(ctx context.Context, id string) error
+	DeleteConsumer(ctx context.Context, id string) error
+	// Credential
+	DeleteOauth2(ctx context.Context, consumerID, clientID string) error
+	DeleteHttpBasic(ctx context.Context, consumerID, username string) error
+	DeleteAuthKey(ctx context.Context, consumerID, authKey string) error
+	CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error)
+	CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error)
+	CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error)
+	// Access Request
+	AddRouteACL(ctx context.Context, routeID, allowedID string) error
+	RemoveRouteACL(ctx context.Context, routeID, revokedID string) error
+	AddQuota(ctx context.Context, routeID, allowedID, quotaInterval string, quotaLimit int) error
+	// Discovery
+	ListServices(ctx context.Context) ([]*klib.Service, error)
+	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
+	GetKongPlugins() *kong.Plugins
+}
+
 type provisioner struct {
 	logger     log.FieldLogger
-	client     kong.KongAPIClient
+	client     kongClient
 	aclDisable bool
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(client kong.KongAPIClient, logger log.FieldLogger, opts ...ProvisionerOption) {
+func NewProvisioner(client kongClient, opts ...ProvisionerOption) {
+	logger := log.NewFieldLogger().WithComponent("provision").WithPackage("subscription")
 	logger.Info("Registering provisioning callbacks")
 	provisioner := &provisioner{
 		client: client,

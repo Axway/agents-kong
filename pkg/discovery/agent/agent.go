@@ -1,10 +1,9 @@
-package gateway
+package agent
 
 import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"net/http"
 	"net/url"
 	"sync"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/cache"
+	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/filter"
 	"github.com/Axway/agent-sdk/pkg/util"
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -21,12 +21,7 @@ import (
 	"github.com/Axway/agents-kong/pkg/common"
 	"github.com/Axway/agents-kong/pkg/discovery/config"
 	"github.com/Axway/agents-kong/pkg/discovery/kong"
-	kutil "github.com/Axway/agents-kong/pkg/discovery/kong"
 	"github.com/Axway/agents-kong/pkg/discovery/subscription"
-)
-
-const (
-	https = "https"
 )
 
 var kongToCRDMapper = map[string]string{
@@ -35,47 +30,89 @@ var kongToCRDMapper = map[string]string{
 	kong.OAuthPlugin:     provisioning.OAuthSecretCRD,
 }
 
-func NewClient(agentConfig config.AgentConfig) (*Client, error) {
-	kongGatewayConfig := agentConfig.KongGatewayCfg
-	clientBase := &http.Client{}
-	kongClient, err := kutil.NewKongClient(clientBase, kongGatewayConfig)
+type kongClient interface {
+	// Provisioning
+	CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error)
+	AddConsumerACL(ctx context.Context, id string) error
+	DeleteConsumer(ctx context.Context, id string) error
+	// Credential
+	DeleteOauth2(ctx context.Context, consumerID, clientID string) error
+	DeleteHttpBasic(ctx context.Context, consumerID, username string) error
+	DeleteAuthKey(ctx context.Context, consumerID, authKey string) error
+	CreateHttpBasic(ctx context.Context, consumerID string, basicAuth *klib.BasicAuth) (*klib.BasicAuth, error)
+	CreateOauth2(ctx context.Context, consumerID string, oauth2 *klib.Oauth2Credential) (*klib.Oauth2Credential, error)
+	CreateAuthKey(ctx context.Context, consumerID string, keyAuth *klib.KeyAuth) (*klib.KeyAuth, error)
+	// Access Request
+	AddRouteACL(ctx context.Context, routeID, allowedID string) error
+	RemoveRouteACL(ctx context.Context, routeID, revokedID string) error
+	AddQuota(ctx context.Context, routeID, allowedID, quotaInterval string, quotaLimit int) error
+	// Discovery
+	ListServices(ctx context.Context) ([]*klib.Service, error)
+	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
+	GetKongPlugins() *kong.Plugins
+}
+
+type Agent struct {
+	logger         log.FieldLogger
+	centralCfg     corecfg.CentralConfig
+	kongGatewayCfg *config.KongGatewayConfig
+	kongClient     kongClient
+	plugins        kong.Plugins
+	cache          cache.Cache
+	filter         filter.Filter
+}
+
+func NewAgent(agentConfig config.AgentConfig, agentOpts ...func(a *Agent)) (*Agent, error) {
+	ka := &Agent{
+		logger:         log.NewFieldLogger().WithComponent("agent").WithPackage("kongAgent"),
+		centralCfg:     agentConfig.CentralCfg,
+		kongGatewayCfg: agentConfig.KongGatewayCfg,
+		cache:          cache.New(),
+	}
+	for _, o := range agentOpts {
+		o(ka)
+	}
+
+	var err error
+	if ka.kongClient == nil {
+		ka.kongClient, err = kong.NewKongClient(ka.kongGatewayCfg)
+	}
 	if err != nil {
 		return nil, err
 	}
-	daCache := cache.New()
-	logger := log.NewFieldLogger().WithField("component", "agent")
 
-	plugins, err := kongClient.Plugins.ListAll(context.Background())
+	pluginLister := ka.kongClient.GetKongPlugins()
+	if pluginLister == nil {
+		return nil, fmt.Errorf("could not get kong plugin lister")
+	}
+	plugins, err := ka.kongClient.GetKongPlugins().ListAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	discoveryFilter, err := filter.NewFilter(agentConfig.KongGatewayCfg.Spec.Filter)
+	ka.filter, err = filter.NewFilter(agentConfig.KongGatewayCfg.Spec.Filter)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = hasGlobalACLEnabledInPlugins(logger, plugins, agentConfig.KongGatewayCfg.ACL.Disable); err != nil {
-		logger.WithError(err).Error("ACL Plugin configured as required, but none found in Kong plugins.")
+	if err = hasGlobalACLEnabledInPlugins(ka.logger, plugins, agentConfig.KongGatewayCfg.ACL.Disable); err != nil {
+		ka.logger.WithError(err).Error("ACL Plugin configured as required, but none found in Kong plugins.")
 		return nil, err
 	}
 
-	provisionLogger := log.NewFieldLogger().WithComponent("provision").WithPackage("kong")
 	opts := []subscription.ProvisionerOption{}
 	if agentConfig.KongGatewayCfg.ACL.Disable {
 		opts = append(opts, subscription.WithACLDisable())
 	}
-	subscription.NewProvisioner(kongClient, provisionLogger, opts...)
+	subscription.NewProvisioner(ka.kongClient, opts...)
+	return ka, nil
+}
 
-	return &Client{
-		logger:         logger,
-		centralCfg:     agentConfig.CentralCfg,
-		kongGatewayCfg: kongGatewayConfig,
-		kongClient:     kongClient,
-		cache:          daCache,
-		mode:           common.Marketplace,
-		filter:         discoveryFilter,
-	}, nil
+func withKongClient(kongClient kongClient) func(a *Agent) {
+	return func(a *Agent) {
+		a.kongClient = kongClient
+	}
 }
 
 func pluginIsGlobal(p *klib.Plugin) bool {
@@ -99,13 +136,13 @@ func hasGlobalACLEnabledInPlugins(logger log.FieldLogger, plugins []*klib.Plugin
 	return fmt.Errorf("acl plugin is not enabled/installed, install and enable or change the config to disable this check")
 }
 
-func (gc *Client) DiscoverAPIs() error {
+func (gc *Agent) DiscoverAPIs() error {
 	gc.logger.Info("execute discovery process")
 
 	ctx := context.Background()
 	var err error
 
-	plugins := kutil.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
+	plugins := kong.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
 	gc.plugins = plugins
 
 	services, err := gc.kongClient.ListServices(ctx)
@@ -118,7 +155,7 @@ func (gc *Client) DiscoverAPIs() error {
 	return nil
 }
 
-func (gc *Client) processKongServicesList(ctx context.Context, services []*klib.Service) {
+func (gc *Agent) processKongServicesList(ctx context.Context, services []*klib.Service) {
 	wg := new(sync.WaitGroup)
 	for _, service := range services {
 		if !gc.filter.Evaluate(toTagsMap(service)) {
@@ -146,7 +183,7 @@ func toTagsMap(service *klib.Service) map[string]string {
 	return filters
 }
 
-func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Service) error {
+func (gc *Agent) processSingleKongService(ctx context.Context, service *klib.Service) error {
 	log := gc.logger.WithField(common.AttrServiceName, *service.Name)
 	log.Info("processing service")
 
@@ -184,7 +221,7 @@ func (gc *Client) processSingleKongService(ctx context.Context, service *klib.Se
 	return nil
 }
 
-func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service, spec apic.SpecProcessor) {
+func (gc *Agent) specPreparation(ctx context.Context, route *klib.Route, service *klib.Service, spec apic.SpecProcessor) {
 	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
 		WithField(common.AttrServiceID, *service.ID)
 
@@ -218,7 +255,7 @@ func (gc *Client) specPreparation(ctx context.Context, route *klib.Route, servic
 	log.Info("Successfully published to central")
 }
 
-func (gc *Client) processKongRoute(route *klib.Route) []apic.EndpointDefinition {
+func (gc *Agent) processKongRoute(route *klib.Route) []apic.EndpointDefinition {
 	if route == nil {
 		return []apic.EndpointDefinition{}
 	}
@@ -234,7 +271,7 @@ func (gc *Client) processKongRoute(route *klib.Route) []apic.EndpointDefinition 
 	return kRoute.GetEndpoints()
 }
 
-func (gc *Client) processKongAPI(
+func (gc *Agent) processKongAPI(
 	ctx context.Context,
 	route *klib.Route,
 	service *klib.Service,
@@ -347,9 +384,9 @@ func (ka *KongAPI) oAuthSecurity(spec apic.OasSpecProcessor, config map[string]i
 
 	s := url.URL{}
 	for _, e := range ka.endpoints {
-		if e.Protocol == https {
+		if e.Protocol == httpsScheme {
 			s = url.URL{
-				Scheme: https,
+				Scheme: httpsScheme,
 				Host:   fmt.Sprintf("%v:%v", e.Host, e.Port),
 				Path:   e.BasePath,
 			}
