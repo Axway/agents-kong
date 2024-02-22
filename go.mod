@@ -4,8 +4,6 @@ go 1.21
 
 toolchain go1.21.3
 
-replace github.com/Axway/agent-sdk => /Users/jcollins/go/src/github.com/Axway/agent-sdk
-
 require (
 	github.com/Axway/agent-sdk v1.1.75-0.20240222221059-3f699bd1fc16
 	github.com/elastic/beats/v7 v7.17.17
