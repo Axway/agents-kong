@@ -1,10 +1,15 @@
-package gateway
+package agent
 
 import (
 	"fmt"
 
 	"github.com/Axway/agent-sdk/pkg/apic"
 	klib "github.com/kong/go-kong/kong"
+)
+
+const (
+	httpScheme  = "http"
+	httpsScheme = "https"
 )
 
 type KongRoute struct {
@@ -47,19 +52,19 @@ func (r *KongRoute) handlePaths(host, basePath string) []apic.EndpointDefinition
 func (r *KongRoute) handleProtocols(host, path string) []apic.EndpointDefinition {
 	endpoints := make([]apic.EndpointDefinition, 0)
 	for _, protocol := range r.Protocols {
-		if *protocol == "http" && r.httpPort != 0 {
+		if *protocol == httpScheme && r.httpPort != 0 {
 			endpoints = append(endpoints, apic.EndpointDefinition{
 				Host:     host,
 				Port:     int32(r.httpPort),
-				Protocol: "http",
+				Protocol: httpScheme,
 				BasePath: path,
 			})
 		}
-		if *protocol == "https" && r.httpsPort != 0 {
+		if *protocol == httpsScheme && r.httpsPort != 0 {
 			endpoints = append(endpoints, apic.EndpointDefinition{
 				Host:     host,
 				Port:     int32(r.httpsPort),
-				Protocol: "https",
+				Protocol: httpsScheme,
 				BasePath: path,
 			})
 		}

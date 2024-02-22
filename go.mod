@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.3
 
 require (
-	github.com/Axway/agent-sdk v1.1.73
+	github.com/Axway/agent-sdk v1.1.75-0.20240222230101-1dd0ec205b21
 	github.com/elastic/beats/v7 v7.17.17
 	github.com/google/uuid v1.3.1
 	github.com/kong/go-kong v0.47.0
@@ -119,6 +119,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shirou/gopsutil v3.20.12+incompatible // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/snowzach/rotatefilehook v0.0.0-20220211133110-53752135082d // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
