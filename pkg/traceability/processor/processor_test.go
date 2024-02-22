@@ -4,11 +4,16 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/Axway/agent-sdk/pkg/agent"
+	"github.com/Axway/agent-sdk/pkg/apic/mock"
+	"github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/traceability/redaction"
 	"github.com/Axway/agent-sdk/pkg/traceability/sampling"
 	"github.com/Axway/agent-sdk/pkg/transaction/metric"
-	"github.com/Axway/agents-kong/pkg/traceability/processor/mock"
-	"github.com/stretchr/testify/assert"
+
+	collectorMock "github.com/Axway/agents-kong/pkg/traceability/processor/mock"
 )
 
 var testData = []byte(`[{
@@ -95,6 +100,8 @@ func TestNewHandler(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+
+			agent.InitializeForTest(&mock.Client{}, agent.TestWithAgentType(config.TraceabilityAgent))
 			ctx := context.WithValue(context.Background(), "test", name)
 
 			redaction.SetupGlobalRedaction(redaction.DefaultConfig())
@@ -111,14 +118,14 @@ func TestNewHandler(t *testing.T) {
 			assert.NotNil(t, h)
 
 			// setup collector
-			collector := &mock.CollectorMock{Details: make([]metric.Detail, 0), Expected: tc.expectedMetricDetails}
-			mock.SetMockCollector(collector)
+			collector := &collectorMock.CollectorMock{Details: make([]metric.Detail, 0), Expected: tc.expectedMetricDetails}
+			collectorMock.SetMockCollector(collector)
 			h.collectorGetter = func() metricCollector {
-				return mock.GetMockCollector()
+				return collectorMock.GetMockCollector()
 			}
 
 			// setup event generator
-			h.eventGenerator = mock.NewEventGeneratorMock
+			h.eventGenerator = collectorMock.NewEventGeneratorMock
 
 			// if metric details are expected
 			if tc.expectedMetricDetails >= 1 {
@@ -130,7 +137,7 @@ func TestNewHandler(t *testing.T) {
 			collector.Wait()
 			assert.Nil(t, err)
 			assert.Len(t, events, tc.expectedEvents)
-			assert.Equal(t, tc.expectedMetricDetails, len(mock.GetMockCollector().Details))
+			assert.Equal(t, tc.expectedMetricDetails, len(collectorMock.GetMockCollector().Details))
 		})
 	}
 }
