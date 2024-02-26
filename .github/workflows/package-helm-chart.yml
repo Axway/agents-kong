@@ -28,3 +28,16 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: kong-agents.tgz
           tag: ${{ github.ref_name }}
+
+  notifyTeamsChannel:
+    needs: [helm-archive]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Notify Teams channel
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          TAG: ${{ github.ref_name }}
+        run: ./release.sh
+        
