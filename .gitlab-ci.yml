@@ -25,7 +25,7 @@ include:
       - "/gitlabci/restrictions.yml"
       - "/gitlabci/jobs.yml"
   - project: "scurity/gitlabci"
-    ref: APIGOV-25848
+    ref: $SCURITY_LATEST
     file:
       - "/.gitlab-ci-fortify.yml"
       - "/.gitlab-ci-twistlock.yml"
@@ -33,7 +33,7 @@ include:
       - "/.gitlab-ci-blackduck.yml"
       - "/.gitlab-ci-csr.yml"
   - project: "apigov/beano_cicd"
-    ref: APIGOV-25848
+    ref: $BEANO_CICD_LATEST
     # the order of these include files is important
     file:
       - "/gitlabci/csrjobs.yml"
@@ -48,8 +48,7 @@ stages:
 twistlock-discovery:
   extends: .twistlock
   rules:
-    # - !reference [.mirror-branch-csr-rules, rules]
-    - when: always
+    - !reference [.mirror-branch-csr-rules, rules]
   tags:
     - twistlock
   before_script:
@@ -60,8 +59,7 @@ twistlock-discovery:
 twistlock-traceability:
   extends: .twistlock
   rules:
-    - when: always
-    # - !reference [.mirror-branch-csr-rules, rules]
+    - !reference [.mirror-branch-csr-rules, rules]
   tags:
     - twistlock
   before_script:
@@ -72,8 +70,7 @@ twistlock-traceability:
 twistlock-discovery:on-schedule:
   extends: .twistlock
   rules:
-    - when: always
-    # - !reference [.mirror-schedule-csr-rules, rules]
+    - !reference [.mirror-schedule-csr-rules, rules]
   dependencies: []
   before_script:
     - !reference [.csr-get-last-git-tag, gettag]
@@ -84,8 +81,7 @@ twistlock-discovery:on-schedule:
 twistlock-traceability:on-schedule:
   extends: .twistlock
   rules:
-    - when: always
-    # - !reference [.mirror-schedule-csr-rules, rules]
+    - !reference [.mirror-schedule-csr-rules, rules]
   dependencies: []
   before_script:
     - !reference [.csr-get-last-git-tag, gettag]
@@ -95,8 +91,7 @@ twistlock-traceability:on-schedule:
 
 blackduck:on-schedule:
   rules:
-    - when: always
-    # - !reference [.mirror-schedule-csr-rules, rules]
+    - !reference [.mirror-schedule-csr-rules, rules]
   before_script:
     - !reference [.csr-get-last-git-tag, gettag]
 
