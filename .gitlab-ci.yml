@@ -25,7 +25,7 @@ include:
       - "/gitlabci/restrictions.yml"
       - "/gitlabci/jobs.yml"
   - project: "scurity/gitlabci"
-    ref: $APIGOV-25848
+    ref: APIGOV-25848
     file:
       - "/.gitlab-ci-fortify.yml"
       - "/.gitlab-ci-twistlock.yml"
