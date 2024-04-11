@@ -454,7 +454,8 @@ func (ka *KongAPI) buildServiceBody() (apic.ServiceBody, error) {
 		SetTitle(ka.name).
 		SetURL(ka.url).
 		SetVersion(ka.version).
-		SetServiceEndpoints(ka.endpoints)
+		SetServiceEndpoints(ka.endpoints).
+		SetSourceDataplaneType(apic.Kong, false)
 
 	if len(ka.crds) > 0 {
 		return builder.SetAccessRequestDefinitionName(ka.ard, false).
