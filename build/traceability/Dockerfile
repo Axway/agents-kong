@@ -48,14 +48,14 @@ COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /traceability_agent /kong_traceability_agent
 COPY build/traceability/kong_traceability_agent.yml /kong_traceability_agent.yml
 
-RUN mkdir /keys && \
-  chown -R axway /keys && \
+RUN mkdir /keys /logs && \
+  chown -R axway /keys /logs && \
   apk --no-cache add openssl libssl3 libcrypto3 musl musl-utils libc6-compat busybox curl && \
   find / -perm /6000 -type f -exec chmod a-s {} \; || true
 
 USER axway
 
-VOLUME ["/keys"]
+VOLUME ["/keys", "/logs"]
 
 HEALTHCHECK --retries=1 CMD /kong_traceability_agent --status || exit 1
 
