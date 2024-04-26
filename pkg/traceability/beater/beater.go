@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/common"
@@ -15,7 +16,6 @@ import (
 	"github.com/Axway/agent-sdk/pkg/agent"
 	management "github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/transaction/metric"
-	agentErrors "github.com/Axway/agent-sdk/pkg/util/errors"
 	hc "github.com/Axway/agent-sdk/pkg/util/healthcheck"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 
@@ -39,10 +39,13 @@ func New(*beat.Beat, *common.Config) (beat.Beater, error) {
 		shutdownDone: sync.WaitGroup{},
 	}
 
-	// Validate that all necessary services are up and running. If not, return error
-	if hc.RunChecks() != hc.OK {
-		b.logger.Error("not all services are running")
-		return nil, agentErrors.ErrInitServicesNotReady
+	for {
+		if hc.RunChecks() == hc.OK {
+			break
+		}
+		// Validate that all necessary services are up and running. If not, try in 5 seconds
+		b.logger.Error("waiting for all services to be running")
+		time.Sleep(5 * time.Second)
 	}
 
 	return b, nil
