@@ -66,10 +66,10 @@ kong_traceability_agent:
       keepfiles: ${LOG_METRICFILE_KEEPFILES:7}
       rotateeverybytes: ${LOG_METRICFILE_ROTATEEVERYBYTES:10485760}
       cleanbackups: ${LOG_METRICFILE_CLEANBACKUPS:0}
-    publishedtransactionsfile:
-      enabled: ${LOG_PUBLISHEDTRANSACTIONSFILE_ENABLED:true}
-      name: ${LOG_PUBLISHEDTRANSACTIONSFILE_NAME:publishedtransactions.log}
-      cleanbackups: ${LOG_PUBLISHEDTRANSACTIONSFILE_CLEANBACKUPSEVERY:365}
+    usagefile:
+      enabled: ${LOG_USAGEFILE_ENABLED:true}
+      name: ${LOG_USAGEFILE_NAME:usagefile.log}
+      cleanbackups: ${LOG_USAGEFILE_CLEANBACKUPSEVERY:365}
 
 # Send output to Central Database
 output.traceability:
