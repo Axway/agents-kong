@@ -1,0 +1,144 @@
+# build the docker images when a tag is created
+name: Build docker images
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  testAgents:
+    uses: ./.github/workflows/run-tests.yml
+
+  buildDiscoveryAgentDocker:
+    needs: testAgents
+    env:
+      GOFLAGS: "-mod=mod"
+      IMAGE_NAME: kong_discovery_agent
+      ORG_NAME: Axway
+      VERSION: ${{ github.ref_name }}
+      COMMIT_ID: ${{ github.sha }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set output
+        id: vars
+        run: |
+          echo "date=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+          echo "sdkversion=$(grep github.com/Axway/agent-sdk go.mod |  awk '{print $2}')" >> $GITHUB_OUTPUT
+          echo "commit=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_OUTPUT
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          flavor: latest=false
+          images: ghcr.io/${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/discovery/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            time=${{ steps.vars.outputs.date }}
+            CGO_ENABLED=0
+            version=${{ steps.vars.outputs.tag }}
+            sdk_version=${{ steps.vars.outputs.sdkversion }}
+            commit_id=${{ steps.vars.outputs.commit }}
+
+  buildTraceabilityAgentDocker:
+    needs: testAgents
+    env:
+        GOFLAGS: "-mod=mod"
+        IMAGE_NAME: kong_traceability_agent
+        ORG_NAME: Axway
+        VERSION: ${{ github.ref_name }}
+        COMMIT_ID: ${{ github.sha }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set outputs
+        id: vars
+        run: |
+          echo "date=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+          echo "sdkversion=$(grep github.com/Axway/agent-sdk go.mod |  awk '{print $2}')" >> $GITHUB_OUTPUT
+          echo "commit=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_OUTPUT
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          flavor: latest=false
+          images: ghcr.io/${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/traceability/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            time=${{ steps.vars.outputs.date }}
+            CGO_ENABLED=0
+            version=${{ steps.vars.outputs.tag }}
+            sdk_version=${{ steps.vars.outputs.sdkversion }}
+            commit_id=${{ steps.vars.outputs.commit }}
+
+  archiveHelm:
+    needs: testAgents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: olegtarasov/get-tag@v2.1.3
+        id: tagName
+        with:
+          tagRegex: "v(.*)"
+          tagRegexGroup: 1
+      - name: Update chart versions
+        run: |
+          sed helm/kong-agents/Chart.yaml -i -e "s/^appVersion.*/appVersion:\ \"v${GIT_TAG_NAME}\"/"
+          sed helm/kong-agents/Chart.yaml -i -e "s/^version.*/version:\ ${GIT_TAG_NAME}/"
+      - name: Archive chart
+        run: |
+          tar czf kong-agents.tgz -C helm/kong-agents .
+      - name: Upload chart to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: kong-agents.tgz
+          tag: ${{ github.ref_name }}
+
+  notifyTeamsChannel:
+    runs-on: ubuntu-latest
+    needs: [buildDiscoveryAgentDocker, buildTraceabilityAgentDocker, archiveHelm]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notify Teams channel
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          TAG: ${{ github.ref_name }}
+        run: ./release.sh
