@@ -5,7 +5,7 @@ WORKSPACE ?= $$(pwd)
 GO_PKG_LIST := $(shell go list ./... | grep -v /mock)
 PROJECT_NAME := agents-kong
 TIME := $(shell date +%Y%m%d%H%M%S)
-VERSION := $(shell git tag -l --sort='version:refname' | grep -Eo '[0-9]{1,}\.[0-9]{1,}\.[0-9]{1,3}$$' | tail -1)
+VERSION := $(shell git tag -l --sort='version:refname' | grep -Eo '[0-9]{1,}\.[0-9]{1,}\.[0-9]{1,}$$' | tail -1)
 CGO_ENABLED := 0
 COMMIT_ID := $(shell git rev-parse --short HEAD)
 SDK_VERSION := $(shell go list -m github.com/Axway/agent-sdk | awk '{print $$2}' | awk -F'-' '{print substr($$1, 2)}')
@@ -23,7 +23,7 @@ test: dep
 test-s: dep
 	@go vet ${GO_PKG_LIST}
 	@go test -race -short -coverprofile=${WORKSPACE}/gocoverage.out -count=1 ${GO_PKG_LIST}
-	
+
 clean:
 	@rm -rf ./bin/
 	@mkdir -p ./bin
@@ -43,7 +43,7 @@ dep-version:
 	@echo "$(sdk)"
 	@export version=$(sdk) && make update-sdk && make dep
 
-dep-sdk: 
+dep-sdk:
 	@make sdk=main dep-version
 
 update-sdk:
