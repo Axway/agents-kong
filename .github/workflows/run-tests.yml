@@ -1,0 +1,21 @@
+# This action is shared by workflows that want to run the unit tests
+name: Test the agents
+
+on:
+  workflow_call
+
+jobs:
+  test:
+    env:
+      GOFLAGS: "-mod=mod"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+      - name: Test
+        working-directory: .
+        run: |
+          make test

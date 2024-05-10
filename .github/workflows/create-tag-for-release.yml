@@ -1,4 +1,4 @@
-# This action gets triggered by a closed PR on branch named 'APIGOV-UpdateSDK'
+# This action gets triggered by a closed PR
 name: Create tag for release
 
 on:
@@ -7,6 +7,7 @@ on:
       - closed
   
 jobs:
+  # only run this job if the merge name is "APIGOV-UpdateSDK", which comes from the automated release
   if_SDK_update_merged:
     if: github.event.pull_request.merged == true && startsWith(github.head_ref, 'APIGOV-UpdateSDK')
     runs-on: ubuntu-latest
