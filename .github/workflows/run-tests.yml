@@ -19,3 +19,4 @@ jobs:
         working-directory: .
         run: |
           make test
+
