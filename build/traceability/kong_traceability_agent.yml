@@ -66,6 +66,12 @@ kong_traceability_agent:
       keepfiles: ${LOG_METRICFILE_KEEPFILES:7}
       rotateeverybytes: ${LOG_METRICFILE_ROTATEEVERYBYTES:10485760}
       cleanbackups: ${LOG_METRICFILE_CLEANBACKUPS:0}
+    usagefile:
+      enabled: ${LOG_USAGEFILE_ENABLED:true}
+      name: ${LOG_USAGEFILE_NAME:usagefile.log}
+      keepfiles: ${LOG_USAGEFILE_KEEPFILES:7}
+      rotateeverybytes: ${LOG_USAGEFILE_ROTATEEVERYBYTES:10485760}
+      cleanbackups: ${LOG_USAGEFILE_CLEANBACKUPSEVERY:365}
 
 # Send output to Central Database
 output.traceability:
