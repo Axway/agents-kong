@@ -1,0 +1,45 @@
+name: Update go.mod for testing
+
+on:
+  schedule:
+    - cron: "0 4 * * *"   # time is in UTC
+
+jobs:
+  updateAndCreatePR:
+    env:
+      GOFLAGS: "-mod=mod"
+      GOWORK: "off"
+    defaults:
+      run:
+        working-directory: .
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+
+      - name: Update SDK version in go.mod
+        working-directory: .
+        run: |
+          make dep-version sdk=main
+          git config --global user.email builder-lphxmjtnt11@axway.com
+          git config --global user.name builder-lphxmjtnt11
+          git commit --allow-empty -m "Updating SDK in go.mod"
+
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: APIGOV-UpdateSDKForTesting
+          commit-message: 'Update to SDK for testing'
+          title: 'APIGOV-UpdateSDKForTesting - Update SDK for testing'
+          delete-branch: true
+          reviewers: dfeldick
+
+      - name: Enable Pull Request Automerge
+        run: gh pr merge APIGOV-UpdateSDKForTesting --admin --merge --subject "Merge branch APIGOV-UpdateSDKForTesting"
+        env:
+          GH_TOKEN: ${{ secrets.ACTION_ACCESS_TOKEN }}
