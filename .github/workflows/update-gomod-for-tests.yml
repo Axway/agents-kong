@@ -41,7 +41,7 @@ jobs:
           else
               set -e
               echo -e "No dependency changes since last run"
-              echo "gomodChanged="'n'" >> $GITHUB_OUTPUT
+              echo "gomodChanged='n'" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Pull Request
