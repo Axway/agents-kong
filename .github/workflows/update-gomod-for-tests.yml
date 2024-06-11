@@ -45,7 +45,7 @@ jobs:
           fi
 
       - name: Create Pull Request
-        # if: ${{ steps.updatesdk.outputs.gomodChanged == 'y' }}
+        if: ${{ steps.updatesdk.outputs.gomodChanged == 'y' }}
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
