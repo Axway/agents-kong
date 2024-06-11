@@ -43,6 +43,10 @@ jobs:
               echo -e "No dependency changes since last run"
               echo "gomodChanged="n" >> $GITHUB_OUTPUT
           fi
+          echo "help"
+          echo "${{ steps }}"
+          echo "${{ steps.updatesdk }}"
+          echo "${{ steps.updatesdk.outputs }}"
           echo "${{ steps.updatesdk.outputs.gomodChanged }}"
 
       - name: Create Pull Request
