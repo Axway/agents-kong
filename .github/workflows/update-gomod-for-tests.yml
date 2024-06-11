@@ -1,8 +1,9 @@
 name: Update go.mod for testing
 
-on:
-  schedule:
-    - cron: "0 4 * * *"   # time is in UTC
+# on:
+#   schedule:
+#     - cron: "0 4 * * *"   # time is in UTC
+on: workflow_dispatch
 
 jobs:
   updateAndCreatePR:
