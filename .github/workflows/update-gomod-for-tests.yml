@@ -29,7 +29,7 @@ jobs:
           # make dep-version sdk=main
           echo "showing git status"
           git status
-          echo "gomodChanged='y'" >> $GITHUB_OUTPUT
+          echo "gomodChanged='n'" >> $GITHUB_OUTPUT
           set +e  # Grep succeeds with nonzero exit codes to show results.
           git status | grep modified
           if [ $? -eq 0 ]
