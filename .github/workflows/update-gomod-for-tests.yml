@@ -46,22 +46,28 @@ jobs:
               echo -e "No dependency changes since last run"
               echo "gomodChanged="n" >> $GITHUB_OUTPUT
           fi
-          echo "help"
+          echo "steps"
           echo "${{ steps }}"
+          echo "steps.updatesdk"
           echo "${{ steps.updatesdk }}"
+          echo "stepsoutput"
           echo "${{ steps.updatesdk.outputs }}"
+          echo "steps.gomodchanged"
           echo "${{ steps.updatesdk.outputs.gomodChanged }}"
 
       - name: Create Pull Request
-        if: ${{ steps.updatesdk.outputs.gomodChanged == 'y' }}
+        # if: ${{ steps.updatesdk.outputs.gomodChanged == 'y' }}
         id: cpr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: APIGOV-UpdateSDKForTesting
-          commit-message: 'Update to SDK for testing'
-          title: 'APIGOV-UpdateSDKForTesting - Update SDK for testing'
-          delete-branch: true
-          reviewers: dfeldick
+        run: |
+          echo "${{ steps.updatesdk.outputs.gomodChanged }}"
+
+        # uses: peter-evans/create-pull-request@v6
+        # with:
+        #   branch: APIGOV-UpdateSDKForTesting
+        #   commit-message: 'Update to SDK for testing'
+        #   title: 'APIGOV-UpdateSDKForTesting - Update SDK for testing'
+        #   delete-branch: true
+        #   reviewers: dfeldick
 
       - name: Enable Pull Request Automerge
         if: ${{ steps.updatesdk.outputs.gomodChanged == 'y' }}
