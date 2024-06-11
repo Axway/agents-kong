@@ -37,11 +37,11 @@ jobs:
               git config --global user.name builder-lphxmjtnt11
               git commit --allow-empty -m "Updating SDK in go.mod"
               git push origin ${BRANCH_REF}
-              echo "gomodChanged="y" >> $GITHUB_OUTPUT
+              echo "gomodChanged='y'" >> $GITHUB_OUTPUT
           else
               set -e
               echo -e "No dependency changes since last run"
-              echo "gomodChanged="n" >> $GITHUB_OUTPUT
+              echo "gomodChanged="'n'" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Pull Request
