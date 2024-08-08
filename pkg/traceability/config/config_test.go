@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"github.com/Axway/agent-sdk/pkg/cmd/properties"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,7 +36,7 @@ func (f *fakeProps) AddStringProperty(name string, defaultVal string, descriptio
 	f.props[name] = propData{"string", description, defaultVal}
 }
 
-func (f *fakeProps) AddIntProperty(name string, defaultVal int, description string) {
+func (f *fakeProps) AddIntProperty(name string, defaultVal int, description string, options ...properties.IntOpt) {
 	f.props[name] = propData{"int", description, defaultVal}
 }
 

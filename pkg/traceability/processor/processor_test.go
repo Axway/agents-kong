@@ -76,6 +76,7 @@ func TestNewHandler(t *testing.T) {
 		constructorErr        bool
 		expectedEvents        int
 		expectedMetricDetails int
+		hasErrors             bool
 	}{
 		"expect error creating handler, when no data sent into handler": {
 			data:           []byte{},
@@ -91,6 +92,7 @@ func TestNewHandler(t *testing.T) {
 			data:                  testErrorData,
 			expectedEvents:        2,
 			expectedMetricDetails: 1,
+			hasErrors:             true,
 		},
 		"handle data with sampling setup": {
 			data:                  testData,
@@ -105,7 +107,12 @@ func TestNewHandler(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "test", name)
 
 			redaction.SetupGlobalRedaction(redaction.DefaultConfig())
-			sampling.SetupSampling(sampling.DefaultConfig(), false)
+			sCfg := sampling.DefaultConfig()
+			sCfg.Percentage = 1
+			if tc.hasErrors {
+				sCfg.OnlyErrors = true
+			}
+			sampling.SetupSampling(sCfg, false)
 
 			// create the handler
 			h, err := NewEventsHandler(ctx, tc.data)
