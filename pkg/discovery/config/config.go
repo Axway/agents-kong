@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Axway/agent-sdk/pkg/cmd/properties"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 )
@@ -12,13 +13,15 @@ import (
 type props interface {
 	AddStringProperty(name string, defaultVal string, description string)
 	AddStringSliceProperty(name string, defaultVal []string, description string)
-	AddIntProperty(name string, defaultVal int, description string)
+	AddIntProperty(name string, defaultVal int, description string, options ...properties.IntOpt)
 	AddBoolProperty(name string, defaultVal bool, description string)
 	StringPropertyValue(name string) string
 	StringSlicePropertyValue(name string) []string
 	IntPropertyValue(name string) int
 	BoolPropertyValue(name string) bool
 }
+
+// Methods for adding yaml properties and command flag
 
 const (
 	cfgKongACLDisable                 = "kong.acl.disable"

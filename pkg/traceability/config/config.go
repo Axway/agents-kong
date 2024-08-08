@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Axway/agent-sdk/pkg/cmd/properties"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 )
 
 type props interface {
 	AddStringProperty(name string, defaultVal string, description string)
-	AddIntProperty(name string, defaultVal int, description string)
+	AddIntProperty(name string, defaultVal int, description string, options ...properties.IntOpt)
 	StringPropertyValue(name string) string
 	IntPropertyValue(name string) int
 }
