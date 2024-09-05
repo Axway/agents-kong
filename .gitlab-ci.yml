@@ -82,29 +82,9 @@ twistlock-traceability:
     - export IMAGE_NAME=kong-traceability-agent:latest
 
 twistlock-discovery:on-schedule:
-  extends: .twistlock
-  rules:
-    - !reference [.mirror-schedule-csr-rules, rules]
-  dependencies: []
   variables:
-    # need to override this variable for github agents because the tag will need the 'v' if it exists
-    NO_V_RELEASE_TAG_REGEX: "^v?[0-9]{1,}\\.[0-9]{1,}\\.[0-9]{1,}$"
-  before_script:
-    - !reference [.get-agent-last-tag, script]
-    - echo "Using the last tagged version ${LAST_TAG_VERSION}"
-    - export IMAGE_NAME=ghcr.io/axway/kong_discovery_agent:${LAST_TAG_VERSION}
-    - docker pull ${IMAGE_NAME}
+    AGENT_NAME: "kong_discovery_agent"
 
 twistlock-traceability:on-schedule:
-  extends: .twistlock
-  rules:
-    - !reference [.mirror-schedule-csr-rules, rules]
-  dependencies: []
   variables:
-    # need to override this variable for github agents because the tag will need the 'v' if it exists
-    NO_V_RELEASE_TAG_REGEX: "^v?[0-9]{1,}\\.[0-9]{1,}\\.[0-9]{1,}$"
-  before_script:
-    - !reference [.get-agent-last-tag, script]
-    - echo "Using the last tagged version ${LAST_TAG_VERSION}"
-    - export IMAGE_NAME=ghcr.io/axway/kong_traceability_agent:${LAST_TAG_VERSION}
-    - docker pull ${IMAGE_NAME}
+    AGENT_NAME: "kong_traceability_agent"
