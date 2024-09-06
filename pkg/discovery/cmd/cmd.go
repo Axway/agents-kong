@@ -3,6 +3,7 @@ package discovery
 import (
 	"time"
 
+	"github.com/Axway/agent-sdk/pkg/apic"
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -24,6 +25,9 @@ func init() {
 		run,
 		corecfg.DiscoveryAgent,
 	)
+
+	// set the dataplane type that will be added to the agent spec
+	corecfg.AgentDataPlaneType = apic.Kong.String()
 
 	// Get the root command properties and bind the config property in YAML definition
 	rootProps := DiscoveryCmd.GetProperties()

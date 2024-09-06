@@ -4,6 +4,7 @@ import (
 	libcmd "github.com/elastic/beats/v7/libbeat/cmd"
 	"github.com/elastic/beats/v7/libbeat/cmd/instance"
 
+	"github.com/Axway/agent-sdk/pkg/apic"
 	corecmd "github.com/Axway/agent-sdk/pkg/cmd"
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 
@@ -34,6 +35,9 @@ func init() {
 		run,
 		corecfg.TraceabilityAgent,
 	)
+
+	// set the dataplane type that will be added to the agent spec
+	corecfg.AgentDataPlaneType = apic.Kong.String()
 
 	rootProps := TraceCmd.GetProperties()
 	config.AddKongProperties(rootProps)
