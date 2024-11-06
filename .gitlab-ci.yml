@@ -2,7 +2,6 @@ image: docker:dind
 
 variables:
   PROJECT: "agents-kong"
-  CSR_SUPPRESSION_LIST: "/tmp/csr-suppressions/amplify-central/golang-agents-common.json"
 
   # Fortify
   FORTIFY_PROJECT: "10853"
@@ -12,6 +11,10 @@ variables:
 
   # Blackduck
   BLACKDUCK_PROJECT_NAME: "Amplify - APIC Kong Agents"
+
+  # SRM
+  SRM_PROJECT_NAME: "$BLACKDUCK_PROJECT_NAME"
+  SRM_PROJECT_ID: "256"
 
 ########################################
 # set up custom names for the pipelines of releases and nightly schedules
@@ -71,6 +74,7 @@ twistlock-discovery:
     - apk --no-cache update && apk add make
     - make docker-da
     - export IMAGE_NAME=kong-discovery-agent:latest
+    - echo "TL_DA=true" >> build.env
 
 twistlock-traceability:
   extends: .twistlock
@@ -80,6 +84,7 @@ twistlock-traceability:
     - apk --no-cache update && apk add make
     - make docker-ta
     - export IMAGE_NAME=kong-traceability-agent:latest
+    - echo "TL_TA=true" >> build.env
 
 twistlock-discovery:on-schedule:
   variables:
