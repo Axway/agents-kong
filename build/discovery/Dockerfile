@@ -1,6 +1,6 @@
 # Build image
-# golang:1.23.2-alpine3.20 linux/amd64
-FROM docker.io/golang@sha256:9dd2625a1ff2859b8d8b01d8f7822c0f528942fe56cfe7a1e7c38d3b8d72d679 AS builder
+# golang:1.23.3-alpine3.20 linux/amd64
+FROM docker.io/golang@sha256:c694a4d291a13a9f9d94933395673494fc2cc9d4777b85df3a7e70b3492d3574 AS builder
 
 ARG commit_id
 ARG version
@@ -41,7 +41,7 @@ RUN chown -R axway:axway /discovery_agent
 USER axway
 
 # alpine 3.20.3 linux/amd64
-FROM docker.io/alpine@sha256:beefdbd8a1da6d2915566fde36db9db0b524eb737fc57cd1367effd16dc0d06d
+FROM docker.io/alpine@sha256:1e42bbe2508154c9126d48c2b8a75420c3544343bf86fd041fb7527e017a4b4a
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /etc/passwd /etc/passwd
