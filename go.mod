@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.3
 
 require (
-	github.com/Axway/agent-sdk v1.1.106-0.20241216145256-e9439d3be37a
+	github.com/Axway/agent-sdk v1.1.106-0.20241228215849-607affa6d3c8
 	github.com/elastic/beats/v7 v7.17.23
 	github.com/google/uuid v1.6.0
 	github.com/kong/go-kong v0.47.0
@@ -149,7 +149,7 @@ require (
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.20.0 // indirect
-	golang.org/x/net v0.28.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
