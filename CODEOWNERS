@@ -1,9 +1,9 @@
 # Order is important; the last matching pattern takes the most precedence.
 * @jcollins-axway @sbolosan @vivekschauhan @alrosca @dgghinea
 
-#[CSR]
- # .csr-profile.json requires SPOC approval for any modifications
-.csr-profile.json @dfeldick @jcollins-axway @vivekschauhan
+#[SECURITY]
+ # .security-profile.json requires SPOC approval for any modifications
+.security-profile.json @dfeldick @jcollins-axway @vivekschauhan
 
 #[CICD]
 # cicd-related files
