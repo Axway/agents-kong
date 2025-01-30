@@ -31,6 +31,7 @@ workflow:
       variables:
         PIPELINE_NAME: "Scheduled nightly SecurityCI default branch"
     - if: $CI_PIPELINE_SOURCE == "schedule" && $VERSION == "LATEST"
+      variables:
         PIPELINE_NAME: "Scheduled nightly SecurityCI on LATEST"
     - when: always
 
