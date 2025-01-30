@@ -1,0 +1,17 @@
+{
+    "project": "Amplify - APIC Kong Agents",
+    "repo_url": "https://github.com/Axway/agents-kong",
+    "security_guide": "https://docs.axway.com/bundle/amplify-central/page/docs/connect_manage_environ/connect_api_manager/agent-security-api-manager/index.html",
+    "requirements": {
+      "fortify": false,
+      "irius-risk": false,
+      "pentest": false,
+      "twistlock": false,
+      "blackduck": false,
+      "third-party-policy-violation": false,
+      "appspider": false,
+      "insightvm": false
+    },
+    "suppressions": [
+    ]
+  }
