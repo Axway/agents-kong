@@ -72,7 +72,7 @@ stages:
 twistlock-discovery:
   extends: .twistlock
   rules:
-    - !reference [.security-snapshot-rules, rules]
+    - !reference [.beano-security-snapshot-rules, rules]
   before_script:
     - apk --no-cache update && apk add make
     - make docker-da
@@ -82,7 +82,7 @@ twistlock-discovery:
 twistlock-traceability:
   extends: .twistlock
   rules:
-    - !reference [.security-snapshot-rules, rules]
+    - !reference [.beano-security-snapshot-rules, rules]
   before_script:
     - apk --no-cache update && apk add make
     - make docker-ta
