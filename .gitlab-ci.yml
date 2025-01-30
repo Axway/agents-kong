@@ -40,14 +40,14 @@ include:
     ref: master
     file: "/.gitlab-ci-sonar.yml"
   - project: "apigov/beano_cicd"
-    ref: APIGOV-29656
+    ref: $BEANO_CICD_GREEN
     # the order of these include files is important
     file:
       - "/gitlabci/variables.yml"
       - "/gitlabci/restrictions.yml"
       - "/gitlabci/jobs.yml"
   - project: "scurity/gitlabci"
-    ref: APIGOV-29656
+    ref: $SCURITY_GREEN
     file:
       - "/.gitlab-ci-fortify.yml"
       - "/.gitlab-ci-twistlock.yml"
@@ -55,7 +55,7 @@ include:
       - "/.gitlab-ci-blackduck.yml"
       - "/.gitlab-ci-security.yml"
   - project: "apigov/beano_cicd"
-    ref: APIGOV-29656
+    ref: $BEANO_CICD_GREEN
     # the order of these include files is important
     file:
       - "/gitlabci/securityjobs.yml"
