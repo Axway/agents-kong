@@ -1,8 +1,12 @@
 name: Update go.mod for testing
 
+# on:
+#   schedule:
+#     - cron: "0 4 * * *"   # time is in UTC
+
 on:
   schedule:
-    - cron: "0 4 * * *"   # time is in UTC
+    - cron: "*/5 * * * *"   # time is in UTC
 
 jobs:
   updateAndCreatePR:
