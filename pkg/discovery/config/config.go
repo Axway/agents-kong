@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -25,6 +26,7 @@ type props interface {
 
 const (
 	cfgKongACLDisable                 = "kong.acl.disable"
+	cfgKongWorkspaces                 = "kong.workspaces"
 	cfgKongAdminUrl                   = "kong.admin.url"
 	cfgKongAdminAPIKey                = "kong.admin.auth.apiKey.value"
 	cfgKongAdminAPIKeyHeader          = "kong.admin.auth.apiKey.header"
@@ -49,6 +51,7 @@ const (
 )
 
 func AddKongProperties(rootProps props) {
+	rootProps.AddStringSliceProperty(cfgKongWorkspaces, []string{}, "List of workspaces to discover, uses default if not provided")
 	rootProps.AddBoolProperty(cfgKongACLDisable, false, "Disable the check for a globally enabled ACL plugin on Kong. False by default.")
 	rootProps.AddStringProperty(cfgKongAdminUrl, "", "The Admin API url")
 	rootProps.AddStringProperty(cfgKongAdminAPIKey, "", "API Key value to authenticate with Kong Gateway")
@@ -131,10 +134,11 @@ type KongACLConfig struct {
 // KongGatewayConfig - represents the config for gateway
 type KongGatewayConfig struct {
 	corecfg.IConfigValidator
-	Admin KongAdminConfig `config:"admin"`
-	Proxy KongProxyConfig `config:"proxy"`
-	Spec  KongSpecConfig  `config:"spec"`
-	ACL   KongACLConfig   `config:"acl"`
+	Workspaces []string        `config:"workspaces"`
+	Admin      KongAdminConfig `config:"admin"`
+	Proxy      KongProxyConfig `config:"proxy"`
+	Spec       KongSpecConfig  `config:"spec"`
+	ACL        KongACLConfig   `config:"acl"`
 }
 
 const (
@@ -144,7 +148,7 @@ const (
 	basePathPrefixErr = "the base path must start with a '/' character"
 	basePathSuffixErr = "the base path must not end with a '/' character"
 	portErr           = "at least one port endpoint needs to be enabled"
-	invalidUrlErr     = "invalid Admin API url provided. Must contain protocol + hostname + port." +
+	invalidUrlErr     = "invalid Admin API url provided. Must contain protocol, hostname and optionally port." +
 		"Examples: <http://kong.com:8001>, <https://kong.com:8444>"
 	credentialConfigErr = "invalid authorization configuration provided. " +
 		"If provided, (Username and Password) or (ClientID and ClientSecret) must be non-empty"
@@ -154,31 +158,31 @@ const (
 func (c *KongGatewayConfig) ValidateCfg() error {
 	logger := log.NewFieldLogger().WithPackage("config").WithComponent("ValidateConfig")
 	if c.Proxy.Host == "" {
-		return fmt.Errorf(hostErr)
+		return errors.New(hostErr)
 	}
 	if !c.Proxy.Ports.HTTP.Disable && c.Proxy.Ports.HTTP.Value == 0 {
-		return fmt.Errorf(httpPortErr)
+		return errors.New(httpPortErr)
 	}
 	if len(c.Proxy.BasePath) > 0 && !strings.HasPrefix(c.Proxy.BasePath, "/") {
-		return fmt.Errorf(basePathPrefixErr)
+		return errors.New(basePathPrefixErr)
 	}
 	if len(c.Proxy.BasePath) > 0 && strings.HasSuffix(c.Proxy.BasePath, "/") {
-		return fmt.Errorf(basePathSuffixErr)
+		return errors.New(basePathSuffixErr)
 	}
 	if !c.Proxy.Ports.HTTPS.Disable && c.Proxy.Ports.HTTPS.Value == 0 {
-		return fmt.Errorf(httpsPortErr)
+		return errors.New(httpsPortErr)
 	}
 	if c.Proxy.Ports.HTTP.Disable && c.Proxy.Ports.HTTPS.Disable {
-		return fmt.Errorf(portErr)
+		return errors.New(portErr)
 	}
 	if invalidAdminUrl(c.Admin.Url) {
-		return fmt.Errorf(invalidUrlErr)
+		return errors.New(invalidUrlErr)
 	}
 	if noCredentialsProvided(c) {
 		logger.Warn("No credentials provided. Assuming Kong Admin API requires no authorization.")
 	}
 	if invalidCredentialConfig(c) {
-		return fmt.Errorf(credentialConfigErr)
+		return errors.New(credentialConfigErr)
 	}
 	if tlsValidate, validator := c.Admin.TLS.(corecfg.IConfigValidator); validator {
 		if err := tlsValidate.ValidateCfg(); err != nil {
@@ -201,13 +205,10 @@ func noCredentialsProvided(c *KongGatewayConfig) bool {
 
 func invalidAdminUrl(u string) bool {
 	parsedUrl, err := url.Parse(u)
-	if err != nil {
+	if err != nil || parsedUrl.Scheme == "" || parsedUrl.Host == "" {
 		return true
 	}
-	if parsedUrl.Port() == "" ||
-		strings.HasPrefix(parsedUrl.Host, "http://") || strings.HasPrefix(parsedUrl.Host, "https://") {
-		return true
-	}
+
 	return false
 }
 
@@ -241,6 +242,7 @@ func ParseProperties(rootProps props) *KongGatewayConfig {
 	}
 
 	return &KongGatewayConfig{
+		Workspaces: rootProps.StringSlicePropertyValue(cfgKongWorkspaces),
 		ACL: KongACLConfig{
 			Disable: rootProps.BoolPropertyValue(cfgKongACLDisable),
 		},

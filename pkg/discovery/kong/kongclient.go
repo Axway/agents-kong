@@ -43,7 +43,7 @@ type KongAPIClient interface {
 
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error)
 	GetKongPlugins() *Plugins
 }
 
@@ -93,6 +93,11 @@ func NewKongClient(kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 		return nil, err
 	}
 
+	// Temporary change to use only one configured workspace
+	if len(kongConfig.Workspaces) > 0 {
+		baseKongClient.SetWorkspace(kongConfig.Workspaces[0])
+	}
+
 	return &KongClient{
 		Client:                baseKongClient,
 		logger:                log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
@@ -102,7 +107,7 @@ func NewKongClient(kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 		specLocalPath:         kongConfig.Spec.LocalPath,
 		devPortalEnabled:      kongConfig.Spec.DevPortalEnabled,
 		createUnstructuredAPI: kongConfig.Spec.CreateUnstructuredAPI,
-		clientTimeout:         60 * time.Second,
+		clientTimeout:         10 * time.Second,
 	}, nil
 }
 
@@ -115,22 +120,24 @@ func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) 
 	return routes, err
 }
 
-func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
+func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error) {
 	log := k.logger.WithField(common.AttrServiceName, *service.Name)
 
 	if k.specLocalPath != "" {
-		return k.getSpecFromLocal(ctx, service)
+		spec, err := k.getSpecFromLocal(ctx, service)
+		return spec, false, err
 	}
 
 	if k.devPortalEnabled {
-		return k.getSpecFromDevPortal(ctx, *service.ID)
+		spec, err := k.getSpecFromDevPortal(ctx, *service.ID)
+		return spec, false, err
 	}
 
 	// all three fields are needed to form the backend URL used in discovery process
 	if service.Protocol == nil && service.Host == nil {
 		err := fmt.Errorf("fields for backend URL are not set")
 		log.WithError(err).Error("failed to create backend URL")
-		return nil, err
+		return nil, false, err
 	}
 	backendURL := *service.Protocol + "://" + *service.Host
 	if service.Path != nil {
@@ -139,9 +146,9 @@ func (k KongClient) GetSpecForService(ctx context.Context, service *klib.Service
 
 	spec, err := k.getSpecFromBackend(ctx, backendURL)
 	if spec == nil && err == nil && k.createUnstructuredAPI {
-		return k.getUnstructuredSpec(ctx), nil
+		return k.getUnstructuredSpec(ctx), true, nil
 	}
-	return spec, err
+	return spec, false, err
 }
 
 func (k KongClient) getUnstructuredSpec(ctx context.Context) []byte {
@@ -195,8 +202,13 @@ func (k KongClient) loadSpecFile(specFilePath string) ([]byte, error) {
 func (k KongClient) getSpecFromDevPortal(ctx context.Context, serviceID string) ([]byte, error) {
 	log := k.logger.WithField(common.AttrServiceID, serviceID)
 	log.Info("getting spec file from dev portal")
+	workspace := common.GetStringValueFromCtx(ctx, common.ContextWorkspace)
 
 	endpoint := fmt.Sprintf("%s/services/%s/document_objects", k.kongAdminEndpoint, serviceID)
+	if workspace != "" {
+		endpoint = fmt.Sprintf("%s/%s/services/%s/document_objects", k.kongAdminEndpoint, workspace, serviceID)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		log.WithError(err).Error("failed to create request")
@@ -222,8 +234,10 @@ func (k KongClient) getSpecFromDevPortal(ctx context.Context, serviceID string) 
 		log.Debug("no documents found")
 		return nil, nil
 	}
-
-	endpoint = fmt.Sprintf("%s/default/files/%s", k.kongAdminEndpoint, documents.Data[0].Path)
+	if workspace == "" {
+		workspace = "default"
+	}
+	endpoint = fmt.Sprintf("%s/%s/files/%s", k.kongAdminEndpoint, workspace, documents.Data[0].Path)
 	return k.getSpec(ctx, endpoint, true)
 }
 
@@ -236,7 +250,7 @@ func (k KongClient) getSpecFromBackend(ctx context.Context, backendURL string) (
 	}
 
 	for _, specPath := range k.specURLPaths {
-		endpoint := fmt.Sprintf("%s/%s", backendURL, strings.TrimPrefix(specPath, "/"))
+		endpoint := fmt.Sprintf("%s/%s", strings.TrimSuffix(backendURL, "/"), strings.TrimPrefix(specPath, "/"))
 
 		spec, err := k.getSpec(ctx, endpoint, false)
 		if err != nil {

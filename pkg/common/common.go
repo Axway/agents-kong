@@ -1,5 +1,7 @@
 package common
 
+import "context"
+
 const (
 	AttrServiceID   = "serviceID"
 	AttrServiceName = "serviceName"
@@ -33,3 +35,22 @@ const (
 	AclPlugin          = "acl"
 	RateLimitingPlugin = "rate-limiting"
 )
+
+type ContextKeys string
+
+func (c ContextKeys) String() string {
+	return string(c)
+}
+
+const (
+	ContextWorkspace ContextKeys = "workspace"
+)
+
+func GetStringValueFromCtx(ctx context.Context, key ContextKeys) string {
+	ctxVal := ctx.Value(key)
+	str, ok := ctxVal.(string)
+	if !ok {
+		return ""
+	}
+	return str
+}

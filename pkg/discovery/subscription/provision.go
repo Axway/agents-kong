@@ -36,7 +36,7 @@ type kongClient interface {
 	// Discovery
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error)
 	GetKongPlugins() *kong.Plugins
 }
 

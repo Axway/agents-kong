@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -49,7 +50,7 @@ type kongClient interface {
 	// Discovery
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error)
 	GetKongPlugins() *kong.Plugins
 }
 
@@ -140,6 +141,9 @@ func (gc *Agent) DiscoverAPIs() error {
 	gc.logger.Info("execute discovery process")
 
 	ctx := context.Background()
+	if len(gc.kongGatewayCfg.Workspaces) > 0 {
+		ctx = context.WithValue(ctx, common.ContextWorkspace, gc.kongGatewayCfg.Workspaces[0])
+	}
 	var err error
 
 	plugins := kong.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
@@ -182,6 +186,12 @@ func toTagsMap(service *klib.Service) map[string]string {
 	}
 	return filters
 }
+func specType(isUnstructured bool) string {
+	if isUnstructured {
+		return apic.Unstructured
+	}
+	return ""
+}
 
 func (gc *Agent) processSingleKongService(ctx context.Context, service *klib.Service) error {
 	log := gc.logger.WithField(common.AttrServiceName, *service.Name)
@@ -192,7 +202,7 @@ func (gc *Agent) processSingleKongService(ctx context.Context, service *klib.Ser
 		log.WithError(err).Errorf("failed to get routes for service")
 		return err
 	}
-	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, service)
+	kongServiceSpec, isUnstructured, err := gc.kongClient.GetSpecForService(ctx, service)
 	if err != nil {
 		log.WithError(err).Errorf("failed to get spec for service")
 		return err
@@ -205,15 +215,21 @@ func (gc *Agent) processSingleKongService(ctx context.Context, service *klib.Ser
 	}
 
 	// parse the spec file that was found and get the spec processor
-	spec := apic.NewSpecResourceParser(kongServiceSpec, "")
-	spec.Parse()
-
+	spec := apic.NewSpecResourceParser(kongServiceSpec, specType(isUnstructured))
+	err = spec.Parse()
+	if err != nil {
+		return err
+	}
+	specProcessor := spec.GetSpecProcessor()
+	if specProcessor == nil {
+		return errors.New("no spec processor")
+	}
 	wg := sync.WaitGroup{}
 	wg.Add(len(routes))
 	for _, r := range routes {
 		func(route *klib.Route) {
 			defer wg.Done()
-			gc.specPreparation(ctx, route, service, spec.GetSpecProcessor())
+			gc.specPreparation(ctx, route, service, specProcessor)
 		}(r)
 	}
 	wg.Wait()
@@ -225,6 +241,10 @@ func (gc *Agent) specPreparation(ctx context.Context, route *klib.Route, service
 	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
 		WithField(common.AttrServiceID, *service.ID)
 
+	if route.Name == nil {
+		log.Warn("not processing as route name not defined")
+		return
+	}
 	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
 		log.Warn("could not list plugins")

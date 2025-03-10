@@ -27,7 +27,7 @@ type mockKongClient struct {
 	// Discovery
 	ListServicesMock         func(context.Context) ([]*klib.Service, error)
 	ListRoutesForServiceMock func(context.Context, string) ([]*klib.Route, error)
-	GetSpecForServiceMock    func(context.Context, *klib.Service) ([]byte, error)
+	GetSpecForServiceMock    func(context.Context, *klib.Service) ([]byte, bool, error)
 	GetKongPluginsMock       func() *kong.Plugins
 }
 
@@ -129,11 +129,11 @@ func (m *mockKongClient) ListRoutesForService(ctx context.Context, serviceId str
 	return nil, fmt.Errorf("unimplemented test func")
 }
 
-func (m *mockKongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error) {
+func (m *mockKongClient) GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error) {
 	if m.GetSpecForServiceMock != nil {
 		return m.GetSpecForServiceMock(ctx, service)
 	}
-	return nil, fmt.Errorf("unimplemented test func")
+	return nil, false, fmt.Errorf("unimplemented test func")
 }
 
 func (m *mockKongClient) GetKongPlugins() *kong.Plugins {
