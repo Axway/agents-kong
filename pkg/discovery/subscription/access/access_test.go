@@ -8,6 +8,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
+	klib "github.com/kong/go-kong/kong"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,6 +18,23 @@ type mockAccessClient struct {
 	addManagedAppErr    bool
 	removeManagedAppErr bool
 	addQuotaErr         bool
+	createAppErr        bool
+	addACLErr           bool
+	consumer            *klib.Consumer
+}
+
+func (m mockAccessClient) CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error) {
+	if m.createAppErr {
+		return nil, fmt.Errorf("error")
+	}
+	return m.consumer, nil
+}
+
+func (m mockAccessClient) AddConsumerACL(ctx context.Context, id string) error {
+	if m.addACLErr {
+		return fmt.Errorf("error")
+	}
+	return nil
 }
 
 func (c mockAccessClient) AddRouteACL(ctx context.Context, routeID, allowedID string) error {
@@ -46,6 +64,10 @@ type mockAccessRequest struct {
 	quota   provisioning.Quota
 }
 
+func (a mockAccessRequest) GetApplicationName() string {
+	return ""
+}
+
 func (a mockAccessRequest) GetApplicationDetailsValue(key string) string {
 	if a.values == nil {
 		return ""
@@ -55,6 +77,7 @@ func (a mockAccessRequest) GetApplicationDetailsValue(key string) string {
 	}
 	return ""
 }
+
 func (a mockAccessRequest) GetInstanceDetails() map[string]interface{} {
 	if a.details == nil {
 		return nil

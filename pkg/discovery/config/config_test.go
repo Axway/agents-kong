@@ -37,13 +37,18 @@ func TestKongGatewayCfg(t *testing.T) {
 	assert.Equal(t, basePathSuffixErr, err.Error())
 
 	cfg.Proxy.BasePath = "/base"
+	cfg.Admin.Url = "http://"
+	err = cfg.ValidateCfg()
+	assert.Equal(t, invalidUrlErr, err.Error())
+
+	cfg.Proxy.BasePath = "/base"
 	cfg.Admin.Url = "sdl.com:8000"
 	err = cfg.ValidateCfg()
 	assert.Equal(t, invalidUrlErr, err.Error())
 
 	cfg.Admin.Url = "http://sdl.com"
 	err = cfg.ValidateCfg()
-	assert.Equal(t, invalidUrlErr, err.Error())
+	assert.Equal(t, nil, err)
 
 	cfg.Admin.Url = "https://sds.com:8000"
 	cfg.Admin.Auth.BasicAuth.Username = "test"

@@ -119,7 +119,7 @@ func TestProvision(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), testName, name)
 
-			result := NewApplicationProvisioner(ctx, tc.client, &tc.request).Provision()
+			result := NewApplicationProvisioner(ctx, tc.client, &tc.request, []string{common.DefaultWorkspace}).Provision()
 			assert.Equal(t, tc.expectStatus, result.GetStatus())
 			if tc.expectStatus == provisioning.Success {
 				// validate consumerID set
@@ -170,7 +170,7 @@ func TestDeleteConsumer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), testName, name)
 
-			result := NewApplicationProvisioner(ctx, tc.client, &tc.request).Deprovision()
+			result := NewApplicationProvisioner(ctx, tc.client, &tc.request, []string{common.DefaultWorkspace}).Deprovision()
 			assert.Equal(t, tc.expectStatus, result.GetStatus())
 		})
 	}
