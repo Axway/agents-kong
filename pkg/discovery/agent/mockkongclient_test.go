@@ -136,7 +136,7 @@ func (m *mockKongClient) GetSpecForService(ctx context.Context, service *klib.Se
 	return nil, false, fmt.Errorf("unimplemented test func")
 }
 
-func (m *mockKongClient) GetKongPlugins() *kong.Plugins {
+func (m *mockKongClient) GetKongPlugins(ctx context.Context) *kong.Plugins {
 	if m.GetKongPluginsMock != nil {
 		return m.GetKongPluginsMock()
 	}

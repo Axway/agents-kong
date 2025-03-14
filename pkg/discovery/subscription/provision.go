@@ -37,30 +37,35 @@ type kongClient interface {
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
 	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error)
-	GetKongPlugins() *kong.Plugins
+	GetKongPlugins(ctx context.Context) *kong.Plugins
 }
 
 type provisioner struct {
 	logger     log.FieldLogger
 	client     kongClient
 	aclDisable bool
+	workspaces []string
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(client kongClient, opts ...ProvisionerOption) {
+func NewProvisioner(client kongClient, workspaces []string, opts ...ProvisionerOption) {
 	logger := log.NewFieldLogger().WithComponent("provision").WithPackage("subscription")
 	logger.Info("Registering provisioning callbacks")
 	provisioner := &provisioner{
-		client: client,
-		logger: logger,
+		client:     client,
+		logger:     logger,
+		workspaces: workspaces,
 	}
 	for _, o := range opts {
 		o(provisioner)
 	}
 	agent.RegisterProvisioner(provisioner)
-	registerOauth2()
-	registerBasicAuth()
-	registerKeyAuth()
+	for _, workspace := range workspaces {
+		registerOauth2(workspace)
+		registerBasicAuth(workspace)
+		registerKeyAuth(workspace)
+	}
+
 }
 
 func WithACLDisable() ProvisionerOption {
@@ -70,11 +75,11 @@ func WithACLDisable() ProvisionerOption {
 }
 
 func (p provisioner) ApplicationRequestProvision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	return application.NewApplicationProvisioner(context.Background(), p.client, request).Provision()
+	return application.NewApplicationProvisioner(context.Background(), p.client, request, p.workspaces).Provision()
 }
 
 func (p provisioner) ApplicationRequestDeprovision(request provisioning.ApplicationRequest) provisioning.RequestStatus {
-	return application.NewApplicationProvisioner(context.Background(), p.client, request).Deprovision()
+	return application.NewApplicationProvisioner(context.Background(), p.client, request, p.workspaces).Deprovision()
 }
 
 func (p provisioner) CredentialProvision(request provisioning.CredentialRequest) (provisioning.RequestStatus, provisioning.Credential) {

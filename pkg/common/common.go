@@ -1,15 +1,19 @@
 package common
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 const (
-	AttrServiceID   = "serviceID"
-	AttrServiceName = "serviceName"
-	AttrRouteName   = "routeName"
-	AttrRouteID     = "routeID"
-	AttrServiceTag  = "serviceTag"
-	AttrChecksum    = "checksum"
-	AttrAppID       = "kongApplicationId"
+	AttrWorkspaceName = "workspaceName"
+	AttrServiceID     = "serviceID"
+	AttrServiceName   = "serviceName"
+	AttrRouteName     = "routeName"
+	AttrRouteID       = "routeID"
+	AttrServiceTag    = "serviceTag"
+	AttrChecksum      = "checksum"
+	AttrAppID         = "kongApplicationId"
 
 	AttrCredentialID = "kongCredentialID"
 	AttrCredUpdater  = "kongCredentialUpdate"
@@ -34,6 +38,9 @@ const (
 	// plugins
 	AclPlugin          = "acl"
 	RateLimitingPlugin = "rate-limiting"
+
+	// Workspace
+	DefaultWorkspace = "default"
 )
 
 type ContextKeys string
@@ -53,4 +60,8 @@ func GetStringValueFromCtx(ctx context.Context, key ContextKeys) string {
 		return ""
 	}
 	return str
+}
+
+func WksPrefixName(workspace, name string) string {
+	return fmt.Sprintf("%s-%s", workspace, name)
 }

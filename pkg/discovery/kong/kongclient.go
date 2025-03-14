@@ -44,7 +44,7 @@ type KongAPIClient interface {
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
 	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error)
-	GetKongPlugins() *Plugins
+	GetKongPlugins(ctx context.Context) *Plugins
 }
 
 type KongServiceSpec struct {
@@ -56,7 +56,7 @@ type KongServiceSpec struct {
 }
 
 type KongClient struct {
-	*klib.Client
+	workspaceClients      map[string]*klib.Client
 	logger                log.FieldLogger
 	baseClient            DoRequest
 	kongAdminEndpoint     string
@@ -87,19 +87,15 @@ func NewKongClient(kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 	baseClient = klib.HTTPClientWithHeaders(baseClient, headers)
 
 	logger := log.NewFieldLogger().WithComponent("client").WithPackage("kong")
-	baseKongClient, err := klib.NewClient(&kongEndpoint, baseClient)
+
+	workspaceClients, err := createWorkspaceClients(baseClient, kongEndpoint, kongConfig.Workspaces)
 	if err != nil {
 		logger.WithError(err).Error("failed to create kong client")
 		return nil, err
 	}
 
-	// Temporary change to use only one configured workspace
-	if len(kongConfig.Workspaces) > 0 {
-		baseKongClient.SetWorkspace(kongConfig.Workspaces[0])
-	}
-
 	return &KongClient{
-		Client:                baseKongClient,
+		workspaceClients:      workspaceClients,
 		logger:                log.NewFieldLogger().WithComponent("KongClient").WithPackage("kong"),
 		baseClient:            baseClient,
 		kongAdminEndpoint:     kongEndpoint,
@@ -111,12 +107,50 @@ func NewKongClient(kongConfig *config.KongGatewayConfig) (*KongClient, error) {
 	}, nil
 }
 
+func createWorkspaceClients(baseClient *http.Client, kongEndpoint string, workspaces []string) (map[string]*klib.Client, error) {
+	clients := make(map[string]*klib.Client)
+	for _, workspace := range workspaces {
+		client, err := createWorkspaceClient(baseClient, kongEndpoint, workspace)
+		if err != nil {
+			return nil, err
+		}
+		clients[workspace] = client
+	}
+	if len(clients) == 0 {
+		client, err := createWorkspaceClient(baseClient, kongEndpoint, "")
+		if err != nil {
+			return nil, err
+		}
+		clients[common.DefaultWorkspace] = client
+	}
+	return clients, nil
+}
+
+func createWorkspaceClient(baseClient *http.Client, kongEndpoint string, workspace string) (*klib.Client, error) {
+	kongClient, err := klib.NewClient(&kongEndpoint, baseClient)
+	if err != nil {
+		return nil, err
+	}
+	if workspace != "" {
+		kongClient.SetWorkspace(workspace)
+	}
+	return kongClient, nil
+}
+
+func (k KongClient) getWorkspaceClient(ctx context.Context) *klib.Client {
+	workspace := common.GetStringValueFromCtx(ctx, common.ContextWorkspace)
+	if workspace == "" {
+		workspace = common.DefaultWorkspace
+	}
+	return k.workspaceClients[workspace]
+}
+
 func (k KongClient) ListServices(ctx context.Context) ([]*klib.Service, error) {
-	return k.Services.ListAll(ctx)
+	return k.getWorkspaceClient(ctx).Services.ListAll(ctx)
 }
 
 func (k KongClient) ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error) {
-	routes, _, err := k.Routes.ListForService(ctx, &serviceId, nil)
+	routes, _, err := k.getWorkspaceClient(ctx).Routes.ListForService(ctx, &serviceId, nil)
 	return routes, err
 }
 
@@ -235,7 +269,7 @@ func (k KongClient) getSpecFromDevPortal(ctx context.Context, serviceID string) 
 		return nil, nil
 	}
 	if workspace == "" {
-		workspace = "default"
+		workspace = common.DefaultWorkspace
 	}
 	endpoint = fmt.Sprintf("%s/%s/files/%s", k.kongAdminEndpoint, workspace, documents.Data[0].Path)
 	return k.getSpec(ctx, endpoint, true)
@@ -313,8 +347,8 @@ func (k KongClient) getSpec(ctx context.Context, endpoint string, fromDevPortal 
 	return specContent, nil
 }
 
-func (k KongClient) GetKongPlugins() *Plugins {
-	return &Plugins{PluginLister: k.Plugins}
+func (k KongClient) GetKongPlugins(ctx context.Context) *Plugins {
+	return &Plugins{PluginLister: k.getWorkspaceClient(ctx).Plugins}
 }
 
 func basicAuth(username, password string) string {
