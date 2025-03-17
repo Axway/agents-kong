@@ -44,17 +44,19 @@ type provisioner struct {
 	logger     log.FieldLogger
 	client     kongClient
 	aclDisable bool
+	envName    string
 	workspaces []string
 }
 
 // NewProvisioner creates a type to implement the SDK Provisioning methods for handling subscriptions
-func NewProvisioner(client kongClient, workspaces []string, opts ...ProvisionerOption) {
+func NewProvisioner(client kongClient, envName string, workspaces []string, opts ...ProvisionerOption) {
 	logger := log.NewFieldLogger().WithComponent("provision").WithPackage("subscription")
 	logger.Info("Registering provisioning callbacks")
 	provisioner := &provisioner{
 		client:     client,
 		logger:     logger,
 		workspaces: workspaces,
+		envName:    envName,
 	}
 	for _, o := range opts {
 		o(provisioner)
@@ -95,9 +97,9 @@ func (p provisioner) CredentialUpdate(request provisioning.CredentialRequest) (p
 }
 
 func (p provisioner) AccessRequestProvision(request provisioning.AccessRequest) (provisioning.RequestStatus, provisioning.AccessData) {
-	return access.NewAccessProvisioner(context.Background(), p.client, request, p.aclDisable).Provision()
+	return access.NewAccessProvisioner(context.Background(), p.client, request, p.aclDisable, p.envName).Provision()
 }
 
 func (p provisioner) AccessRequestDeprovision(request provisioning.AccessRequest) provisioning.RequestStatus {
-	return access.NewAccessProvisioner(context.Background(), p.client, request, p.aclDisable).Deprovision()
+	return access.NewAccessProvisioner(context.Background(), p.client, request, p.aclDisable, p.envName).Deprovision()
 }

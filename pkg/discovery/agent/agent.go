@@ -103,7 +103,7 @@ func NewAgent(agentConfig config.AgentConfig, agentOpts ...func(a *Agent)) (*Age
 	if agentConfig.KongGatewayCfg.ACL.Disable {
 		opts = append(opts, subscription.WithACLDisable())
 	}
-	subscription.NewProvisioner(ka.kongClient, agentConfig.KongGatewayCfg.Workspaces, opts...)
+	subscription.NewProvisioner(ka.kongClient, ka.centralCfg.GetEnvironmentName(), agentConfig.KongGatewayCfg.Workspaces, opts...)
 	return ka, nil
 }
 

@@ -73,6 +73,11 @@ func (a AppProvisioner) Deprovision() provisioning.RequestStatus {
 	a.logger.Info("deprovisioning application")
 
 	rs := provisioning.NewRequestStatusBuilder()
+	if len(a.consumerIDs) == 0 {
+		a.logger.Error("could not identify the workspace consumer IDs for the resource")
+		return rs.SetMessage("workspace not found").Failed()
+	}
+
 	for workspace, consumerID := range a.consumerIDs {
 		ctx := context.WithValue(a.ctx, common.ContextWorkspace, workspace)
 		err := a.client.DeleteConsumer(ctx, consumerID)

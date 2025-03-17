@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
+	v1 "github.com/Axway/agent-sdk/pkg/apic/apiserver/models/api/v1"
 	management "github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/apic/definitions"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
@@ -37,19 +38,26 @@ type accessRequest interface {
 	GetQuota() provisioning.Quota
 }
 
-type AccessProvisioner struct {
-	ctx        context.Context
-	logger     log.FieldLogger
-	client     accessClient
-	quota      provisioning.Quota
-	workspace  string
-	routeID    string
-	appID      string
-	appName    string
-	aclDisable bool
+type centralClient interface {
+	GetResource(url string) (*v1.ResourceInstance, error)
+	CreateSubResource(rm v1.ResourceMeta, subs map[string]interface{}) error
 }
 
-func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest, aclDisable bool) AccessProvisioner {
+type AccessProvisioner struct {
+	ctx           context.Context
+	logger        log.FieldLogger
+	client        accessClient
+	quota         provisioning.Quota
+	workspace     string
+	routeID       string
+	appID         string
+	appName       string
+	aclDisable    bool
+	centralClient centralClient
+	envName       string
+}
+
+func NewAccessProvisioner(ctx context.Context, client accessClient, request accessRequest, aclDisable bool, envName string) AccessProvisioner {
 	instDetails := request.GetInstanceDetails()
 	workspace := sdkUtil.ToString(instDetails[common.AttrWorkspaceName])
 	routeID := sdkUtil.ToString(instDetails[common.AttrRouteID])
@@ -58,15 +66,17 @@ func NewAccessProvisioner(ctx context.Context, client accessClient, request acce
 		WithPackage("access")
 
 	a := AccessProvisioner{
-		ctx:        context.WithValue(context.Background(), common.ContextWorkspace, workspace),
-		logger:     logger,
-		client:     client,
-		quota:      request.GetQuota(),
-		workspace:  workspace,
-		routeID:    routeID,
-		appID:      request.GetApplicationDetailsValue(common.WksPrefixName(workspace, common.AttrAppID)),
-		appName:    request.GetApplicationName(),
-		aclDisable: aclDisable,
+		ctx:           context.WithValue(context.Background(), common.ContextWorkspace, workspace),
+		logger:        logger,
+		client:        client,
+		quota:         request.GetQuota(),
+		workspace:     workspace,
+		routeID:       routeID,
+		appID:         request.GetApplicationDetailsValue(common.WksPrefixName(workspace, common.AttrAppID)),
+		appName:       request.GetApplicationName(),
+		aclDisable:    aclDisable,
+		centralClient: agent.GetCentralClient(),
+		envName:       envName,
 	}
 
 	if a.routeID != "" {
@@ -81,8 +91,8 @@ func NewAccessProvisioner(ctx context.Context, client accessClient, request acce
 func (a AccessProvisioner) provisionApp() (string, error) {
 	a.logger.Info("provisioning application")
 
-	app := management.NewManagedApplication(a.appName, agent.GetAgentResource().Metadata.Scope.Name)
-	ri, err := agent.GetCentralClient().GetResource(app.GetSelfLink())
+	app := management.NewManagedApplication(a.appName, a.envName)
+	ri, err := a.centralClient.GetResource(app.GetSelfLink())
 	if err != nil {
 		a.logger.Error("could not find the managed application resource")
 		return "", errors.New("managed application not found")
@@ -105,7 +115,7 @@ func (a AccessProvisioner) provisionApp() (string, error) {
 		agentDetails = make(map[string]interface{})
 	}
 	agentDetails[common.WksPrefixName(a.workspace, common.AttrAppID)] = *consumer.ID
-	agent.GetCentralClient().CreateSubResource(app.ResourceMeta, map[string]interface{}{definitions.XAgentDetails: agentDetails})
+	a.centralClient.CreateSubResource(app.ResourceMeta, map[string]interface{}{definitions.XAgentDetails: agentDetails})
 
 	a.logger.Info("provisioned application")
 	return *consumer.ID, nil
