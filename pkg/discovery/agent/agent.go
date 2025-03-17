@@ -88,7 +88,10 @@ func NewAgent(agentConfig config.AgentConfig, agentOpts ...func(a *Agent)) (*Age
 
 	for _, workspaces := range ka.kongGatewayCfg.Workspaces {
 		ctx := context.WithValue(context.Background(), common.ContextWorkspace, workspaces)
-		verifyACLPlugin(ctx, ka, agentConfig.KongGatewayCfg.ACL.Disable)
+		err := verifyACLPlugin(ctx, ka, agentConfig.KongGatewayCfg.ACL.Disable)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ka.filter, err = filter.NewFilter(agentConfig.KongGatewayCfg.Spec.Filter)
