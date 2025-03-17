@@ -72,7 +72,7 @@ func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
 		return rs.SetMessage("workspace not found").Failed()
 	}
 
-	consumerID := p.request.GetApplicationDetailsValue(common.AttrAppID)
+	consumerID := p.request.GetCredentialDetailsValue(common.AttrAppID)
 	if consumerID == "" {
 		p.logger.Error("could not find the managed application ID on the resource")
 		return rs.SetMessage("managed application ID not found").Failed()
@@ -240,6 +240,7 @@ func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisionin
 				log.WithError(err).Error("Could not create api-key credential")
 				return rs.SetMessage("Failed to create api-key credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			log.Info("API Key successful update")
@@ -259,6 +260,7 @@ func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisionin
 				log.WithError(err).Error("Could not create basic auth credential")
 				return rs.SetMessage("Failed to create basic auth credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.Username)
@@ -280,6 +282,7 @@ func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisionin
 				log.WithError(err).Error("Could not create oauth2 credential")
 				return rs.SetMessage("Failed to create oauth2 credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.ClientID)
