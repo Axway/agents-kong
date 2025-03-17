@@ -88,39 +88,6 @@ func NewAccessProvisioner(ctx context.Context, client accessClient, request acce
 	return a
 }
 
-func (a AccessProvisioner) provisionApp() (string, error) {
-	a.logger.Info("provisioning application")
-
-	app := management.NewManagedApplication(a.appName, a.envName)
-	ri, err := a.centralClient.GetResource(app.GetSelfLink())
-	if err != nil {
-		a.logger.Error("could not find the managed application resource")
-		return "", errors.New("managed application not found")
-	}
-	app.FromInstance(ri)
-
-	consumer, err := a.client.CreateConsumer(a.ctx, app.Metadata.ID, a.appName)
-	if err != nil {
-		a.logger.WithError(err).Error("error creating kong consumer")
-		return "", errors.New("could not create a new consumer in kong")
-	}
-
-	err = a.client.AddConsumerACL(a.ctx, *consumer.ID)
-	if err != nil {
-		a.logger.WithError(err).Error("could not add acl to kong consumer")
-	}
-
-	agentDetails := sdkUtil.GetAgentDetails(app)
-	if agentDetails == nil {
-		agentDetails = make(map[string]interface{})
-	}
-	agentDetails[common.WksPrefixName(a.workspace, common.AttrAppID)] = *consumer.ID
-	a.centralClient.CreateSubResource(app.ResourceMeta, map[string]interface{}{definitions.XAgentDetails: agentDetails})
-
-	a.logger.Info("provisioned application")
-	return *consumer.ID, nil
-}
-
 func (a AccessProvisioner) Provision() (provisioning.RequestStatus, provisioning.AccessData) {
 	a.logger.Info("provisioning access")
 	rs := provisioning.NewRequestStatusBuilder()
@@ -212,4 +179,54 @@ func (a AccessProvisioner) Deprovision() provisioning.RequestStatus {
 
 	a.logger.Info("deprovisioned access")
 	return rs.Success()
+}
+
+func (a AccessProvisioner) provisionApp() (string, error) {
+	a.logger.Info("provisioning application")
+	app, err := a.getManagedApplication()
+	if err != nil {
+		a.logger.Error("could not find the managed application resource")
+		return "", errors.New("managed application not found")
+	}
+
+	consumer, err := a.createConsumer(app.Metadata.ID)
+	if err != nil {
+		a.logger.WithError(err).Error("error creating kong consumer")
+		return "", errors.New("could not create a new consumer in kong")
+	}
+
+	a.updateManagedAppDetails(app, *consumer.ID)
+	a.logger.Info("provisioned application")
+	return *consumer.ID, nil
+}
+
+func (a AccessProvisioner) getManagedApplication() (*v1.ResourceInstance, error) {
+	app := management.NewManagedApplication(a.appName, a.envName)
+	ri, err := a.centralClient.GetResource(app.GetSelfLink())
+	if err != nil {
+		return nil, err
+	}
+	return ri, nil
+}
+
+func (a AccessProvisioner) createConsumer(appID string) (*klib.Consumer, error) {
+	consumer, err := a.client.CreateConsumer(a.ctx, appID, a.appName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = a.client.AddConsumerACL(a.ctx, *consumer.ID)
+	if err != nil {
+		a.logger.WithError(err).Error("could not add acl to kong consumer")
+	}
+	return consumer, nil
+}
+
+func (a AccessProvisioner) updateManagedAppDetails(app *v1.ResourceInstance, consumerID string) {
+	agentDetails := sdkUtil.GetAgentDetails(app)
+	if agentDetails == nil {
+		agentDetails = make(map[string]interface{})
+	}
+	agentDetails[common.WksPrefixName(a.workspace, common.AttrAppID)] = consumerID
+	a.centralClient.CreateSubResource(app.ResourceMeta, map[string]interface{}{definitions.XAgentDetails: agentDetails})
 }
