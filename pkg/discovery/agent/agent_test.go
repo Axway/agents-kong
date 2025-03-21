@@ -10,6 +10,7 @@ import (
 	corecfg "github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/filter"
 	"github.com/Axway/agent-sdk/pkg/util/log"
+	"github.com/Axway/agents-kong/pkg/common"
 	config "github.com/Axway/agents-kong/pkg/discovery/config"
 	"github.com/Axway/agents-kong/pkg/discovery/kong"
 	klib "github.com/kong/go-kong/kong"
@@ -121,12 +122,14 @@ func TestDiscovery(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f, _ := filter.NewFilter("")
 			ka := &Agent{
-				logger:         log.NewFieldLogger().WithComponent("agent").WithPackage("kongAgent"),
-				centralCfg:     corecfg.NewCentralConfig(corecfg.DiscoveryAgent),
-				kongGatewayCfg: &config.KongGatewayConfig{},
-				cache:          cache.New(),
-				kongClient:     tc.client,
-				filter:         f,
+				logger:     log.NewFieldLogger().WithComponent("agent").WithPackage("kongAgent"),
+				centralCfg: corecfg.NewCentralConfig(corecfg.DiscoveryAgent),
+				kongGatewayCfg: &config.KongGatewayConfig{
+					Workspaces: []string{common.DefaultWorkspace},
+				},
+				cache:      cache.New(),
+				kongClient: tc.client,
+				filter:     f,
 			}
 
 			// agent.InitializeForTest()
