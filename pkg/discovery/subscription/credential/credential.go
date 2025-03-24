@@ -3,6 +3,7 @@ package credential
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
@@ -47,16 +48,42 @@ func NewCredentialProvisioner(ctx context.Context, client credentialClient, req 
 	return a
 }
 
-func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
-	consumerID := p.request.GetApplicationDetailsValue(common.AttrAppID)
-	rs := provisioning.NewRequestStatusBuilder()
-	ctx := context.Background()
+func parseWorkspace(crdName, crdType string) string {
+	return strings.TrimSuffix(crdName, fmt.Sprintf("-%s", crdType))
+}
 
-	credentialType := p.request.GetCredentialType()
+func parseCredentialType(crdName string) (string, string) {
+	switch {
+	case strings.Contains(crdName, provisioning.APIKeyCRD):
+		return parseWorkspace(crdName, provisioning.APIKeyCRD), provisioning.APIKeyCRD
+	case strings.Contains(crdName, provisioning.BasicAuthARD):
+		return parseWorkspace(crdName, provisioning.BasicAuthCRD), provisioning.BasicAuthCRD
+	case strings.Contains(crdName, provisioning.OAuthSecretCRD):
+		return parseWorkspace(crdName, provisioning.OAuthSecretCRD), provisioning.OAuthSecretCRD
+	}
+	return "", ""
+}
+
+func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
+	rs := provisioning.NewRequestStatusBuilder()
+	workspace, credentialType := parseCredentialType(p.request.GetCredentialType())
+	if workspace == "" {
+		p.logger.Error("could not identify the workspace for the credential resource")
+		return rs.SetMessage("workspace not found").Failed()
+	}
+
+	consumerID := p.request.GetCredentialDetailsValue(common.AttrAppID)
+	if consumerID == "" {
+		p.logger.Error("could not find the managed application ID on the resource")
+		return rs.SetMessage("managed application ID not found").Failed()
+	}
+
 	credentialID := p.request.GetCredentialDetailsValue(common.AttrCredentialID)
 	if credentialID == "" {
 		return rs.SetMessage("CredentialID cannot be empty").Failed()
 	}
+
+	ctx := context.WithValue(context.Background(), common.ContextWorkspace, workspace)
 	log := p.logger.WithField("credentialID", credentialID).
 		WithField("consumerID", consumerID)
 	log.Info("Started credential de-provisioning")
@@ -94,15 +121,21 @@ func (p credentialProvisioner) Deprovision() provisioning.RequestStatus {
 }
 
 func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisioning.Credential) {
-	consumerID := p.request.GetApplicationDetailsValue(common.AttrAppID)
+	rs := provisioning.NewRequestStatusBuilder()
+	workspace, credentialType := parseCredentialType(p.request.GetCredentialType())
+	if workspace == "" {
+		p.logger.Error("could not identify the workspace for the credential resource")
+		return rs.SetMessage("workspace not found").Failed(), nil
+	}
+
+	consumerID := p.request.GetApplicationDetailsValue(common.WksPrefixName(workspace, common.AttrAppID))
 	agentTag := "amplify-agent"
 	consumerTags := []*string{&agentTag}
 	kongBuilder := NewKongCredentialBuilder().
 		WithConsumerTags(consumerTags)
 
-	ctx := context.Background()
-	rs := provisioning.NewRequestStatusBuilder()
-	credentialType := p.request.GetCredentialType()
+	ctx := context.WithValue(context.Background(), common.ContextWorkspace, workspace)
+
 	log := p.logger.WithField("consumerID", consumerID)
 	log.Info("Started credential provisioning")
 
@@ -116,6 +149,7 @@ func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisio
 				log.Info("API key unsuccessful provisioning")
 				return rs.SetMessage("Failed to create api-key credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			log.Info("API key successful provisioning")
@@ -133,6 +167,7 @@ func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisio
 				log.Info("Basic auth unsuccessful provisioning")
 				return rs.SetMessage("Failed to create basic auth credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.Username)
@@ -150,6 +185,7 @@ func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisio
 				log.Info("Oauth2 unsuccessful provisioning")
 				return rs.SetMessage("Failed to create oauth2 credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.ClientID)
@@ -161,15 +197,25 @@ func (p credentialProvisioner) Provision() (provisioning.RequestStatus, provisio
 }
 
 func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisioning.Credential) {
-	consumerID := p.request.GetApplicationDetailsValue(common.AttrAppID)
+	rs := provisioning.NewRequestStatusBuilder()
+	workspace, credentialType := parseCredentialType(p.request.GetCredentialType())
+	if workspace == "" {
+		p.logger.Error("could not identify the workspace for the credential resource")
+		return rs.SetMessage("workspace not found").Failed(), nil
+	}
+
+	consumerID := p.request.GetCredentialDetailsValue(common.AttrAppID)
+	if workspace == "" {
+		p.logger.Error("could not find the managed application ID on the resource")
+		return rs.SetMessage("managed application ID not found").Failed(), nil
+	}
+
 	agentTag := "amplify-agent"
 	consumerTags := []*string{&agentTag}
 	kongBuilder := NewKongCredentialBuilder().
 		WithConsumerTags(consumerTags)
 
 	ctx := context.Background()
-	rs := provisioning.NewRequestStatusBuilder()
-	credentialType := p.request.GetCredentialType()
 	credentialID := p.request.GetCredentialDetailsValue(common.AttrCredentialID)
 	key := p.request.GetCredentialDetailsValue(common.AttrCredUpdater)
 	if credentialID == "" {
@@ -194,6 +240,7 @@ func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisionin
 				log.WithError(err).Error("Could not create api-key credential")
 				return rs.SetMessage("Failed to create api-key credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			log.Info("API Key successful update")
@@ -213,6 +260,7 @@ func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisionin
 				log.WithError(err).Error("Could not create basic auth credential")
 				return rs.SetMessage("Failed to create basic auth credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.Username)
@@ -234,6 +282,7 @@ func (p credentialProvisioner) Update() (provisioning.RequestStatus, provisionin
 				log.WithError(err).Error("Could not create oauth2 credential")
 				return rs.SetMessage("Failed to create oauth2 credential").Failed(), nil
 			}
+			rs.AddProperty(common.AttrWorkspaceName, workspace)
 			rs.AddProperty(common.AttrAppID, *resp.Consumer.ID)
 			rs.AddProperty(common.AttrCredentialID, *resp.ID)
 			rs.AddProperty(common.AttrCredUpdater, *resp.ClientID)

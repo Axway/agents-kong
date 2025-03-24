@@ -2,12 +2,17 @@ package access
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
+	v1 "github.com/Axway/agent-sdk/pkg/apic/apiserver/models/api/v1"
+	management "github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/apic/provisioning"
 	"github.com/Axway/agent-sdk/pkg/util/log"
 	"github.com/Axway/agents-kong/pkg/common"
+	"github.com/google/uuid"
+	klib "github.com/kong/go-kong/kong"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,6 +22,23 @@ type mockAccessClient struct {
 	addManagedAppErr    bool
 	removeManagedAppErr bool
 	addQuotaErr         bool
+	createAppErr        bool
+	addACLErr           bool
+	consumer            *klib.Consumer
+}
+
+func (m mockAccessClient) CreateConsumer(ctx context.Context, id, name string) (*klib.Consumer, error) {
+	if m.createAppErr {
+		return nil, fmt.Errorf("error")
+	}
+	return m.consumer, nil
+}
+
+func (m mockAccessClient) AddConsumerACL(ctx context.Context, id string) error {
+	if m.addACLErr {
+		return fmt.Errorf("error")
+	}
+	return nil
 }
 
 func (c mockAccessClient) AddRouteACL(ctx context.Context, routeID, allowedID string) error {
@@ -41,9 +63,14 @@ func (c mockAccessClient) AddQuota(ctx context.Context, routeID, managedAppID, q
 }
 
 type mockAccessRequest struct {
+	appName string
 	values  map[string]string
 	details map[string]interface{}
 	quota   provisioning.Quota
+}
+
+func (a mockAccessRequest) GetApplicationName() string {
+	return a.appName
 }
 
 func (a mockAccessRequest) GetApplicationDetailsValue(key string) string {
@@ -55,6 +82,7 @@ func (a mockAccessRequest) GetApplicationDetailsValue(key string) string {
 	}
 	return ""
 }
+
 func (a mockAccessRequest) GetInstanceDetails() map[string]interface{} {
 	if a.details == nil {
 		return nil
@@ -91,20 +119,100 @@ func (q *mockQuota) GetPlanName() string {
 	return q.planName
 }
 
+type mockCentralClient struct {
+	app          *management.ManagedApplication
+	subResources map[string]interface{}
+}
+
+func (c *mockCentralClient) GetResource(url string) (*v1.ResourceInstance, error) {
+	if c.app == nil {
+		return nil, errors.New("app not found")
+	}
+	return c.app.AsInstance()
+}
+
+func (c *mockCentralClient) CreateSubResource(rm v1.ResourceMeta, subs map[string]interface{}) error {
+	c.subResources = subs
+	return nil
+}
+
 func TestProvision(t *testing.T) {
+	appIDAttr := common.WksPrefixName("default", common.AttrAppID)
 	cases := map[string]struct {
 		client     mockAccessClient
 		request    mockAccessRequest
 		result     provisioning.Status
 		aclDisable bool
+		app        *management.ManagedApplication
 	}{
-		"no app id configured": {
+		"no app id configured failure with create consumer": {
+			client: mockAccessClient{
+				createAppErr: true,
+			},
+			request: mockAccessRequest{
+				appName: "test-app",
+			},
+			app:    management.NewManagedApplication("test-app", "test"),
+			result: provisioning.Error,
+		},
+		"no app id configured success create app with acl failure": {
+			client: mockAccessClient{
+				addACLErr: true,
+				consumer: &klib.Consumer{
+					ID: klib.String(uuid.NewString()),
+				},
+			},
+			request: mockAccessRequest{
+				appName: "test-app",
+				details: map[string]interface{}{
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
+				},
+				quota: &mockQuota{
+					interval: provisioning.Daily,
+					limit:    7,
+					planName: "planName",
+				},
+			},
+			app:    management.NewManagedApplication("test-app", "test"),
+			result: provisioning.Success,
+		},
+		"no app id configured success create app": {
+			client: mockAccessClient{
+				consumer: &klib.Consumer{
+					ID: klib.String(uuid.NewString()),
+				},
+			},
+			request: mockAccessRequest{
+				appName: "test-app",
+				details: map[string]interface{}{
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
+				},
+				quota: &mockQuota{
+					interval: provisioning.Daily,
+					limit:    7,
+					planName: "planName",
+				},
+			},
+			app:    management.NewManagedApplication("test-app", "test"),
+			result: provisioning.Success,
+		},
+		"no workspace configured": {
+			request: mockAccessRequest{
+				values: map[string]string{
+					appIDAttr: "appID",
+				},
+				details: map[string]interface{}{
+					common.AttrWorkspaceName: "default",
+				},
+			},
 			result: provisioning.Error,
 		},
 		"no route id configured": {
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 			},
 			result: provisioning.Error,
@@ -112,10 +220,11 @@ func TestProvision(t *testing.T) {
 		"ACL disable is active": {
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 			},
 			result:     provisioning.Success,
@@ -124,10 +233,11 @@ func TestProvision(t *testing.T) {
 		"unsupported quota interval": {
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Weekly,
@@ -143,10 +253,11 @@ func TestProvision(t *testing.T) {
 			},
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -162,10 +273,11 @@ func TestProvision(t *testing.T) {
 			},
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -179,10 +291,11 @@ func TestProvision(t *testing.T) {
 			client: mockAccessClient{},
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -196,14 +309,18 @@ func TestProvision(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), testName, name)
-
-			result, _ := NewAccessProvisioner(ctx, tc.client, &tc.request, tc.aclDisable).Provision()
+			prov := NewAccessProvisioner(ctx, tc.client, &tc.request, tc.aclDisable, "test")
+			prov.centralClient = &mockCentralClient{
+				app: tc.app,
+			}
+			result, _ := prov.Provision()
 			assert.Equal(t, tc.result, result.GetStatus())
 		})
 	}
 }
 
 func TestDeprovision(t *testing.T) {
+	appIDAttr := common.WksPrefixName("default", common.AttrAppID)
 	cases := map[string]struct {
 		client     mockAccessClient
 		request    mockAccessRequest
@@ -216,7 +333,7 @@ func TestDeprovision(t *testing.T) {
 		"no route id configured": {
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 			},
 			result: provisioning.Error,
@@ -224,10 +341,11 @@ func TestDeprovision(t *testing.T) {
 		"ACL disable is active": {
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 			},
 			result:     provisioning.Success,
@@ -239,10 +357,11 @@ func TestDeprovision(t *testing.T) {
 			},
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -256,10 +375,11 @@ func TestDeprovision(t *testing.T) {
 			client: mockAccessClient{},
 			request: mockAccessRequest{
 				values: map[string]string{
-					common.AttrAppID: "appID",
+					appIDAttr: "appID",
 				},
 				details: map[string]interface{}{
-					common.AttrRouteID: "routeID",
+					common.AttrRouteID:       "routeID",
+					common.AttrWorkspaceName: "default",
 				},
 				quota: &mockQuota{
 					interval: provisioning.Daily,
@@ -274,7 +394,7 @@ func TestDeprovision(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), testName, name)
 
-			result := NewAccessProvisioner(ctx, tc.client, &tc.request, tc.aclDisable).Deprovision()
+			result := NewAccessProvisioner(ctx, tc.client, &tc.request, tc.aclDisable, "test").Deprovision()
 			assert.Equal(t, tc.result, result.GetStatus())
 		})
 	}
