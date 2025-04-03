@@ -15,7 +15,7 @@ func getCredTypes() []string {
 	return []string{"confidential", "public"}
 }
 
-func registerOauth2() {
+func registerOauth2(workspace string) {
 	oAuthRedirects := getAuthRedirectSchemaPropertyBuilder()
 	corsProp := getCorsSchemaPropertyBuilder()
 	oAuthTypeProp := provisioning.NewSchemaPropertyBuilder().
@@ -37,32 +37,44 @@ func registerOauth2() {
 		agent.WithCRDRequestSchemaProperty(oAuthRedirects),
 		agent.WithCRDIsRenewable(),
 		agent.WithCRDIsSuspendable(),
-	).Register()
+	).
+		SetName(common.WksPrefixName(workspace, Oauth2Name)).
+		Register()
 	if err != nil {
 		logrus.Errorf("Error registering Oauth2 credential Request %v", err)
 	}
 }
 
-func registerBasicAuth() {
+func registerBasicAuth(workspace string) {
 	corsProp := getCorsSchemaPropertyBuilder()
 	_, err := agent.NewBasicAuthAccessRequestBuilder().SetName(HttpBasicName).Register()
 	if err != nil {
 		logrus.Error("Failed to register Basic Auth Access request")
 	}
-	_, err = agent.NewBasicAuthCredentialRequestBuilder(agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
+	_, err = agent.NewBasicAuthCredentialRequestBuilder(
+		agent.WithCRDRequestSchemaProperty(corsProp),
+	).
+		IsRenewable().
+		SetName(common.WksPrefixName(workspace, HttpBasicName)).
+		Register()
 	if err != nil {
 		logrus.Error("Failed to register Basic Auth Credential request")
 	}
 }
 
-func registerKeyAuth() {
+func registerKeyAuth(workspace string) {
 	//"The api key. Leave empty for autogeneration"
 	corsProp := getCorsSchemaPropertyBuilder()
 	_, err := agent.NewAPIKeyAccessRequestBuilder().SetName(ApiKeyName).Register()
 	if err != nil {
 		logrus.Error("Error registering API key Access Request")
 	}
-	_, err = agent.NewAPIKeyCredentialRequestBuilder(agent.WithCRDRequestSchemaProperty(corsProp)).IsRenewable().Register()
+	_, err = agent.NewAPIKeyCredentialRequestBuilder(
+		agent.WithCRDRequestSchemaProperty(corsProp),
+	).
+		IsRenewable().
+		SetName(common.WksPrefixName(workspace, ApiKeyName)).
+		Register()
 	if err != nil {
 		logrus.Error("Error registering API Credential Access Request")
 	}

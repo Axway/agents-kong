@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -49,8 +50,8 @@ type kongClient interface {
 	// Discovery
 	ListServices(ctx context.Context) ([]*klib.Service, error)
 	ListRoutesForService(ctx context.Context, serviceId string) ([]*klib.Route, error)
-	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, error)
-	GetKongPlugins() *kong.Plugins
+	GetSpecForService(ctx context.Context, service *klib.Service) ([]byte, bool, error)
+	GetKongPlugins(ctx context.Context) *kong.Plugins
 }
 
 type Agent struct {
@@ -58,7 +59,6 @@ type Agent struct {
 	centralCfg     corecfg.CentralConfig
 	kongGatewayCfg *config.KongGatewayConfig
 	kongClient     kongClient
-	plugins        kong.Plugins
 	cache          cache.Cache
 	filter         filter.Filter
 }
@@ -74,6 +74,10 @@ func NewAgent(agentConfig config.AgentConfig, agentOpts ...func(a *Agent)) (*Age
 		o(ka)
 	}
 
+	if len(ka.kongGatewayCfg.Workspaces) == 0 {
+		ka.kongGatewayCfg.Workspaces = []string{common.DefaultWorkspace}
+	}
+
 	var err error
 	if ka.kongClient == nil {
 		ka.kongClient, err = kong.NewKongClient(ka.kongGatewayCfg)
@@ -82,13 +86,12 @@ func NewAgent(agentConfig config.AgentConfig, agentOpts ...func(a *Agent)) (*Age
 		return nil, err
 	}
 
-	pluginLister := ka.kongClient.GetKongPlugins()
-	if pluginLister == nil {
-		return nil, fmt.Errorf("could not get kong plugin lister")
-	}
-	plugins, err := ka.kongClient.GetKongPlugins().ListAll(context.Background())
-	if err != nil {
-		return nil, err
+	for _, workspaces := range ka.kongGatewayCfg.Workspaces {
+		ctx := context.WithValue(context.Background(), common.ContextWorkspace, workspaces)
+		err := verifyACLPlugin(ctx, ka, agentConfig.KongGatewayCfg.ACL.Disable)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ka.filter, err = filter.NewFilter(agentConfig.KongGatewayCfg.Spec.Filter)
@@ -96,17 +99,29 @@ func NewAgent(agentConfig config.AgentConfig, agentOpts ...func(a *Agent)) (*Age
 		return nil, err
 	}
 
-	if err = hasGlobalACLEnabledInPlugins(ka.logger, plugins, agentConfig.KongGatewayCfg.ACL.Disable); err != nil {
-		ka.logger.WithError(err).Error("ACL Plugin configured as required, but none found in Kong plugins.")
-		return nil, err
-	}
-
 	opts := []subscription.ProvisionerOption{}
 	if agentConfig.KongGatewayCfg.ACL.Disable {
 		opts = append(opts, subscription.WithACLDisable())
 	}
-	subscription.NewProvisioner(ka.kongClient, opts...)
+	subscription.NewProvisioner(ka.kongClient, ka.centralCfg.GetEnvironmentName(), agentConfig.KongGatewayCfg.Workspaces, opts...)
 	return ka, nil
+}
+
+func verifyACLPlugin(ctx context.Context, ka *Agent, aclDisable bool) error {
+	pluginLister := ka.kongClient.GetKongPlugins(ctx)
+	if pluginLister == nil {
+		return fmt.Errorf("could not get kong plugin lister")
+	}
+	plugins, err := ka.kongClient.GetKongPlugins(ctx).ListAll(context.Background())
+	if err != nil {
+		return err
+	}
+
+	if err = hasGlobalACLEnabledInPlugins(ka.logger, plugins, aclDisable); err != nil {
+		ka.logger.WithError(err).Error("ACL Plugin configured as required, but none found in Kong plugins.")
+		return err
+	}
+	return nil
 }
 
 func withKongClient(kongClient kongClient) func(a *Agent) {
@@ -139,19 +154,23 @@ func hasGlobalACLEnabledInPlugins(logger log.FieldLogger, plugins []*klib.Plugin
 func (gc *Agent) DiscoverAPIs() error {
 	gc.logger.Info("execute discovery process")
 
-	ctx := context.Background()
-	var err error
+	wg := new(sync.WaitGroup)
+	for _, workspace := range gc.kongGatewayCfg.Workspaces {
+		ctx := context.WithValue(context.Background(), common.ContextWorkspace, workspace)
+		services, err := gc.kongClient.ListServices(ctx)
+		if err != nil {
+			gc.logger.WithError(err).Error("failed to get services")
+			return err
+		}
 
-	plugins := kong.Plugins{PluginLister: gc.kongClient.GetKongPlugins()}
-	gc.plugins = plugins
-
-	services, err := gc.kongClient.ListServices(ctx)
-	if err != nil {
-		gc.logger.WithError(err).Error("failed to get services")
-		return err
+		wg.Add(1)
+		go func(ctx context.Context, service []*klib.Service, wg *sync.WaitGroup) {
+			defer wg.Done()
+			gc.processKongServicesList(ctx, services)
+		}(ctx, services, wg)
 	}
+	wg.Wait()
 
-	gc.processKongServicesList(ctx, services)
 	return nil
 }
 
@@ -182,6 +201,12 @@ func toTagsMap(service *klib.Service) map[string]string {
 	}
 	return filters
 }
+func specType(isUnstructured bool) string {
+	if isUnstructured {
+		return apic.Unstructured
+	}
+	return ""
+}
 
 func (gc *Agent) processSingleKongService(ctx context.Context, service *klib.Service) error {
 	log := gc.logger.WithField(common.AttrServiceName, *service.Name)
@@ -192,7 +217,7 @@ func (gc *Agent) processSingleKongService(ctx context.Context, service *klib.Ser
 		log.WithError(err).Errorf("failed to get routes for service")
 		return err
 	}
-	kongServiceSpec, err := gc.kongClient.GetSpecForService(ctx, service)
+	kongServiceSpec, isUnstructured, err := gc.kongClient.GetSpecForService(ctx, service)
 	if err != nil {
 		log.WithError(err).Errorf("failed to get spec for service")
 		return err
@@ -205,15 +230,21 @@ func (gc *Agent) processSingleKongService(ctx context.Context, service *klib.Ser
 	}
 
 	// parse the spec file that was found and get the spec processor
-	spec := apic.NewSpecResourceParser(kongServiceSpec, "")
-	spec.Parse()
-
+	spec := apic.NewSpecResourceParser(kongServiceSpec, specType(isUnstructured))
+	err = spec.Parse()
+	if err != nil {
+		return err
+	}
+	specProcessor := spec.GetSpecProcessor()
+	if specProcessor == nil {
+		return errors.New("no spec processor")
+	}
 	wg := sync.WaitGroup{}
 	wg.Add(len(routes))
 	for _, r := range routes {
 		func(route *klib.Route) {
 			defer wg.Done()
-			gc.specPreparation(ctx, route, service, spec.GetSpecProcessor())
+			gc.specPreparation(ctx, route, service, specProcessor)
 		}(r)
 	}
 	wg.Wait()
@@ -225,7 +256,11 @@ func (gc *Agent) specPreparation(ctx context.Context, route *klib.Route, service
 	log := gc.logger.WithField(common.AttrRouteID, *route.ID).
 		WithField(common.AttrServiceID, *service.ID)
 
-	apiPlugins, err := gc.plugins.GetEffectivePlugins(*route.ID, *service.ID)
+	if route.Name == nil {
+		log.Warn("not processing as route name not defined")
+		return
+	}
+	apiPlugins, err := gc.kongClient.GetKongPlugins(ctx).GetEffectivePlugins(*route.ID, *service.ID)
 	if err != nil {
 		log.Warn("could not list plugins")
 		return
@@ -279,7 +314,7 @@ func (gc *Agent) processKongAPI(
 	endpoints []apic.EndpointDefinition,
 	apiPlugins map[string]*klib.Plugin,
 ) (*apic.ServiceBody, error) {
-	kongAPI := newKongAPI(route, service, spec, endpoints, apiPlugins)
+	kongAPI := newKongAPI(ctx, route, service, spec, endpoints, apiPlugins)
 	isAlreadyPublished, checksum := isPublished(&kongAPI, gc.cache)
 	// If true, then the api is published and there were no changes detected
 	if isAlreadyPublished {
@@ -291,11 +326,18 @@ func (gc *Agent) processKongAPI(
 		gc.logger.WithError(err).Error("failed to save api to cache")
 	}
 
-	agentDetails := map[string]string{
-		common.AttrServiceID: *service.ID,
-		common.AttrRouteID:   *route.ID,
-		common.AttrChecksum:  checksum,
+	workspaceName := common.GetStringValueFromCtx(ctx, common.ContextWorkspace)
+	if workspaceName == "" {
+		workspaceName = common.DefaultWorkspace
 	}
+
+	agentDetails := map[string]string{
+		common.AttrServiceID:     *service.ID,
+		common.AttrRouteID:       *route.ID,
+		common.AttrChecksum:      checksum,
+		common.AttrWorkspaceName: workspaceName,
+	}
+
 	kongAPI.agentDetails = agentDetails
 	serviceBody, err := kongAPI.buildServiceBody()
 	if err != nil {
@@ -306,6 +348,7 @@ func (gc *Agent) processKongAPI(
 }
 
 func newKongAPI(
+	ctx context.Context,
 	route *klib.Route,
 	service *klib.Service,
 	spec apic.SpecProcessor,
@@ -326,11 +369,12 @@ func newKongAPI(
 		stageName:     *route.Name,
 		stage:         *route.ID,
 	}
-	ka.processSpecSecurity(spec, apiPlugins)
+	ka.processSpecSecurity(ctx, spec, apiPlugins)
 	return *ka
 }
 
-func (ka *KongAPI) processSpecSecurity(spec apic.SpecProcessor, apiPlugins map[string]*klib.Plugin) {
+func (ka *KongAPI) processSpecSecurity(ctx context.Context, spec apic.SpecProcessor, apiPlugins map[string]*klib.Plugin) {
+	workspace := common.GetStringValueFromCtx(ctx, common.ContextWorkspace)
 	// strip any security from spec if it is an oas spec
 	resType := spec.GetResourceType()
 	if resType != apic.Oas2 && resType != apic.Oas3 {
@@ -343,7 +387,7 @@ func (ka *KongAPI) processSpecSecurity(spec apic.SpecProcessor, apiPlugins map[s
 	ka.crds = []string{}
 	for k, plugin := range apiPlugins {
 		if crd, ok := kongToCRDMapper[k]; ok {
-			ka.crds = append(ka.crds, crd)
+			ka.crds = append(ka.crds, common.WksPrefixName(workspace, crd))
 		}
 		switch k {
 		case kong.BasicAuthPlugin:

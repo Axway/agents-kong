@@ -207,9 +207,6 @@ func TestCreateCredentials(t *testing.T) {
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			client := createClient(tc.responses)
-			c := client.(*KongClient)
-			c.KeyAuths = mockKeyAuthService{}
 			var err error
 			if tc.expectErr {
 				assert.NotNil(t, err)
