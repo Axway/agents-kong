@@ -17,15 +17,16 @@ func init() {
 
 // TrafficLogEntry - Represents the structure of log entry the agent will receive from Kong's HTTP Log Plugin
 type TrafficLogEntry struct {
-	ClientIP    string     `json:"client_ip"`
-	StartedAt   int64      `json:"started_at"`
-	UpstreamURI string     `json:"upstream_uri"`
-	Latencies   *Latencies `json:"latencies"`
-	Request     *Request   `json:"request"`
-	Response    *Response  `json:"response"`
-	Route       *Route     `json:"route"`
-	Service     *Service   `json:"service"`
-	Consumer    *Consumer  `json:"consumer"`
+	ClientIP     string     `json:"client_ip"`
+	StartedAt    int64      `json:"started_at"`
+	UpstreamURI  string     `json:"upstream_uri"`
+	Latencies    *Latencies `json:"latencies"`
+	Request      *Request   `json:"request"`
+	Response     *Response  `json:"response"`
+	Route        *Route     `json:"route"`
+	Service      *Service   `json:"service"`
+	Consumer     *Consumer  `json:"consumer"`
+	ShouldSample bool
 }
 
 type Latencies struct {
