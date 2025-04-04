@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -96,7 +97,7 @@ func TestNewHandler(t *testing.T) {
 		},
 		"handle data with sampling setup": {
 			data:                  testData,
-			expectedEvents:        2,
+			expectedEvents:        4,
 			expectedMetricDetails: 2,
 		},
 	}
@@ -112,7 +113,8 @@ func TestNewHandler(t *testing.T) {
 			if tc.hasErrors {
 				sCfg.OnlyErrors = true
 			}
-			sampling.SetupSampling(sCfg, false)
+			sampling.SetupSampling(sCfg, false, "")
+			sampling.GetGlobalSampling().EnableSampling(100, time.Now().Add(time.Minute))
 
 			// create the handler
 			h, err := NewEventsHandler(ctx, tc.data)
