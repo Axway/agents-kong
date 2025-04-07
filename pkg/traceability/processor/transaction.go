@@ -58,10 +58,14 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 
 	builder := transaction.NewEventReportBuilder()
 
+	legs := []transaction.LogEvent{}
 	transactionLogEvent, err := p.createTransactionEvent(txnID)
 	if err != nil {
 		p.logger.WithError(err).Error("building transaction leg event")
 		return nil, err
+	}
+	if transactionLogEvent != nil {
+		legs = append(legs, *transactionLogEvent)
 	}
 
 	// summary
@@ -72,7 +76,7 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 	}
 
 	report, err := builder.SetSummaryEvent(*summaryLogEvent).
-		SetDetailEvents([]transaction.LogEvent{*transactionLogEvent}).
+		SetDetailEvents(legs).
 		SetEventTime(time.Unix(p.event.StartedAt, 0)).
 		SetSkipSampleHandling().
 		SetOnlyTrackMetrics(!p.event.ShouldSample).
