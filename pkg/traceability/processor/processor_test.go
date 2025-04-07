@@ -122,26 +122,12 @@ func TestNewHandler(t *testing.T) {
 			assert.Nil(t, err)
 			assert.NotNil(t, h)
 
-			// setup collector
-			// collector := &collectorMock.CollectorMock{Details: make([]metric.Detail, 0), Expected: tc.expectedMetricDetails}
-			// collectorMock.SetMockCollector(collector)
-			// h.collectorGetter = func() metricCollector {
-			// 	return collectorMock.GetMockCollector()
-			// }
-
-			// if metric details are expected
-			// if tc.expectedMetricDetails >= 1 {
-			// 	collector.Add(tc.expectedMetricDetails)
-			// }
-
 			// setup event generator
 			h.eventGenerator = newEventGeneratorMock
 			// execute the handler
 			events := h.Handle()
-			// collector.Wait()
 			assert.Nil(t, err)
 			assert.Len(t, events, tc.expectedEvents)
-			// assert.Equal(t, tc.expectedMetricDetails, len(collectorMock.GetMockCollector().Details))
 		})
 	}
 }
