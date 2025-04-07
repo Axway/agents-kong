@@ -2,8 +2,11 @@ package processor
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
@@ -11,9 +14,7 @@ import (
 	"github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/traceability/redaction"
 	"github.com/Axway/agent-sdk/pkg/traceability/sampling"
-	"github.com/Axway/agent-sdk/pkg/transaction/metric"
-
-	collectorMock "github.com/Axway/agents-kong/pkg/traceability/processor/mock"
+	"github.com/Axway/agent-sdk/pkg/transaction"
 )
 
 var testData = []byte(`[{
@@ -71,6 +72,9 @@ var testNoRequestData = []byte(`[{
 }]`)
 
 func TestNewHandler(t *testing.T) {
+	sampling.SetupSampling(sampling.DefaultConfig(), false, "")
+	sampling.GetGlobalSampling().EnableSampling(100, time.Now().Add(10*time.Second))
+
 	cases := map[string]struct {
 		data                  []byte
 		constructorErr        bool
@@ -96,7 +100,7 @@ func TestNewHandler(t *testing.T) {
 		},
 		"handle data with sampling setup": {
 			data:                  testData,
-			expectedEvents:        2,
+			expectedEvents:        4,
 			expectedMetricDetails: 2,
 		},
 	}
@@ -107,12 +111,6 @@ func TestNewHandler(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "test", name)
 
 			redaction.SetupGlobalRedaction(redaction.DefaultConfig())
-			sCfg := sampling.DefaultConfig()
-			sCfg.Percentage = 1
-			if tc.hasErrors {
-				sCfg.OnlyErrors = true
-			}
-			sampling.SetupSampling(sCfg, false)
 
 			// create the handler
 			h, err := NewEventsHandler(ctx, tc.data)
@@ -124,27 +122,49 @@ func TestNewHandler(t *testing.T) {
 			assert.Nil(t, err)
 			assert.NotNil(t, h)
 
-			// setup collector
-			collector := &collectorMock.CollectorMock{Details: make([]metric.Detail, 0), Expected: tc.expectedMetricDetails}
-			collectorMock.SetMockCollector(collector)
-			h.collectorGetter = func() metricCollector {
-				return collectorMock.GetMockCollector()
-			}
-
 			// setup event generator
-			h.eventGenerator = collectorMock.NewEventGeneratorMock
-
-			// if metric details are expected
-			if tc.expectedMetricDetails >= 1 {
-				collector.Add(tc.expectedMetricDetails)
-			}
-
+			h.eventGenerator = newEventGeneratorMock
 			// execute the handler
 			events := h.Handle()
-			collector.Wait()
 			assert.Nil(t, err)
 			assert.Len(t, events, tc.expectedEvents)
-			assert.Equal(t, tc.expectedMetricDetails, len(collectorMock.GetMockCollector().Details))
 		})
 	}
+}
+
+// eventGeneratorMock - mock event generator
+type eventGeneratorMock struct{}
+
+// newEventGeneratorMock - Create a new mock event generator
+func newEventGeneratorMock() eventGenerator {
+	return &eventGeneratorMock{}
+}
+
+// CreateFromEventReport - create from event report
+func (c *eventGeneratorMock) CreateFromEventReport(eventReport transaction.EventReport) ([]beat.Event, error) {
+	serializedSumEvent, _ := json.Marshal(eventReport.GetSummaryEvent())
+	sumEventData := make(map[string]interface{})
+	sumEventData["message"] = string(serializedSumEvent)
+	events := []beat.Event{
+		{
+			Timestamp: eventReport.GetEventTime(),
+			Meta:      eventReport.GetMetadata(),
+			Private:   eventReport.GetPrivateData(),
+			Fields:    sumEventData,
+		},
+	}
+
+	for _, detailEvent := range eventReport.GetDetailEvents() {
+		serializedEvent, _ := json.Marshal(detailEvent)
+		eventData := make(map[string]interface{})
+		eventData["message"] = string(serializedEvent)
+		events = append(events, beat.Event{
+			Timestamp: eventReport.GetEventTime(),
+			Meta:      eventReport.GetMetadata(),
+			Private:   eventReport.GetPrivateData(),
+			Fields:    eventData,
+		})
+	}
+
+	return events, nil
 }

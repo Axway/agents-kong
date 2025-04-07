@@ -26,7 +26,7 @@ const (
 type TransactionProcessor struct {
 	ctx            context.Context
 	logger         log.FieldLogger
-	eventGenerator transaction.EventGenerator
+	eventGenerator eventGenerator
 	event          TrafficLogEntry
 }
 
@@ -45,9 +45,8 @@ func (p *TransactionProcessor) setEntry(entry TrafficLogEntry) *TransactionProce
 	return p
 }
 
-func (p *TransactionProcessor) setEventGenerator(eventGenerator transaction.EventGenerator) *TransactionProcessor {
+func (p *TransactionProcessor) setEventGenerator(eventGenerator eventGenerator) *TransactionProcessor {
 	p.eventGenerator = eventGenerator
-	p.eventGenerator.SetUseTrafficForAggregation(false)
 	return p
 }
 
@@ -57,16 +56,16 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 	}
 	txnID := uuid.New().String()
 
-	// leg 0
+	builder := transaction.NewEventReportBuilder()
+
+	legs := []transaction.LogEvent{}
 	transactionLogEvent, err := p.createTransactionEvent(txnID)
 	if err != nil {
 		p.logger.WithError(err).Error("building transaction leg event")
 		return nil, err
 	}
-	legEvent, err := p.eventGenerator.CreateEvent(*transactionLogEvent, time.Unix(p.event.StartedAt, 0), nil, nil, nil)
-	if err != nil {
-		p.logger.WithError(err).Error("creating transaction leg event")
-		return nil, err
+	if transactionLogEvent != nil {
+		legs = append(legs, *transactionLogEvent)
 	}
 
 	// summary
@@ -75,16 +74,31 @@ func (p *TransactionProcessor) process() ([]beat.Event, error) {
 		p.logger.WithError(err).Error("building transaction summary event")
 		return nil, err
 	}
-	summaryEvent, err := p.eventGenerator.CreateEvent(*summaryLogEvent, time.Unix(p.event.StartedAt, 0), nil, nil, nil)
+
+	report, err := builder.SetSummaryEvent(*summaryLogEvent).
+		SetDetailEvents(legs).
+		SetEventTime(time.Unix(p.event.StartedAt, 0)).
+		SetSkipSampleHandling().
+		SetOnlyTrackMetrics(!p.event.ShouldSample).
+		Build()
+
 	if err != nil {
-		p.logger.WithError(err).Error("creating transaction summary event")
 		return nil, err
 	}
 
-	return []beat.Event{summaryEvent, legEvent}, nil
+	beatEvents, err := p.eventGenerator.CreateFromEventReport(report)
+	if err != nil {
+		return nil, err
+	}
+
+	return beatEvents, nil
 }
 
 func (p *TransactionProcessor) createTransactionEvent(txnid string) (*transaction.LogEvent, error) {
+	if !p.event.ShouldSample {
+		return nil, nil
+	}
+
 	requestHost := ""
 	if value, found := p.event.Request.Headers[host]; found {
 		requestHost = fmt.Sprintf("%v", value)

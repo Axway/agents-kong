@@ -10,6 +10,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// eventGenerator - Create the events to be published to Condor
+type eventGenerator interface {
+	CreateFromEventReport(eventReport transaction.EventReport) (events []beat.Event, err error)
+}
+
 // EventsHandler -
 type EventsHandler struct {
 	ctx             context.Context
@@ -17,7 +22,7 @@ type EventsHandler struct {
 	metrics         MetricsProcessor
 	logEntries      []TrafficLogEntry
 	requestID       string
-	eventGenerator  func() transaction.EventGenerator
+	eventGenerator  func() eventGenerator
 	collectorGetter func() metricCollector
 }
 
@@ -26,11 +31,13 @@ func NewEventsHandler(ctx context.Context, logData []byte) (*EventsHandler, erro
 	requestID := uuid.NewString()
 
 	p := &EventsHandler{
-		ctx:             ctx,
-		logger:          log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor").WithField(string(ctxRequestID), requestID),
-		requestID:       requestID,
-		metrics:         NewMetricsProcessor(ctx),
-		eventGenerator:  transaction.NewEventGenerator,
+		ctx:       ctx,
+		logger:    log.NewLoggerFromContext(ctx).WithComponent("eventsHandler").WithPackage("processor").WithField(string(ctxRequestID), requestID),
+		requestID: requestID,
+		metrics:   NewMetricsProcessor(ctx),
+		eventGenerator: func() eventGenerator {
+			return transaction.NewEventGenerator()
+		},
 		collectorGetter: getMetricCollector,
 	}
 
@@ -59,12 +66,9 @@ func (p *EventsHandler) Handle() []beat.Event {
 		}
 
 		updatedEntry := p.validateTransaction(ctx, entry)
-		sample, err := p.metrics.process(updatedEntry)
+		updatedEntry, err := p.metrics.process(updatedEntry)
 		if err != nil {
 			p.logger.WithError(err).Error("handling event for metric")
-			continue
-		}
-		if !sample {
 			continue
 		}
 
