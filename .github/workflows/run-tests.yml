@@ -18,5 +18,8 @@ jobs:
       - name: Test
         working-directory: .
         run: |
+          echo "url1 $TEAMS_WEBHOOK_URL"
+          echo "${{ env.TEAMS_WEBHOOK_URL }}"
+          echo "${{ vars.TEAMS_WEBHOOK_URL }}"
           make test
 
