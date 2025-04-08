@@ -17,12 +17,6 @@ jobs:
           go-version: 1.23
       - name: Test
         working-directory: .
-        env:
-          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
         run: |
-          ./test.sh
-          echo "url1 $TEAMS_WEBHOOK_URL"
-          echo "url4 ${{ env.TEAMS_WEBHOOK_URL }}"
-          echo "url 5${{ vars.TEAMS_WEBHOOK_URL }}"
-          # make test
+          make test
 
