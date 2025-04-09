@@ -4,7 +4,7 @@ discovery:
     repository: ghcr.io/axway/kong_discovery_agent
     pullPolicy: Always
     # Overrides the image tag whose default is the chart appVersion.
-    tag: 
+    tag:
 
 traceability:
   replicaCount: 1
@@ -46,10 +46,10 @@ kong:
     ports:
       http:
         disable:
-        value: 
+        value:
       https:
-        disable: 
-        value: 
+        disable:
+        value:
   spec:
     filter:
     urlPaths: []
