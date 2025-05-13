@@ -64,8 +64,7 @@ include:
 stages:
   - test
   - qa-test
-  - sonar-preview
-  - sonar-publish
+  - sonar
   - security-scans
   - security-review
 
