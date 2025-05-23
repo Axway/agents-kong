@@ -50,6 +50,7 @@ post_to_teams() {
       return 0
     fi
 
+    echo "hello ${TEAMS_WEBHOOK_URL}"
     # JSON="{
     #     \"info\": \"${1}\"
     # }"
