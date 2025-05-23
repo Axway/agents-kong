@@ -57,7 +57,7 @@ post_to_teams() {
     JSON="{
         \"info\": "test"
     }"
-    curl -v \'${TEAMS_WEBHOOK_URL}'\ -H 'Content-Type: application/json' -d "${JSON}" &> /dev/null
+    curl -v \'${TEAMS_WEBHOOK_URL}\' -H 'Content-Type: application/json' -d "${JSON}" &> /dev/null
 }
 
 main() {
