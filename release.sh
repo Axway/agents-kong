@@ -58,20 +58,19 @@ post_to_teams() {
 
 main() {
     # validate required variables
-    # get_sdk_version
-    # check_required_variables
+    get_sdk_version
+    check_required_variables
 
-    # if [ $? -eq 1 ]; then
-    #     echo "No release info being generated."
-    #     exit 1
-    # fi
+    if [ $? -eq 1 ]; then
+        echo "No release info being generated."
+        exit 1
+    fi
 
     # gather stats
-    # releaseStats="- Kong agents version: ${TAG}\n"
-    # releaseStats+="- SDK version: ${SDK}\n"
+    releaseStats="- Kong agents version: ${TAG}\n"
+    releaseStats+="- SDK version: ${SDK}\n"
 
-    # echo -e "Full Release Info:\n"${releaseStats}
-    set -x
+    echo -e "Full Release Info:\n"${releaseStats}
     post_to_teams "${releaseStats}"
     exit 0
 }
