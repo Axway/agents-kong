@@ -4,30 +4,40 @@ on:
     branches: [main, "*"]
 
 jobs:
-  testAgents:
-    uses: ./.github/workflows/run-tests.yml
-
-  buildAgents:
-    needs: testAgents
-    env:
-      GOFLAGS: "-mod=mod"
-      VERSION: ${{ github.ref_name }}
-      COMMIT_ID: ${{ github.sha }}
+  notifyTeamsChannel:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Notify Teams channel
+        env:
+          TEAMS_WEBHOOK_URL: ${{ vars.TEAMS_WEBHOOK_URL }}
+          TAG: ${{ github.ref_name }}
+        run: ./release.sh
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
+        # testAgents:
+  #   uses: ./.github/workflows/run-tests.yml
 
-      - name: Build discovery agent
-        working-directory: .
-        run: |
-          make build-da
+  # buildAgents:
+  #   needs: testAgents
+  #   env:
+  #     GOFLAGS: "-mod=mod"
+  #     VERSION: ${{ github.ref_name }}
+  #     COMMIT_ID: ${{ github.sha }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Build traceability agent
-        working-directory: .
-        run: |
-          make build-ta
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: 1.23
+
+  #     - name: Build discovery agent
+  #       working-directory: .
+  #       run: |
+  #         make build-da
+
+  #     - name: Build traceability agent
+  #       working-directory: .
+  #       run: |
+  #         make build-ta

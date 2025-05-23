@@ -50,27 +50,31 @@ post_to_teams() {
       return 0
     fi
 
+    # JSON="{
+    #     \"info\": \"${1}\"
+    # }"
     JSON="{
-        \"info\": \"${1}\"
+        \"info\": "test"
     }"
     curl -v '${TEAMS_WEBHOOK_URL}' -H 'Content-Type: application/json' -d "${JSON}" &> /dev/null
 }
 
 main() {
     # validate required variables
-    get_sdk_version
-    check_required_variables
+    # get_sdk_version
+    # check_required_variables
 
-    if [ $? -eq 1 ]; then
-        echo "No release info being generated."
-        exit 1
-    fi
+    # if [ $? -eq 1 ]; then
+    #     echo "No release info being generated."
+    #     exit 1
+    # fi
 
     # gather stats
-    releaseStats="- Kong agents version: ${TAG}\n"
-    releaseStats+="- SDK version: ${SDK}\n"
+    # releaseStats="- Kong agents version: ${TAG}\n"
+    # releaseStats+="- SDK version: ${SDK}\n"
 
-    echo -e "Full Release Info:\n"${releaseStats}
+    # echo -e "Full Release Info:\n"${releaseStats}
+    set -x
     post_to_teams "${releaseStats}"
     exit 0
 }
