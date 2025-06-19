@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Axway/agent-sdk/pkg/agent"
+	management "github.com/Axway/agent-sdk/pkg/apic/apiserver/models/management/v1alpha1"
 	"github.com/Axway/agent-sdk/pkg/apic/mock"
 	"github.com/Axway/agent-sdk/pkg/config"
 	"github.com/Axway/agent-sdk/pkg/traceability/redaction"
@@ -73,7 +74,7 @@ var testNoRequestData = []byte(`[{
 
 func TestNewHandler(t *testing.T) {
 	sampling.SetupSampling(sampling.DefaultConfig(), false, "")
-	sampling.GetGlobalSampling().EnableSampling(100, time.Now().Add(10*time.Second))
+	sampling.GetGlobalSampling().EnableSampling(100, time.Now().Add(10*time.Second), map[string]management.TraceabilityAgentAgentstateSamplingEndpoints{})
 
 	cases := map[string]struct {
 		data                  []byte
