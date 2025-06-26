@@ -1,6 +1,6 @@
 # Build image
 # golang:1.24.4-alpine3.22 linux/amd64
-FROM docker.io/golang:sha256:68932fa6d4d4059845c8f40ad7e654e626f3ebd3706eef7846f319293ab5cb7a AS builder
+FROM docker.io/golang@sha256:68932fa6d4d4059845c8f40ad7e654e626f3ebd3706eef7846f319293ab5cb7a AS builder
 
 ARG commit_id
 ARG version
